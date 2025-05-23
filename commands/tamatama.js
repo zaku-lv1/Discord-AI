@@ -42,7 +42,8 @@ module.exports = {
         '乞食だ！',
         'これだから低身長は',
         'ジャンプ買ってないやつは語んな',
-        '女あ'
+        '女あ',
+        'にわかだ！！！'
       ];
 
       const filter = (message) => !message.author.bot;
