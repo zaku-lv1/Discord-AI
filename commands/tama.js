@@ -43,7 +43,10 @@ module.exports = {
         'これだから低身長は',
         'ジャンプ買ってないやつは語んな',
         '女あ',
-        'にわかだ！！！'
+        'にわかだ！！！',
+        'ADHDや！',
+        '障害者だ！！！',
+        '身長180cm以下は人権ない'
       ];
 
       const filter = (message) => !message.author.bot;
