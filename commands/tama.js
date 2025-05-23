@@ -26,11 +26,6 @@ module.exports = {
       const embed = new MessageEmbed()
         .setDescription('たまたまを退出させました。');
       await interaction.reply({ embeds: [embed] });
-    } else if (iharaWebhook){
-      await iharaWebhook.delete();
-      const embed = new MessageEmbed()
-        .setDescription('たまたまを退出させました。');
-      await interaction.reply({ embeds: [embed] });
     } else {
       // tamaが召喚されていない場合は召喚する
       const tamaWebhook = await channel.createWebhook(user.username, {
