@@ -9,6 +9,9 @@ const client = new Client({ intents: [Intents.FLAGS.GUILDS, Intents.FLAGS.GUILD_
 const commands = {};
 const commandFiles = fs.readdirSync('./commands').filter((file) => file.endsWith('.js'));
 
+// ダミーのHTTPサーバーを起動して Render のポート監視を回避（必須ではないが安定化）
+require('http').createServer((_, res) => res.end('Bot is running')).listen(process.env.PORT || 3000);
+
 for (const file of commandFiles) {
   const command = require(`./commands/${file}`);
   commands[command.data.name] = command;
