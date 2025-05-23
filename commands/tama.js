@@ -53,6 +53,8 @@ module.exports = {
 
         if (special_message.includes('TikTok')) {
           await tamaWebhook.send('TikTokLITEか');
+        } else {
+            await kttWebhook.send(randomMessage);
         }
       });
 
