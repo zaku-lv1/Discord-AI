@@ -51,10 +51,10 @@ module.exports = {
         const randomMessage = messages[Math.floor(Math.random() * messages.length)];
         const special_message = message.content;
 
-        if (special_message.includes('TikTok')) {
+        if (special_message.includes('TikTok') || special_message.includes('Tiktok') || special_message.includes('tiktok')) {
           await tamaWebhook.send('TikTokLITEか');
         } else {
-            await kttWebhook.send(randomMessage);
+            await tamaWebhook.send(randomMessage);
         }
       });
 
