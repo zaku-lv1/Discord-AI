@@ -43,6 +43,7 @@ module.exports = {
       'ADHDや！',
       '障害者だ！！！',
       '身長180cm以下は人権ない',
+      'そぉだよ',
     ];
 
     const filter = (message) => !message.author.bot;
