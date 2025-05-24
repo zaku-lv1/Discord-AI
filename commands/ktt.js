@@ -6,7 +6,7 @@ module.exports = {
     description: 'KTTを召喚したり退出させたりします。',
   },
   async execute(interaction) {
-    if (interaction.user.id !== "1316250671401668710" && interction.user.id !== "1062565968959774761") return;
+    if (interaction.user.id !== "1316250671401668710" && interaction.user.id !== "1062565968959774761") return;
     const userId = '1062565968959774761'; // 使用するユーザーIDを指定する
     const channel = interaction.channel;
     const webhooks = await channel.fetchWebhooks();
