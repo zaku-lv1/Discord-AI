@@ -107,11 +107,16 @@ const normalizeString = (str) => {
 
 client.on('messageCreate', async (message) => {
   try {
+    // ボット自身のメッセージは無視
+    if (message.author.bot) return;
+
+    // DMでは処理しないようにする（message.guild が null になるため）
+    if (!message.guild || !message.member) return;
+
     // 管理者権限を持つユーザーは処理をスキップする
-    if (message.member.permissions.has("ADMINISTRATOR")) {
-      return;
-    }
-    // メッセージが禁止ワードを含んでいるかチェックする
+    if (message.member.permissions.has("ADMINISTRATOR")) return;
+
+    // 以下、禁止ワードチェックなどの処理を続ける
     const guildId = message.guild.id;
     const prohibitedWordsFile = getProhibitedWordsFile(guildId);
     const prohibitedWordsForGuild = prohibitedWords[guildId] || loadProhibitedWords(prohibitedWordsFile);
@@ -122,27 +127,21 @@ client.on('messageCreate', async (message) => {
     );
 
     if (violatedWords.length > 0) {
-      // メッセージを削除する
       await message.delete();
-
-      // ユーザーの違反回数を取得および保存
       const violationCount = loadUserViolationCount(guildId, message.author.id);
       saveUserViolationCount(guildId, message.author.id, violationCount + 1);
 
       if (violationCount + 1 >= 5) {
         const noteEmbed = {
-  type: "rich",
-  title: "厳重注意",
-  description: "不適切な発言を複数行ったため、KICKされました。",
-  color: 0xFF0000,
-};
+          type: "rich",
+          title: "厳重注意",
+          description: "不適切な発言を複数行ったため、KICKされました。",
+          color: 0xFF0000,
+        };
         await message.author.send({ embeds: [noteEmbed] });
-        // ユーザーをキックする
         await message.member.kick('違反行為');
         console.log(`ユーザー ${message.author.tag} をキックしました。`);
       } else {
-        // 警告メッセージを送信する
-        const violatedWordsString = violatedWords.map(word => `\`${word}\``).join(", ");
         const warningEmbed = {
           type: "rich",
           title: "警告",
@@ -151,7 +150,7 @@ client.on('messageCreate', async (message) => {
           fields: [
             {
               name: "違反したワード",
-              value: violatedWordsString || "違反したワードがありません"
+              value: violatedWords.map(word => `\`${word}\``).join(", ") || "違反したワードがありません"
             },
             {
               name: "違反回数",
@@ -161,14 +160,14 @@ client.on('messageCreate', async (message) => {
         };
 
         await message.author.send({ embeds: [warningEmbed] });
-        await message.member.timeout(10000)
+        await message.member.timeout(10000); // 10秒タイムアウト
       }
     }
   } catch (error) {
     console.error('メッセージ処理中にエラーが発生しました:', error);
-    // エラーが発生した場合の処理を記述する（例: エラーログの出力や通知の送信）
   }
 });
+
 　
 
 
