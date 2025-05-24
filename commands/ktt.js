@@ -13,7 +13,7 @@ module.exports = {
     const client = new Client({ intents: [Intents.FLAGS.GUILDS, Intents.FLAGS.GUILD_MESSAGES] }); // 使用するインテントを指定する
     await client.login(process.env.BOT_TOKEN); // BOT_TOKENはご自身のボットトークンに置き換えてください
     const user = await client.users.fetch(userId); // 指定されたユーザーIDを使用してユーザー情報を取得する
-    const kttWebhook = webhooks.find((webhook) => webhook.name === user.username);
+    const kttWebhook = webhooks.find((webhook) => webhook.name === user.displayName);
     const iharaWebhook = webhooks.find((webhook) => webhook.name === '井原先生');
 
     if (kttWebhook && iharaWebhook) {
@@ -36,7 +36,7 @@ module.exports = {
       await interaction.reply({ embeds: [embed] });
     } else {
       // KTTと井原先生が召喚されていない場合は召喚する
-      const kttWebhook = await channel.createWebhook(user.username, {
+      const kttWebhook = await channel.createWebhook(user.displayName, {
         avatar: user.displayAvatarURL(), // ユーザーのアイコンを取得してWebhookのアイコンに設定する
       });
 
