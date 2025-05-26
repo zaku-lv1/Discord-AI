@@ -34,7 +34,6 @@ module.exports = {
     });
 
     const messages = [
-      'そうだよ',
       '乞食だ！',
       'これだから低身長は',
       'ジャンプ買ってないやつは語んな',
@@ -44,6 +43,8 @@ module.exports = {
       '障害者だ！！！',
       '身長180cm以下は人権ない',
       'そぉだよ',
+      'Mrsのほうが上手い',
+      'どーせ雑魚は逃げる世界はそうできているんだ',
     ];
 
     const filter = (message) => !message.author.bot;
