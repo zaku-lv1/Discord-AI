@@ -61,8 +61,6 @@ module.exports = {
         await wait(500); // 1秒間待ってから送信
         if (special_message.toLowerCase().includes('tiktok')) {
           await tamaWebhook.send('TikTokLITEか');
-        } else if (randomMessage === 'なんだ') {
-          await tamaWebhook.send( special_message + randomMessage )
         } else {
           await tamaWebhook.send(randomMessage);
         }
