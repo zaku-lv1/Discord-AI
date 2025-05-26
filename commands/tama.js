@@ -46,6 +46,7 @@ module.exports = {
       'Mrsのほうが上手い',
       'どーせ雑魚は逃げる世界はそうできているんだ',
       'かっけぇ',
+      '黙れにわか',
     ];
 
     const filter = (message) => !message.author.bot;
