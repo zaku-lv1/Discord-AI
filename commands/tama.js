@@ -47,7 +47,7 @@ module.exports = {
       'どーせ雑魚は逃げる世界はそうできているんだ',
       'かっけぇ',
       '黙れにわか',
-      'なんだ'
+      '敗北者wwwww'
     ];
 
     const filter = (message) => !message.author.bot;
