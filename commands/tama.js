@@ -58,7 +58,6 @@ module.exports = {
       const randomMessage = messages[Math.floor(Math.random() * messages.length)];
 
       try {
-        await wait(500); // 1秒間待ってから送信
         if (special_message.toLowerCase().includes('tiktok')) {
           await tamaWebhook.send('TikTokLITEか');
         } else if (special_message.length === 1) {
