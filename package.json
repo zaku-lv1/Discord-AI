@@ -16,7 +16,8 @@
     "discord.js": "^13.16.0",
     "dotenv": "^16.0.3",
     "fs": "^0.0.2",
-    "googleapis": "^118.0.0"
+    "googleapis": "^118.0.0",
+    "openai": "^4.30.0"
   },
   "engines": {
     "node": "16.x"
