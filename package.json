@@ -17,7 +17,7 @@
     "dotenv": "^16.0.3",
     "fs": "^0.0.2",
     "googleapis": "^118.0.0",
-    "openai": "^4.30.0"
+    "@google/generative-ai": "^1.0.0"
   },
   "engines": {
     "node": "16.x"
