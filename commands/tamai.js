@@ -1,11 +1,10 @@
-// tamai.js
+// tama.js
 const { WebhookClient, MessageEmbed } = require('discord.js');
-const { Configuration, OpenAIApi } = require('openai');
+const OpenAI = require('openai');
 
-const configuration = new Configuration({
+const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
-const openai = new OpenAIApi(configuration);
 
 const conversationHistory = new Map();
 
@@ -28,17 +27,17 @@ async function getTamaResponse(userMessage, history = []) {
     { role: 'user', content: userMessage },
   ];
 
-  const response = await openai.createChatCompletion({
+  const response = await openai.chat.completions.create({
     model: 'gpt-4',
     messages,
   });
 
-  return response.data.choices[0].message.content;
+  return response.choices[0].message.content;
 }
 
 module.exports = {
   data: {
-    name: 'tamai',
+    name: 'tama',
     description: 'たまたまを召喚したり退出させたりします。',
   },
   async execute(interaction) {
@@ -47,10 +46,10 @@ module.exports = {
     const webhooks = await channel.fetchWebhooks();
 
     const user = await interaction.client.users.fetch(userId);
-    let tamaiWebhook = webhooks.find((webhook) => webhook.name === user.displayName);
+    let tamaWebhook = webhooks.find((webhook) => webhook.name === user.displayName);
 
-    if (tamaiWebhook) {
-      await tamaiWebhook.delete();
+    if (tamaWebhook) {
+      await tamaWebhook.delete();
 
       const embed = new MessageEmbed().setDescription('たまたまを退出させました。');
       await interaction.reply({ embeds: [embed] });
@@ -58,7 +57,7 @@ module.exports = {
     }
 
     // Webhook作成
-    tamaiWebhook = await channel.createWebhook(user.displayName, {
+    tamaWebhook = await channel.createWebhook(user.displayName, {
       avatar: user.displayAvatarURL(),
     });
 
@@ -78,7 +77,7 @@ module.exports = {
       if (history.length > 20) history.splice(0, 2);
 
       try {
-        await tamaiWebhook.send(response);
+        await tamaWebhook.send(response);
       } catch (error) {
         console.error('Webhook送信時のエラー:', error);
         collector.stop();
