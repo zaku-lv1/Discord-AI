@@ -18,7 +18,7 @@ const systemPrompt = `
 `;
 
 async function getTamaResponse(userMessage, history = []) {
-  const model = genAI.getGenerativeModel({ model: 'gemini-pro' });
+  const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
 
   const chat = model.startChat({
     history: [
