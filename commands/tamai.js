@@ -37,7 +37,7 @@ async function getTamaResponse(userMessage, history = []) {
 
 module.exports = {
   data: {
-    name: 'tama',
+    name: 'tamai',
     description: 'たまたまを召喚したり退出させたりします。',
   },
   async execute(interaction) {
