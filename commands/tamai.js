@@ -1,7 +1,10 @@
 // tama.js
 const { WebhookClient, MessageEmbed } = require('discord.js');
-const { GoogleGenerativeAI } = require('@google/generative-ai');
+// 必ず先頭で
+const fetch = (...args) => import('node-fetch').then(({ default: fetch }) => fetch(...args));
+global.fetch = fetch;
 
+const { GoogleGenerativeAI } = require('@google/generative-ai');
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 const conversationHistory = new Map();
 
