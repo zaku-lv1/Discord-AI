@@ -1,11 +1,8 @@
 // tama.js
 const { WebhookClient, MessageEmbed } = require('discord.js');
-const OpenAI = require('openai');
+const { GoogleGenerativeAI } = require('@google/generative-ai');
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
-
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 const conversationHistory = new Map();
 
 const systemPrompt = `
@@ -21,23 +18,26 @@ const systemPrompt = `
 `;
 
 async function getTamaResponse(userMessage, history = []) {
-  const messages = [
-    { role: 'system', content: systemPrompt },
-    ...history,
-    { role: 'user', content: userMessage },
-  ];
+  const model = genAI.getGenerativeModel({ model: 'gemini-pro' });
 
-  const response = await openai.chat.completions.create({
-    model: 'gpt-4',
-    messages,
+  const chat = model.startChat({
+    history: [
+      { role: 'user', parts: [{ text: systemPrompt }] },
+      ...history.map(msg => ({
+        role: msg.role,
+        parts: [{ text: msg.content }]
+      }))
+    ],
   });
 
-  return response.choices[0].message.content;
+  const result = await chat.sendMessage(userMessage);
+  const response = await result.response;
+  return response.text();
 }
 
 module.exports = {
   data: {
-    name: 'tamai',
+    name: 'tama',
     description: 'たまたまを召喚したり退出させたりします。',
   },
   async execute(interaction) {
@@ -50,7 +50,6 @@ module.exports = {
 
     if (tamaWebhook) {
       await tamaWebhook.delete();
-
       const embed = new MessageEmbed().setDescription('たまたまを退出させました。');
       await interaction.reply({ embeds: [embed] });
       return;
@@ -73,7 +72,7 @@ module.exports = {
       const response = await getTamaResponse(message.content, history);
 
       history.push({ role: 'user', content: message.content });
-      history.push({ role: 'assistant', content: response });
+      history.push({ role: 'model', content: response });
       if (history.length > 20) history.splice(0, 2);
 
       try {
