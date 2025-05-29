@@ -23,19 +23,24 @@ const systemPrompt = `
 async function getTamaResponse(userMessage, history = []) {
   const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
 
-  const chat = model.startChat({
-    history: [
-      { role: 'user', parts: [{ text: systemPrompt }] },
-      ...history.map(msg => ({
-        role: msg.role,
-        parts: [{ text: msg.content }]
-      }))
-    ],
-  });
+  const validHistory = history.map(msg => ({
+    role: msg.role,
+    parts: [{ text: msg.content }]
+  }));
+
+  const chat = model.startChat({ history: validHistory });
+
+  // 初回のみ systemPrompt を送る
+  if (history.length === 0) {
+    const sysResult = await chat.sendMessage(systemPrompt);
+    const sysResponse = await sysResult.response.text();
+    history.push({ role: 'user', content: systemPrompt });
+    history.push({ role: 'model', content: sysResponse });
+  }
 
   const result = await chat.sendMessage(userMessage);
-  const response = await result.response;
-  return response.text();
+  const response = await result.response.text();
+  return response;
 }
 
 module.exports = {
@@ -72,13 +77,14 @@ module.exports = {
       }
 
       const history = conversationHistory.get(channelId);
-      const response = await getTamaResponse(message.content, history);
-
-      history.push({ role: 'user', content: message.content });
-      history.push({ role: 'model', content: response });
-      if (history.length > 20) history.splice(0, 2);
-
       try {
+        const response = await getTamaResponse(message.content, history);
+
+        // 履歴を交互に記録
+        history.push({ role: 'user', content: message.content });
+        history.push({ role: 'model', content: response });
+        if (history.length > 20) history.splice(0, 2);
+
         await tamaWebhook.send(response);
       } catch (error) {
         console.error('Webhook送信時のエラー:', error);
