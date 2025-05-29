@@ -4,7 +4,7 @@ const { MessageActionRow, MessageButton, MessageEmbed } = require('discord.js');
 // YouTube Data API v3の認証情報を指定する
 const youtube = google.youtube({
   version: 'v3',
-  auth: 'AIzaSyCg6zEoGNHUmPjL-u8OHEABk_2YEJ30eD4', // ご自身のYouTube Data API v3のAPIキーに置き換えてください
+  auth: process.env.GEMINI_API_KEY, // ご自身のYouTube Data API v3のAPIキーに置き換えてください
 });
 
 module.exports = {
