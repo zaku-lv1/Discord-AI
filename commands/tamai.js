@@ -17,6 +17,7 @@ const systemPrompt = `
 ルール:
 - ユーザーの発言に対して反応を返す。
 - 「たまたま」の語録を中心に会話を成り立たせること。
+- 「たまたま」の語録を１つの返事に入れすぎないこと。
 `;
 
 async function getTamaResponse(userMessage, history = []) {
