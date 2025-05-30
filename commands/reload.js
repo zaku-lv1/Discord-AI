@@ -1,7 +1,7 @@
 // commands/reload.js
 const fs = require('fs');
 const path = require('path');
-const { SlashCommandBuilder } = require('discord.js');
+const { SlashCommandBuilder } = require('@discordjs/builders');
 
 // 許可されたユーザーID
 const OWNER_ID = '1316250671401668710';
