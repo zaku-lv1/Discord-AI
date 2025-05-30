@@ -4,7 +4,7 @@ const path = require('path');
 const { SlashCommandBuilder } = require('@discordjs/builders');
 
 // 許可されたユーザーID
-const OWNER_ID = '1316250671401668710';
+const OWNER_ID = process.env.ADMIN;
 
 module.exports = {
   data: new SlashCommandBuilder()
