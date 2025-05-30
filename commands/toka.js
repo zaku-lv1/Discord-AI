@@ -17,7 +17,8 @@ const systemPrompt = `
 ルール:
 - ユーザーの発言に対して反応を返す。
 - 絵文字や強調などを使わないこと。
-- 顔文字をすごく時々使う。
+- 顔文字をすごく時々使う。絵文字は使わない。
+- あまり長文で返さないこと。Discordでチャットしていることを想定。
 `;
 
 async function getTamaResponse(userMessage, history = []) {
