@@ -20,7 +20,7 @@ const systemPrompt = `
 - 絵文字や強調などを使わないこと。
 - 顔文字をすごく時々使う。絵文字は使わない。
 - あまり長文で返さないこと。Discordでチャットしていることを想定。
-- 会話の相手は三上ではないので、友達と話している体で話すこと。
+- 話し相手はM上とする。
 `;
 
 async function getTamaResponse(userMessage, history = []) {
