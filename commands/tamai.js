@@ -20,10 +20,23 @@ const systemPrompt = `
 - 「たまたま」の語録を中心に会話を成り立たせること。
 - 「たまたま」の語録を１つの返事に入れすぎないこと。
 - 絵文字や強調などを使わないこと。
+- Discordで会話していることを前提とすること。
 `;
 
-async function getTamaResponse(userMessage, history = []) {
+// メンションを displayName に置換
+function replaceMentionsWithNames(message, guild) {
+  return message.replace(/<@!?(\d+)>/g, (_, id) => {
+    const member = guild.members.cache.get(id);
+    return member ? `@${member.displayName}` : '@Unknown';
+  });
+}
+
+async function getTamaResponse(userMessage, history = [], authorName = 'ユーザー', guild = null) {
   const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
+
+  if (guild) {
+    userMessage = replaceMentionsWithNames(userMessage, guild);
+  }
 
   const validHistory = history.map(msg => ({
     role: msg.role,
@@ -32,7 +45,6 @@ async function getTamaResponse(userMessage, history = []) {
 
   const chat = model.startChat({ history: validHistory });
 
-  // 初回のみ systemPrompt を送る
   if (history.length === 0) {
     const sysResult = await chat.sendMessage(systemPrompt);
     const sysResponse = await sysResult.response.text();
@@ -40,7 +52,9 @@ async function getTamaResponse(userMessage, history = []) {
     history.push({ role: 'model', content: sysResponse });
   }
 
-  const result = await chat.sendMessage(userMessage);
+  const formattedMessage = `${authorName}「${userMessage}」`;
+
+  const result = await chat.sendMessage(formattedMessage);
   const response = await result.response.text();
   return response;
 }
@@ -79,11 +93,13 @@ module.exports = {
       }
 
       const history = conversationHistory.get(channelId);
-      try {
-        const response = await getTamaResponse(message.content, history);
+      const authorName = message.member?.displayName || message.author.username;
+      const guild = message.guild;
 
-        // 履歴を交互に記録
-        history.push({ role: 'user', content: message.content });
+      try {
+        const response = await getTamaResponse(message.content, history, authorName, guild);
+
+        history.push({ role: 'user', content: `${authorName}「${message.content}」` });
         history.push({ role: 'model', content: response });
         if (history.length > 20) history.splice(0, 2);
 
