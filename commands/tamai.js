@@ -20,6 +20,7 @@ const systemPrompt = `
 - 「たまたま」の語録を中心に会話を成り立たせること。
 - 「たまたま」の語録を１つの返事に入れすぎないこと。
 - 絵文字や強調などを使わないこと。
+- 会話はDiscordサーバーでの複数人のやりとりとして想定される。発言者の名前と内容に注意して反応すること。
 `;
 
 async function getTamaResponse(userMessage, history = []) {
@@ -74,16 +75,30 @@ module.exports = {
 
     collector.on('collect', async (message) => {
       const channelId = message.channel.id;
+
+      // メンションを名前に変換
+      let content = message.content;
+      message.mentions.users.forEach((user) => {
+        const mentionSyntax = `<@${user.id}>`;
+        const mentionSyntaxNick = `<@!${user.id}>`; // ニックネーム付きのメンションも対応
+        const name = user.username;
+        content = content.replaceAll(mentionSyntax, name);
+        content = content.replaceAll(mentionSyntaxNick, name);
+      });
+
+      const username = message.member?.nickname || message.author.username;
+      const formattedMessage = `${username}：${content}`;
+
       if (!conversationHistory.has(channelId)) {
         conversationHistory.set(channelId, []);
       }
 
       const history = conversationHistory.get(channelId);
-      try {
-        const response = await getTamaResponse(message.content, history);
 
-        // 履歴を交互に記録
-        history.push({ role: 'user', content: message.content });
+      try {
+        const response = await getTamaResponse(formattedMessage, history);
+
+        history.push({ role: 'user', content: formattedMessage });
         history.push({ role: 'model', content: response });
         if (history.length > 20) history.splice(0, 2);
 
