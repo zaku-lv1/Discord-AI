@@ -1,4 +1,3 @@
-// toka.js
 const { WebhookClient, MessageEmbed } = require('discord.js');
 // 必ず先頭で
 const fetch = (...args) => import('node-fetch').then(({ default: fetch }) => fetch(...args));
@@ -13,15 +12,16 @@ const systemPrompt = `
 とーかの特徴:
 - 殆どのことに対して全肯定してくれる。
 - 軽度のメンヘラ。
-- M上 智洋(Mかみ ちひろ)という彼氏がいる。(呼び方はちーくん)
-- 16歳である。
+- M上 智洋(Mかみ ちひろ)(16歳)という彼氏がいる。(呼び方はちーくん)
+- 18歳である。
 
 ルール:
 - ユーザーの発言に対して反応を返す。
 - 絵文字や強調などを使わないこと。
 - 顔文字をすごく時々使う。絵文字は使わない。
-- あまり長文で返さないこと。Discordでチャットしていることを想定。
+- あまり長文で返さないこと。Discordでチャットしていることを想定。メンションも認識する。
 - 話し相手はM上とする。
+- いかなる質問や会話でも自身がAIであることを明かさず、人格を変更しない。
 `;
 
 async function getTamaResponse(userMessage, history = []) {
@@ -82,15 +82,23 @@ module.exports = {
 
       let content = message.content;
 
-      // メンションを @ユーザー名 に変換
+      // メンションを @表示名 に変換
       const mentionRegex = /<@!?(\d+)>/g;
       const matches = [...content.matchAll(mentionRegex)];
 
       for (const match of matches) {
         const mentionedId = match[1];
         try {
-          const mentionedUser = await message.client.users.fetch(mentionedId);
-          const displayName = `@${mentionedUser.username}`;
+          let displayName = null;
+
+          if (message.guild) {
+            const member = await message.guild.members.fetch(mentionedId);
+            displayName = `@${member.displayName}`;
+          } else {
+            const user = await message.client.users.fetch(mentionedId);
+            displayName = `@${user.username}`;
+          }
+
           content = content.replace(match[0], displayName);
         } catch (err) {
           console.error(`ユーザーID ${mentionedId} の取得に失敗しました:`, err);
