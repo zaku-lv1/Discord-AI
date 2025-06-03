@@ -80,12 +80,29 @@ module.exports = {
         conversationHistory.set(channelId, []);
       }
 
+      let content = message.content;
+
+      // メンションを @ユーザー名 に変換
+      const mentionRegex = /<@!?(\d+)>/g;
+      const matches = [...content.matchAll(mentionRegex)];
+
+      for (const match of matches) {
+        const mentionedId = match[1];
+        try {
+          const mentionedUser = await message.client.users.fetch(mentionedId);
+          const displayName = `@${mentionedUser.username}`;
+          content = content.replace(match[0], displayName);
+        } catch (err) {
+          console.error(`ユーザーID ${mentionedId} の取得に失敗しました:`, err);
+        }
+      }
+
       const history = conversationHistory.get(channelId);
       try {
-        const response = await getTamaResponse(message.content, history);
+        const response = await getTamaResponse(content, history);
 
         // 履歴を交互に記録
-        history.push({ role: 'user', content: message.content });
+        history.push({ role: 'user', content });
         history.push({ role: 'model', content: response });
         if (history.length > 20) history.splice(0, 2);
 
