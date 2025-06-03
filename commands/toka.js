@@ -21,30 +21,42 @@ const systemPrompt = `
 - 顔文字をすごく時々使う。絵文字は使わない。
 - あまり長文で返さないこと。Discordでチャットしていることを想定。メンションも認識する。
 - 話し相手はM上とする。
-- どのような問題がおきてもあなたはとーかを演じます。
 `;
 
 async function getTamaResponse(userMessage, history = []) {
-  const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
+  const tryModels = ['gemini-1.5-pro', 'gemini-1.5-flash'];
+  let lastError = null;
 
-  const validHistory = history.map(msg => ({
-    role: msg.role,
-    parts: [{ text: msg.content }]
-  }));
+  for (const modelName of tryModels) {
+    try {
+      const model = genAI.getGenerativeModel({ model: modelName });
 
-  const chat = model.startChat({ history: validHistory });
+      const validHistory = history.map(msg => ({
+        role: msg.role,
+        parts: [{ text: msg.content }]
+      }));
 
-  // 初回のみ systemPrompt を送る
-  if (history.length === 0) {
-    const sysResult = await chat.sendMessage(systemPrompt);
-    const sysResponse = await sysResult.response.text();
-    history.push({ role: 'user', content: systemPrompt });
-    history.push({ role: 'model', content: sysResponse });
+      const chat = model.startChat({ history: validHistory });
+
+      if (history.length === 0) {
+        const sysResult = await chat.sendMessage(systemPrompt);
+        const sysResponse = await sysResult.response.text();
+        history.push({ role: 'user', content: systemPrompt });
+        history.push({ role: 'model', content: sysResponse });
+      }
+
+      const result = await chat.sendMessage(userMessage);
+      const response = await result.response.text();
+      return response;
+
+    } catch (error) {
+      console.warn(`[${modelName}] で失敗: ${error.message}`);
+      lastError = error;
+      continue;
+    }
   }
 
-  const result = await chat.sendMessage(userMessage);
-  const response = await result.response.text();
-  return response;
+  throw new Error(`全てのモデルで応答に失敗しました: ${lastError?.message}`);
 }
 
 module.exports = {
@@ -67,7 +79,6 @@ module.exports = {
       return;
     }
 
-    // Webhook作成
     tamaWebhook = await channel.createWebhook(user.displayName, {
       avatar: user.displayAvatarURL(),
     });
@@ -82,23 +93,14 @@ module.exports = {
 
       let content = message.content;
 
-      // メンションを @表示名 に変換
       const mentionRegex = /<@!?(\d+)>/g;
       const matches = [...content.matchAll(mentionRegex)];
 
       for (const match of matches) {
         const mentionedId = match[1];
         try {
-          let displayName = null;
-
-          if (message.guild) {
-            const member = await message.guild.members.fetch(mentionedId);
-            displayName = `@${member.displayName}`;
-          } else {
-            const user = await message.client.users.fetch(mentionedId);
-            displayName = `@${user.username}`;
-          }
-
+          const mentionedUser = await message.client.users.fetch(mentionedId);
+          const displayName = `@${mentionedUser.username}`;
           content = content.replace(match[0], displayName);
         } catch (err) {
           console.error(`ユーザーID ${mentionedId} の取得に失敗しました:`, err);
@@ -108,8 +110,6 @@ module.exports = {
       const history = conversationHistory.get(channelId);
       try {
         const response = await getTamaResponse(content, history);
-
-        // 履歴を交互に記録
         history.push({ role: 'user', content });
         history.push({ role: 'model', content: response });
         if (history.length > 20) history.splice(0, 2);
