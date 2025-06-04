@@ -10,9 +10,15 @@ module.exports = {
     .setName('schedule')
     .setDescription('宿題や小テストの予定を確認・追加します')
     .addStringOption(option =>
-      option.setName('type')
+      option
+        .setName('type')
         .setDescription('予定の種別（例: 宿題、小テスト）')
-        .setRequired(false))
+        .setRequired(false)
+        .addChoices(
+          { name: '宿題', value: '宿題' },
+          { name: '小テスト', value: '小テスト' },
+          { name: 'その他', value: 'その他' }
+        ))
     .addStringOption(option =>
       option.setName('task')
         .setDescription('予定の内容（例: 数学ワーク）')
