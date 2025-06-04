@@ -1,12 +1,11 @@
-// discord.js から必要なモジュールをインポート
-const { EmbedBuilder, SlashCommandBuilder } = require('discord.js');
-// Node.js v18+ では global.fetch が利用可能なので、node-fetch のインポートは不要
-
+// tama.js (toka.js と同様の修正を適用)
+const { EmbedBuilder, SlashCommandBuilder, ChannelType } = require('discord.js');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
+
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 const conversationHistory = new Map(); // チャンネルごとの会話履歴
 
-// systemPrompt は変更なし
+// 「たまたま」用のシステムプロンプト
 const systemPrompt = `
 あなたは「たまたま」という名前のキャラクターを演じます。
 たまたまの特徴:
@@ -25,192 +24,208 @@ const systemPrompt = `
 - Discordで会話していることを前提とすること。
 `;
 
-// メンションを displayName に置換する関数 (変更なし)
+// メンションを displayName に置換する関数
 function replaceMentionsWithNames(message, guild) {
   if (!message || typeof message.replace !== 'function') {
-    return message; // messageがnullやundefined、またはreplaceメソッドを持たない場合はそのまま返す
+    return message;
   }
   return message.replace(/<@!?(\d+)>/g, (_, id) => {
-    const member = guild.members.cache.get(id);
-    return member ? `@${member.displayName}` : '@UnknownUser'; // 不明なユーザーの場合の表示を調整
+    const member = guild.members.cache.get(id); // guild が null でないことを確認する必要がある
+    return member ? `@${member.displayName}` : '@UnknownUser';
   });
 }
 
-// getTamaResponse 関数
+// getTamaResponse 関数 (toka.js の形式に合わせ、キャラクター固有の調整)
 async function getTamaResponse(userMessage, history = [], authorName = 'ユーザー', guild = null) {
-  // gemini-2.0-flash が有効なモデル名であることを前提とします。
-  // もし gemini-1.5-flash の間違いであれば、適宜修正してください。
-  const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' }); // gemini-2.0-flashがまだ一般提供されていない可能性を考慮し、1.5-flashに変更。必要なら元に戻してください。
+  const tryModels = ['gemini-1.5-pro', 'gemini-1.5-flash']; // 試行するモデル
+  let lastError = null;
+  let fallbackNoticeShown = false;
+  // 「たまたま」用の応答不可メッセージ
+  const defaultOopsMessage = "おーい、なんか今日頭いてぇわ。ADHDや！また後でな、敗北者wwwww";
 
-  if (guild) {
-    userMessage = replaceMentionsWithNames(userMessage, guild);
+  let messageToProcess = userMessage;
+  if (guild) { // この関数内でメンション置換を行う
+    messageToProcess = replaceMentionsWithNames(userMessage, guild);
   }
+  // ユーザー名を付加する処理は、この関数に渡す前か、systemPromptで制御する方が一貫性があるかもしれません
+  // ここでは、元の関数のauthorName引数を活かすため、元のformattedMessageは使わない形にしています。
+  // 必要であれば `${authorName}「${messageToProcess}」` のように整形してください。
 
-  // Gemini APIが期待する履歴の形式に整形
-  const validHistory = history.map(msg => ({
-    role: msg.role,
-    parts: msg.parts, // 履歴は既に parts 形式で保存されている想定
-  }));
-
-  const chat = model.startChat({ history: validHistory });
-
-  // systemPromptの送信は初回のみ
-  // この関数が呼ばれる時点でhistoryが空なら、呼び出し側でsystemPromptを処理することを検討してもよい
-  if (history.length === 0 && systemPrompt) {
+  for (let i = 0; i < tryModels.length; i++) {
+    const modelName = tryModels[i];
     try {
-      // systemPrompt は 'user' ロールとして送信し、その応答を 'model' ロールとして履歴に加える
-      // ただし、startChatのhistoryに含めるのが一般的。ここでは sendMessage を使っている
-      const sysResult = await chat.sendMessage(systemPrompt); // systemPrompt を直接送信
-      const sysResponseText = await sysResult.response.text();
-      // この関数内で history を変更すると副作用が生じるため注意。
-      // 呼び出し元で履歴管理を一元化する方が望ましい。
-      // history.push({ role: 'user', parts: [{ text: systemPrompt }] });
-      // history.push({ role: 'model', parts: [{ text: sysResponseText }] });
-    } catch (error) {
-        console.warn(`System prompt の送信または処理に失敗しました: ${error.message}`);
-        // system promptの失敗が致命的でない場合は処理を続行可能
-    }
-  }
+      const model = genAI.getGenerativeModel({ model: modelName });
+      // 履歴は {role: 'user'/'model', content: '...'} の形式で渡ってくる想定
+      // それをGeminiの parts 形式に変換
+      const validHistory = history.map(msg => ({
+        role: msg.role,
+        parts: [{ text: msg.content }] // content を parts にマッピング
+      }));
 
-  const formattedMessage = `${authorName}「${userMessage}」`;
+      const chat = model.startChat({ history: validHistory });
 
-  try {
-    const result = await chat.sendMessage(formattedMessage);
-    const response = await result.response.text();
-    return response;
-  } catch (error) {
-    console.error(`Gemini APIからの応答取得エラー (${model.model}):`, error.message);
-    // エラーオブジェクトに詳細が含まれている場合がある
-    if (error.response && error.response.candidates && error.response.candidates.length > 0) {
-        const candidate = error.response.candidates[0];
-        if (candidate.finishReason && candidate.finishReason !== 'STOP') {
-            console.error('API Finish Reason:', candidate.finishReason);
-            if (candidate.safetyRatings) {
-                console.error('Safety Ratings:', candidate.safetyRatings);
-            }
+      if (history.length === 0 && systemPrompt) {
+        try {
+          const sysResult = await chat.sendMessage(systemPrompt);
+          const sysResponse = await sysResult.response.text();
+          // 履歴には content プロパティで保存 (呼び出し元と一貫させるため)
+          history.push({ role: 'user', content: systemPrompt });
+          history.push({ role: 'model', content: sysResponse });
+        } catch (systemError) {
+          console.warn(`[${modelName} - Tamama] systemPrompt送信で失敗: ${systemError.message}`);
+          lastError = systemError;
+          continue; 
         }
+      }
+
+      const result = await chat.sendMessage(messageToProcess); // 整形済み or 元の userMessage
+      const responseText = await result.response.text();
+
+      if (i > 0 && !fallbackNoticeShown) {
+        console.warn(`[INFO - Tamama] モデル '${tryModels[0]}' が失敗したため、'${modelName}' にフォールバックしました。`);
+        fallbackNoticeShown = true;
+      }
+      return responseText; 
+
+    } catch (error) {
+      console.warn(`[${modelName} - Tamama] での応答生成に失敗: ${error.message}`, error.stack);
+      lastError = error; 
+      if (error.message.includes('429') || error.message.includes('Quota') || error.message.includes('API key not valid')) {
+         console.error(`[${modelName} - Tamama] APIクォータ超過、キー無効など。次のモデルを試します (もしあれば)。: ${error.message}`);
+      }
+      continue;
     }
-    throw new Error(`AIの応答取得に失敗しました。(${error.message})`);
   }
+  console.error("全てのAIモデルでの応答生成に失敗しました (Tamama)。", lastError ? lastError.message : "不明なエラー");
+  return defaultOopsMessage;
 }
+
 
 module.exports = {
   data: new SlashCommandBuilder()
-    .setName('tamai') // コマンド名を小文字に (Discordの推奨)
+    .setName('tamai')
     .setDescription('たまたまを召喚したり退出させたりします。'),
   async execute(interaction) {
-    const targetUserId = '1075263318882783383'; // Webhookの元にするユーザーID
+    await interaction.deferReply({ ephemeral: true });
+
+    if (!interaction.inGuild() || !interaction.channel || interaction.channel.type === ChannelType.DM) {
+        await interaction.editReply({ content: 'このコマンドはDM以外のテキストチャンネルでのみ使用できます。' });
+        return;
+    }
+
+    const targetUserId = '1075263318882783383'; // 「たまたま」のベースユーザーID
     const channel = interaction.channel;
-
-    if (!channel || !channel.isTextBased() || channel.isDMBased()) {
-      await interaction.reply({ content: 'このコマンドはテキストチャンネルでのみ使用できます。', ephemeral: true });
-      return;
-    }
-
-    const webhooks = await channel.fetchWebhooks();
-    const baseUser = await interaction.client.users.fetch(targetUserId).catch(() => null);
-
-    if (!baseUser) {
-      await interaction.reply({ content: 'Webhookの元となるユーザー情報の取得に失敗しました。指定されたIDのユーザーが存在しない可能性があります。', ephemeral: true });
-      return;
-    }
-
-    const webhookName = `TamamaWebhook_${baseUser.username}`; // Webhook名をよりユニークに
-    // ボット自身が作成したWebhookであるかも確認
-    let tamaWebhook = webhooks.find((wh) => wh.name === webhookName && wh.owner?.id === interaction.client.user.id);
-
-    if (tamaWebhook) {
-      try {
-        await tamaWebhook.delete('Tamama command re-issued or cleanup.');
-        const embed = new EmbedBuilder()
-          .setColor(0xFF0000) // 赤色
-          .setDescription('たまたまを退出させました。敗北者wwwww');
-        await interaction.reply({ embeds: [embed], ephemeral: true }); // コマンド実行者のみに表示
-
-        // アクティブなコレクターを停止
-        if (interaction.client.activeCollectors && interaction.client.activeCollectors.has(channel.id)) {
-          interaction.client.activeCollectors.get(channel.id).stop('Tamama recalled.');
-        }
-      } catch (error) {
-        console.error("Webhookの削除またはリプライに失敗:", error);
-        await interaction.reply({ content: "Webhookの退出処理中にエラーが発生しました。", ephemeral: true});
-      }
-      return;
-    }
-
+    
+    let baseUser;
     try {
-      tamaWebhook = await channel.createWebhook({
-          name: webhookName,
-          avatar: baseUser.displayAvatarURL(),
-          reason: 'Tamama AI character webhook'
-      });
+        baseUser = await interaction.client.users.fetch(targetUserId);
     } catch (error) {
-      console.error("Webhookの作成に失敗しました:", error);
-      await interaction.reply({ content: 'Webhookの作成に失敗しました。ボットに「ウェブフックの管理」権限があるか確認してください。', ephemeral: true });
-      return;
+        console.error(`ベースユーザーID (${targetUserId}) の取得に失敗 (Tamama):`, error);
+        await interaction.editReply({ content: 'Webhookアバター用のユーザー情報取得に失敗しました。' });
+        return;
+    }
+    
+    let webhookCharacterName; // Webhook名に使用する表示名
+    try {
+        const member = await interaction.guild.members.fetch(targetUserId);
+        webhookCharacterName = member.displayName;
+    } catch (e) {
+        console.warn(`サーバーメンバー (${targetUserId}) のdisplayName取得に失敗 (Tamama)。グローバル名を使用します。Guild: ${interaction.guild.id}`);
+        webhookCharacterName = baseUser.username;
+    }
+    
+    let webhooks;
+    try {
+        webhooks = await channel.fetchWebhooks();
+    } catch (error) {
+        console.error("Webhookの取得に失敗 (Tamama):", error);
+        await interaction.editReply({ content: 'Webhook情報の取得に失敗しました。権限を確認してください。' });
+        return;
+    }
+    
+    // Webhook検索・作成時の名前として webhookCharacterName を使用
+    const existingWebhook = webhooks.find((wh) => wh.name === webhookCharacterName && wh.owner?.id === interaction.client.user.id);
+    // コレクターキーもキャラクター名ベースでユニークに
+    const collectorKey = `${channel.id}_tamai_${webhookCharacterName.replace(/\s+/g, '_')}`;
+
+    if (existingWebhook) {
+      try {
+        await existingWebhook.delete(`Tamama command: cleanup for ${webhookCharacterName}`);
+        if (interaction.client.activeCollectors && interaction.client.activeCollectors.has(collectorKey)) {
+            interaction.client.activeCollectors.get(collectorKey).stop('Tamama dismissed by command.');
+        }
+        const embed = new EmbedBuilder().setColor(0xFF0000).setDescription(`${webhookCharacterName} を退出させました。敗北者wwwww`);
+        await interaction.editReply({ embeds: [embed] }); 
+      } catch (error) {
+        console.error("Webhook退出処理エラー (Tamama):", error);
+        await interaction.editReply({ content: 'Webhookの退出処理中にエラーが発生しました。' });
+      }
+      return; 
     }
 
-    const summonEmbed = new EmbedBuilder()
-      .setColor(0x00FF00) // 緑色
-      .setDescription('たまたま召喚したんか！お前もしかしてロリコンか？かっけぇ！！！');
-    await interaction.reply({ embeds: [summonEmbed], ephemeral: true }); // コマンド実行者のみに表示
-
-    // コレクター管理用のMapをクライアントに初期化 (index.jsなどで一度だけ行うのが理想)
-    if (!interaction.client.activeCollectors) {
-      interaction.client.activeCollectors = new Map();
+    // --- 召喚処理 ---
+    let newCreatedWebhook;
+    try {
+        newCreatedWebhook = await channel.createWebhook({
+            name: webhookCharacterName,
+            avatar: baseUser.displayAvatarURL(),
+            reason: `Tamama AI character webhook (${webhookCharacterName})`
+        });
+    } catch (error) {
+        console.error("Webhook作成エラー (Tamama):", error);
+        await interaction.editReply({ content: `Webhook「${webhookCharacterName}」の作成に失敗しました。権限を確認してください。` });
+        return;
     }
-    // 既存のコレクターがあれば停止
-    if (interaction.client.activeCollectors.has(channel.id)) {
-      interaction.client.activeCollectors.get(channel.id).stop('New Tamama instance summoned.');
+    
+    if (interaction.client.activeCollectors && interaction.client.activeCollectors.has(collectorKey)) {
+        interaction.client.activeCollectors.get(collectorKey).stop('New Tamama instance summoned.');
+    } else if (!interaction.client.activeCollectors) {
+        interaction.client.activeCollectors = new Map(); 
     }
 
     const collector = channel.createMessageCollector({ filter: (msg) => !msg.author.bot && msg.author.id !== interaction.client.user.id });
-    interaction.client.activeCollectors.set(channel.id, collector);
+    interaction.client.activeCollectors.set(collectorKey, collector);
 
     collector.on('collect', async (message) => {
-      // Webhookが削除されていないか確認
-      const currentWebhooks = await message.channel.fetchWebhooks();
-      if (!currentWebhooks.has(tamaWebhook.id)) {
-          console.warn(`Webhook (ID: ${tamaWebhook.id}, Name: ${webhookName}) が見つかりません。コレクターを停止します。`);
-          collector.stop("Webhook lost");
-          return;
+      if (!newCreatedWebhook || !(await channel.fetchWebhooks().then(whs => whs.has(newCreatedWebhook.id)))) {
+        console.warn(`${webhookCharacterName}のWebhookが見つからないため、コレクターを停止 (Channel: ${channel.id})`);
+        collector.stop("Webhook lost");
+        return;
+      }
+      
+      const channelId = message.channel.id;
+      if (!conversationHistory.has(channelId)) {
+        conversationHistory.set(channelId, []); // このチャンネル用の履歴を初期化
       }
 
-      const currentChannelId = message.channel.id;
-      if (!conversationHistory.has(currentChannelId)) {
-        conversationHistory.set(currentChannelId, []);
-      }
-
-      const history = conversationHistory.get(currentChannelId);
+      const history = conversationHistory.get(channelId);
       const authorName = message.member?.displayName || message.author.username;
-      const guild = message.guild;
+      // guildオブジェクトはmessageから取得
+      const guild = message.guild; 
+      
+      // getTamaResponse はエラーをthrowせず、デフォルトメッセージを返す
+      const responseText = await getTamaResponse(message.content, history, authorName, guild);
+      
+      // 履歴には content プロパティで保存 (getTamaResponse内の処理と合わせる)
+      history.push({ role: 'user', content: message.content }); // ユーザーの生のメッセージを保存
+      history.push({ role: 'model', content: responseText });
+      if (history.length > 20) history.splice(0, history.length - 20);
 
       try {
-        const responseText = await getTamaResponse(message.content, history, authorName, guild);
-
-        // Gemini APIが期待する形式で履歴に追加
-        history.push({ role: 'user', parts: [{ text: `${authorName}「${replaceMentionsWithNames(message.content, guild)}」` }] });
-        history.push({ role: 'model', parts: [{ text: responseText }] });
-
-        if (history.length > 20) { // 10往復分 + α の履歴を保持
-          history.splice(0, history.length - 20);
-        }
-
-        await tamaWebhook.send(responseText);
-      } catch (error) {
-        console.error(`[${webhookName}] Gemini応答取得またはWebhook送信エラー:`, error.message);
-        // ユーザーにエラーを通知するか検討 (例:「たまたまちょっと調子悪いわ、ADHDや！」)
-        // collector.stop('API error'); // 致命的なエラーならコレクターを停止
+        await newCreatedWebhook.send(responseText);
+      } catch (webhookSendError){
+        console.error(`Webhook (${webhookCharacterName}) からメッセージ送信時にエラー:`, webhookSendError);
       }
     });
-
+    
     collector.on('end', (collected, reason) => {
-      console.log(`Collector for Tamama in channel ${channel.id} (Webhook: ${webhookName}) stopped. Reason: ${reason || 'Unknown'}`);
-      if (interaction.client.activeCollectors && interaction.client.activeCollectors.has(channel.id)) {
-          interaction.client.activeCollectors.delete(channel.id);
-      }
-      // Webhookを自動削除するかは設計次第。ここでは残す。
-      // conversationHistory.delete(channel.id); // 会話終了時に履歴をクリアする場合
+        console.log(`Collector for ${webhookCharacterName} in channel ${channel.id} stopped. Reason: ${reason || 'Unknown'}`);
+        if (interaction.client.activeCollectors) {
+            interaction.client.activeCollectors.delete(collectorKey);
+        }
     });
+
+    const embed = new EmbedBuilder().setColor(0x00FF00).setDescription(`${webhookCharacterName} を召喚しました。お前もしかしてロリコンか？かっけぇ！！！`);
+    await interaction.editReply({ embeds: [embed] }); 
   },
 };

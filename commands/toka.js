@@ -1,10 +1,11 @@
-// toka.js (getTamaResponse修正版、deferReply/editReply使用)
+// toka.js (Webhook名にdisplayNameを使用)
 const { EmbedBuilder, SlashCommandBuilder, ChannelType } = require('discord.js');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 const conversationHistory = new Map();
 
+// systemPrompt と getTamaResponse 関数は変更なし (前回提示したものを使用)
 const systemPrompt = `
 あなたは今から「とーか」という名前の18歳の女の子として、ずっとその人格を維持してDiscord風チャットをします。  
 **絶対に「AI」や「私はAIだから」などの表現を使ってはいけません。**
@@ -32,25 +33,20 @@ const systemPrompt = `
 `;
 
 async function getTamaResponse(userMessage, history = []) {
-  const tryModels = ['gemini-1.5-pro', 'gemini-1.5-flash']; // 試行するモデルのリスト
-  let lastError = null; // 最後に発生したエラーを保持
-  let fallbackNoticeShown = false; // フォールバック通知を一度だけ表示するためのフラグ
-
-  // デフォルトの「AIが応答できない」場合のメッセージ
+  const tryModels = ['gemini-1.5-pro', 'gemini-1.5-flash'];
+  let lastError = null;
+  let fallbackNoticeShown = false;
   const defaultOopsMessage = "うーん、なんだか今日は言葉がうまく出てこないみたいで……ごめんね、ちーくん。また後で話しかけてみてくれるかな？(；；)";
 
   for (let i = 0; i < tryModels.length; i++) {
     const modelName = tryModels[i];
     try {
       const model = genAI.getGenerativeModel({ model: modelName });
-
       const validHistory = history.map(msg => ({
         role: msg.role,
         parts: [{ text: msg.content }] 
       }));
-
       const chat = model.startChat({ history: validHistory });
-
       if (history.length === 0 && systemPrompt) {
         try {
           const sysResult = await chat.sendMessage(systemPrompt);
@@ -59,33 +55,28 @@ async function getTamaResponse(userMessage, history = []) {
           history.push({ role: 'model', content: sysResponse });
         } catch (systemError) {
           console.warn(`[${modelName}] systemPrompt送信で失敗: ${systemError.message}`);
-          lastError = systemError; // エラーを記録
-          continue; // 次のモデルを試す
+          lastError = systemError;
+          continue;
         }
       }
-
       const result = await chat.sendMessage(userMessage);
       const responseText = await result.response.text();
-
       if (i > 0 && !fallbackNoticeShown) {
         console.warn(`[INFO] モデル '${tryModels[0]}' が失敗したため、'${modelName}' にフォールバックしました。`);
         fallbackNoticeShown = true;
       }
       return responseText; 
-
     } catch (error) {
       console.warn(`[${modelName}] での応答生成に失敗: ${error.message}`, error.stack);
       lastError = error; 
-
       if (error.message.includes('429') || error.message.includes('Quota') || error.message.includes('API key not valid')) {
          console.error(`[${modelName}] APIクォータ超過、キー無効、またはその他の回復不能なエラーの可能性。次のモデルを試します (もしあれば)。: ${error.message}`);
       }
-      continue; // 次のモデルを試す
+      continue;
     }
   }
-
   console.error("全てのAIモデルでの応答生成に失敗しました。", lastError ? lastError.message : "不明なエラー");
-  return defaultOopsMessage; // 全て失敗したらデフォルトメッセージを返す
+  return defaultOopsMessage;
 }
 
 
@@ -96,15 +87,15 @@ module.exports = {
   async execute(interaction) {
     await interaction.deferReply({ ephemeral: true });
 
-    if (!interaction.channel || !interaction.channel.isTextBased() || interaction.channel.type === ChannelType.DM) {
+    if (!interaction.inGuild() || !interaction.channel || interaction.channel.type === ChannelType.DM) {
         await interaction.editReply({ content: 'このコマンドはDM以外のテキストチャンネルでのみ使用できます。' });
         return;
     }
 
-    const userId = '1155356934292127844';
+    const userId = '1155356934292127844'; // このIDのユーザーの表示名を使用
     const channel = interaction.channel;
     
-    let baseUser;
+    let baseUser; // グローバルなUserオブジェクト (主にアバター用)
     try {
         baseUser = await interaction.client.users.fetch(userId);
     } catch (error) {
@@ -113,7 +104,17 @@ module.exports = {
         return;
     }
     
-    const webhookName = `TokaWebhook_${baseUser.username}`;
+    // Webhook名に使用する表示名を取得
+    let webhookCharacterName;
+    try {
+        const member = await interaction.guild.members.fetch(userId);
+        webhookCharacterName = member.displayName; // サーバーでの表示名（ニックネーム優先）
+    } catch (e) {
+        console.warn(`サーバーメンバー (${userId}) のdisplayName取得に失敗。グローバル名を使用します。Guild: ${interaction.guild.id}`);
+        webhookCharacterName = baseUser.username; // サーバーにいない場合はグローバルユーザー名
+    }
+    
+    // Webhook検索・作成時の名前として webhookCharacterName を使用
     let webhooks;
     try {
         webhooks = await channel.fetchWebhooks();
@@ -123,16 +124,16 @@ module.exports = {
         return;
     }
     
-    const existingWebhook = webhooks.find((wh) => wh.name === webhookName && wh.owner?.id === interaction.client.user.id);
-    const collectorKey = `${channel.id}_toka`;
+    const existingWebhook = webhooks.find((wh) => wh.name === webhookCharacterName && wh.owner?.id === interaction.client.user.id);
+    const collectorKey = `${channel.id}_toka_${webhookCharacterName.replace(/\s+/g, '_')}`; // コレクターキーにも影響
 
     if (existingWebhook) {
       try {
-        await existingWebhook.delete('Toka command: cleanup');
+        await existingWebhook.delete(`Toka command: cleanup for ${webhookCharacterName}`);
         if (interaction.client.activeCollectors && interaction.client.activeCollectors.has(collectorKey)) {
             interaction.client.activeCollectors.get(collectorKey).stop('Toka dismissed by command.');
         }
-        const embed = new EmbedBuilder().setColor(0xFF0000).setDescription('とーかを退出させました。');
+        const embed = new EmbedBuilder().setColor(0xFF0000).setDescription(`${webhookCharacterName} を退出させました。`);
         await interaction.editReply({ embeds: [embed] }); 
       } catch (error) {
         console.error("Webhook退出処理エラー:", error);
@@ -145,20 +146,19 @@ module.exports = {
     let newCreatedWebhook;
     try {
         newCreatedWebhook = await channel.createWebhook({
-            name: webhookName,
-            avatar: baseUser.displayAvatarURL(),
-            reason: 'Toka AI character webhook'
+            name: webhookCharacterName, // 取得した表示名をWebhook名として使用
+            avatar: baseUser.displayAvatarURL(), // アバターはグローバルユーザーのものを引き続き使用
+            reason: `Toka AI character webhook (${webhookCharacterName})`
         });
     } catch (error) {
         console.error("Webhook作成エラー:", error);
-        await interaction.editReply({ content: 'Webhookの作成に失敗しました。権限を確認してください。' });
+        await interaction.editReply({ content: `Webhook「${webhookCharacterName}」の作成に失敗しました。権限を確認してください。` });
         return;
     }
     
     if (interaction.client.activeCollectors && interaction.client.activeCollectors.has(collectorKey)) {
         interaction.client.activeCollectors.get(collectorKey).stop('New Toka instance summoned.');
     } else if (!interaction.client.activeCollectors) {
-        // 本来はメインファイルで client.activeCollectors = new Map(); と初期化するのが望ましい
         interaction.client.activeCollectors = new Map(); 
     }
 
@@ -167,7 +167,7 @@ module.exports = {
 
     collector.on('collect', async (message) => {
       if (!newCreatedWebhook || !(await channel.fetchWebhooks().then(whs => whs.has(newCreatedWebhook.id)))) {
-        console.warn(`TokaのWebhookが見つからないため、コレクターを停止 (Channel: ${channel.id})`);
+        console.warn(`${webhookCharacterName}のWebhookが見つからないため、コレクターを停止 (Channel: ${channel.id})`);
         collector.stop("Webhook lost");
         return;
       }
@@ -191,31 +191,27 @@ module.exports = {
       }
 
       const history = conversationHistory.get(channelId);
-      // getTamaResponse はエラーをthrowせず、デフォルトメッセージを返すようになった
       const responseText = await getTamaResponse(content, history);
       
-      // 履歴には元の形式 (contentプロパティ) で保存
       history.push({ role: 'user', content: content }); 
       history.push({ role: 'model', content: responseText });
-      if (history.length > 20) history.splice(0, history.length - 20); // 元の (history.length - 20) に修正
+      if (history.length > 20) history.splice(0, history.length - 20);
 
       try {
         await newCreatedWebhook.send(responseText);
       } catch (webhookSendError){
-        console.error(`Webhook (${webhookName}) からメッセージ送信時にエラー:`, webhookSendError);
-        // ここでユーザーに通知するかどうかは任意
-        // message.reply("ごめん、メッセージを送ろうとしたけど失敗しちゃったみたい…").catch(console.error);
+        console.error(`Webhook (${webhookCharacterName}) からメッセージ送信時にエラー:`, webhookSendError);
       }
     });
     
     collector.on('end', (collected, reason) => {
-        console.log(`Collector for Toka in channel ${channel.id} (Webhook: ${webhookName}) stopped. Reason: ${reason || 'Unknown'}`);
+        console.log(`Collector for ${webhookCharacterName} in channel ${channel.id} stopped. Reason: ${reason || 'Unknown'}`);
         if (interaction.client.activeCollectors) {
             interaction.client.activeCollectors.delete(collectorKey);
         }
     });
 
-    const embed = new EmbedBuilder().setColor(0x00FF00).setDescription('とーかを召喚しました。');
+    const embed = new EmbedBuilder().setColor(0x00FF00).setDescription(`${webhookCharacterName} を召喚しました。`);
     await interaction.editReply({ embeds: [embed] }); 
   },
 };
