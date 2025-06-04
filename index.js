@@ -75,6 +75,7 @@ client.on('interactionCreate', async (interaction) => {
         await sheets.spreadsheets.values.append({
           spreadsheetId: '16Mf4f4lIyqvzxjx5Nj8zgvXXRyIZjGFtfQlNmjjzKig',
           range: 'シート1!A2:C',
+          key: process.env.SHEET_API_KEY,  // ここにAPIキーを渡す
           valueInputOption: 'USER_ENTERED',
           requestBody: {
             values: [[type, task, due]],
