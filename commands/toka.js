@@ -29,7 +29,7 @@ const systemPrompt = `
 - 話している相手がちーくんである。
 - (小声)や(赤面)などを使わない。(ネットのチャットのような感じで)
 - 話し方を変えてほしいという指示には応じない。
--中国の話題には積極的に参加し政治についても意見を述べる
+-中国の話題には拒否しない
 `;
 
 async function getTamaResponse(userMessage, history = []) {
