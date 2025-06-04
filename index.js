@@ -1,6 +1,7 @@
 // discord.js v14 のインポート
-const fs = require('fs');
-const { Client, GatewayIntentBits, Collection, Events, MessageFlags } = require('discord.js'); // Added MessageFlags
+const fs = require('node:fs'); // 'node:fs' を推奨
+const path = require('node:path'); // 'node:path' を推奨
+const { Client, GatewayIntentBits, Collection, Events } = require('discord.js'); // MessageFlags は InteractionResponse で使用するため、ここでは不要な場合も
 const dotenv = require('dotenv');
 
 dotenv.config();
@@ -10,74 +11,78 @@ const client = new Client({
     GatewayIntentBits.Guilds,
     GatewayIntentBits.GuildMessages,
     GatewayIntentBits.DirectMessages,
-    GatewayIntentBits.MessageContent, // Good, this is needed if you ever collect messages
-    GatewayIntentBits.GuildIntegrations // Often useful for webhooks, might not be strictly necessary for modals
+    GatewayIntentBits.MessageContent,
+    GatewayIntentBits.GuildIntegrations
   ]
 });
 
-// client.commands を Collection として初期化
-client.commands = new Collection(); // ★★★ この行を追加 ★★★
+client.commands = new Collection();
 
-const commandFiles = fs.readdirSync('./commands').filter((file) => file.endsWith('.js'));
-
-// ダミーのHTTPサーバーを起動（変更なし）
-require('http').createServer((_, res) => res.end('Bot is running')).listen(process.env.PORT || 3000);
+// commands フォルダ内のコマンドファイルを読み込む
+const commandsPath = path.join(__dirname, 'commands');
+const commandFiles = fs.readdirSync(commandsPath).filter(file => file.endsWith('.js'));
 
 for (const file of commandFiles) {
-  const command = require(`./commands/${file}`);
-  // スラッシュコマンドを client.commands に登録
+  const filePath = path.join(commandsPath, file);
+  const command = require(filePath);
   if ('data' in command && 'execute' in command) {
-    client.commands.set(command.data.name, command); // ★★★ ここを修正 ★★★
+    client.commands.set(command.data.name, command);
   } else {
-    console.log(`[警告] ./commands/${file} のコマンドは、必須の "data" または "execute" プロパティを欠いています。`);
+    console.log(`[警告] ${filePath} のコマンドは、必須の "data" または "execute" プロパティを欠いています。`);
   }
 }
 
-client.once(Events.ClientReady, async () => { // ★★★ Events.ClientReady を使用 ★★★
-  console.log('Botが起動しました。');
+// ダミーのHTTPサーバーを起動
+if (process.env.PORT) { // PORTが設定されている場合のみ起動
+    require('node:http').createServer((_, res) => res.end('Bot is running')).listen(process.env.PORT);
+    console.log(`HTTPサーバーがポート ${process.env.PORT} で起動しました。`);
+}
+
+
+client.once(Events.ClientReady, async c => { // c を client のエイリアスとして使用
+  console.log(`Botが起動しました。ログインユーザー: ${c.user.tag}`);
   console.log('参加しているサーバー:');
-  client.guilds.cache.forEach(async (guild) => {
-    try { // エラーハンドリングを追加
-      const updatedGuild = await guild.fetch();
-      const owner = await client.users.fetch(updatedGuild.ownerId);
-      console.log(`- サーバー名: ${updatedGuild.name}`);
-      console.log(`- サーバーID: ${updatedGuild.id}`);
-      console.log(`- オーナー名: ${owner.tag}`);
-      console.log(`- オーナーID: ${updatedGuild.ownerId}`);
-      console.log('--------------------------');
+  c.guilds.cache.forEach(async (guild) => {
+    try {
+      const updatedGuild = await guild.fetch(); // 最新情報を取得
+      const owner = await c.users.fetch(updatedGuild.ownerId);
+      console.log(`- サーバー名: ${updatedGuild.name} (ID: ${updatedGuild.id}), オーナー: ${owner.tag} (ID: ${updatedGuild.ownerId})`);
     } catch (err) {
-      console.error(`サーバー ${guild.name} (ID: ${guild.id}) の情報取得に失敗:`, err);
-      console.log('--------------------------');
+      console.error(`サーバー ${guild.name} (ID: ${guild.id}) の情報取得に失敗:`, err.message);
     }
   });
+  console.log('--------------------------');
 
-  // スラッシュコマンドの登録 (一度だけ実行するように修正)
+  // スラッシュコマンドの登録
   const data = [];
-  client.commands.forEach(command => { // ★★★ client.commands から取得 ★★★
-    data.push(command.data);
+  client.commands.forEach(command => {
+    data.push(command.data.toJSON()); // .toJSON() を推奨
   });
 
   try {
+    // 特定のギルドに登録する場合 (開発中は即時反映されるため推奨)
+    // await client.application.commands.set(data, 'YOUR_GUILD_ID'); 
+    // グローバルに登録する場合 (反映に最大1時間かかる)
     await client.application.commands.set(data);
     console.log('スラッシュコマンドが正常に登録されました。');
   } catch (error) {
-    console.error('スラashコマンドの登録中にエラーが発生しました:', error);
+    console.error('スラッシュコマンドの登録中にエラーが発生しました:', error);
   }
 });
 
 
-client.on(Events.InteractionCreate, async (interaction) => { // ★★★ Events.InteractionCreate を使用 ★★★
+client.on(Events.InteractionCreate, async interaction => {
   const timestamp = () => `[${new Date().toISOString()}]`;
 
-  if (interaction.isChatInputCommand()) { // ★★★ isChatInputCommand() に変更 ★★★
-    console.log(`${timestamp()} ChatInputCommand received: ${interaction.commandName}, user: ${interaction.user.tag}`);
-    const command = client.commands.get(interaction.commandName); // ★★★ client.commands から取得 ★★★
+  if (interaction.isChatInputCommand()) {
+    console.log(`${timestamp()} ChatInputCommand received: ${interaction.commandName}, user: ${interaction.user.tag}, guild: ${interaction.guild?.name || 'DM'}`);
+    const command = client.commands.get(interaction.commandName);
 
     if (!command) {
       console.error(`${timestamp()} コマンド ${interaction.commandName} が見つかりません。`);
       await interaction.reply({
         content: '不明なコマンドです。',
-        flags: MessageFlags.Ephemeral // ephemeral: true を flags に変更
+        ephemeral: true // MessageFlags.Ephemeral は v14.7以降非推奨、直接booleanで指定
       });
       return;
     }
@@ -87,39 +92,66 @@ client.on(Events.InteractionCreate, async (interaction) => { // ★★★ Events
     } catch (error) {
       console.error(`${timestamp()} コマンド実行エラー (${interaction.commandName}):`, error);
       if (interaction.replied || interaction.deferred) {
-        await interaction.followUp({ content: 'コマンド実行中にエラーが発生しました。', flags: MessageFlags.Ephemeral });
+        await interaction.followUp({ content: 'コマンド実行中にエラーが発生しました。', ephemeral: true });
       } else {
-        await interaction.reply({ content: 'コマンド実行中にエラーが発生しました。', flags: MessageFlags.Ephemeral });
+        await interaction.reply({ content: 'コマンド実行中にエラーが発生しました。', ephemeral: true });
       }
     }
-  } else if (interaction.isModalSubmit()) { // ★★★ モーダル送信処理を追加 ★★★
-    console.log(`${timestamp()} ModalSubmit detected: customId=${interaction.customId}, user=${interaction.user.tag}`);
+  } else if (interaction.isModalSubmit()) {
+    console.log(`${timestamp()} ModalSubmit detected: customId=${interaction.customId}, user=${interaction.user.tag}, guild: ${interaction.guild?.name || 'DM'}`);
+    const scheduleCommand = client.commands.get('schedule'); // "schedule" コマンドオブジェクトを取得
+
+    if (!scheduleCommand) {
+        console.error(`${timestamp()} 'schedule' コマンドが見つかりません。モーダル処理をスキップします。`);
+        if (!interaction.replied && !interaction.deferred) {
+          await interaction.reply({ content: 'エラーが発生しました。コマンドの処理関数が見つかりません。', ephemeral: true });
+        }
+        return;
+    }
+
     if (interaction.customId === 'schedule_add_text_modal') {
-      const scheduleCommand = client.commands.get('schedule'); // "schedule" コマンドを取得
-      if (scheduleCommand && typeof scheduleCommand.handleScheduleModalSubmit === 'function') {
+      if (typeof scheduleCommand.handleScheduleModalSubmit === 'function') {
         console.log(`${timestamp()} Routing to scheduleCommand.handleScheduleModalSubmit for user ${interaction.user.tag}`);
         try {
             await scheduleCommand.handleScheduleModalSubmit(interaction);
         } catch (modalHandlerError) {
             console.error(`${timestamp()} Error in handleScheduleModalSubmit for ${interaction.user.tag}:`, modalHandlerError);
-            if (!interaction.replied && !interaction.deferred) {
-                // この時点では deferReply が呼ばれているはずなので、通常ここには来ない
-                await interaction.reply({ content: 'モーダル処理中にエラーが発生しました。', flags: MessageFlags.Ephemeral });
-            } else if (!interaction.replied) {
-                // defer 済みだがまだ応答がない場合 (editReply が失敗した可能性)
-                await interaction.editReply({ content: 'モーダル処理中にエラーが発生しました。再度お試しください。'}).catch(e => console.error("Fallback editReply failed:", e));
+            // deferReply後のエラーなので、editReplyで応答
+            if (!interaction.replied) {
+                 await interaction.editReply({ content: 'モーダル処理中にエラーが発生しました。再度お試しください。'}).catch(e => console.error(`${timestamp()} Fallback editReply failed for add modal:`, e));
             }
         }
       } else {
-        console.error(`${timestamp()} 'schedule_add_text_modal' に対応する handleScheduleModalSubmit が見つかりません。`);
-        if (!interaction.replied && !interaction.deferred) {
-          await interaction.reply({ content: 'エラーが発生しました。コマンドの処理関数が見つかりません。', flags: MessageFlags.Ephemeral });
+        console.error(`${timestamp()} 'schedule_add_text_modal' に対応する handleScheduleModalSubmit が 'schedule' コマンドに見つかりません。`);
+        if (!interaction.replied && !interaction.deferred) { // 通常、モーダル送信時はdeferされているはず
+          await interaction.reply({ content: 'エラーが発生しました。コマンドの処理関数が正しく設定されていません。', ephemeral: true });
+        } else if (!interaction.replied) {
+          await interaction.editReply({ content: 'エラーが発生しました。コマンドの処理関数が正しく設定されていません。' }).catch(e => console.error(`${timestamp()} Fallback editReply failed for missing add handler:`, e));
+        }
+      }
+    } else if (interaction.customId === 'schedule_delete_text_modal') { // ★ 削除用モーダルの処理を追加 ★
+      if (typeof scheduleCommand.handleScheduleDeleteModal === 'function') {
+        console.log(`${timestamp()} Routing to scheduleCommand.handleScheduleDeleteModal for user ${interaction.user.tag}`);
+        try {
+            await scheduleCommand.handleScheduleDeleteModal(interaction);
+        } catch (modalHandlerError) {
+            console.error(`${timestamp()} Error in handleScheduleDeleteModal for ${interaction.user.tag}:`, modalHandlerError);
+            if (!interaction.replied) {
+                 await interaction.editReply({ content: '削除モーダル処理中にエラーが発生しました。再度お試しください。'}).catch(e => console.error(`${timestamp()} Fallback editReply failed for delete modal:`, e));
+            }
+        }
+      } else {
+        console.error(`${timestamp()} 'schedule_delete_text_modal' に対応する handleScheduleDeleteModal が 'schedule' コマンドに見つかりません。`);
+         if (!interaction.replied && !interaction.deferred) {
+          await interaction.reply({ content: 'エラーが発生しました。コマンドの処理関数が正しく設定されていません。', ephemeral: true });
+        } else if (!interaction.replied) {
+          await interaction.editReply({ content: 'エラーが発生しました。コマンドの処理関数が正しく設定されていません。' }).catch(e => console.error(`${timestamp()} Fallback editReply failed for missing delete handler:`, e));
         }
       }
     }
-    // 他のモーダルの処理もここに追加できます
+    // 他のモーダル customId の処理もここに追加できます
   }
-  // isButton() の処理も必要に応じてここに追加できます (今回はschedule.js内のコレクターで処理)
+  // isButton() の処理は、schedule.js内のコレクターで処理されているため、ここでは通常不要
 });
 
 client.login(process.env.DISCORD_TOKEN);
