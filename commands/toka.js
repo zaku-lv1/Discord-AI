@@ -1,11 +1,10 @@
-// toka.js
+// toka.js (getTamaResponse修正版、deferReply/editReply使用)
 const { EmbedBuilder, SlashCommandBuilder, ChannelType } = require('discord.js');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 const conversationHistory = new Map();
 
-// systemPrompt と getTamaResponse 関数は変更なし (前回提示したものを使用)
 const systemPrompt = `
 あなたは今から「とーか」という名前の18歳の女の子として、ずっとその人格を維持してDiscord風チャットをします。  
 **絶対に「AI」や「私はAIだから」などの表現を使ってはいけません。**
@@ -33,19 +32,25 @@ const systemPrompt = `
 `;
 
 async function getTamaResponse(userMessage, history = []) {
-  const tryModels = ['gemini-1.5-pro', 'gemini-1.5-flash'];
-  let lastError = null;
-  let fallbackNoticeShown = false;
+  const tryModels = ['gemini-1.5-pro', 'gemini-1.5-flash']; // 試行するモデルのリスト
+  let lastError = null; // 最後に発生したエラーを保持
+  let fallbackNoticeShown = false; // フォールバック通知を一度だけ表示するためのフラグ
+
+  // デフォルトの「AIが応答できない」場合のメッセージ
+  const defaultOopsMessage = "うーん、なんだか今日は言葉がうまく出てこないみたいで……ごめんね、ちーくん。また後で話しかけてみてくれるかな？(；；)";
 
   for (let i = 0; i < tryModels.length; i++) {
     const modelName = tryModels[i];
     try {
       const model = genAI.getGenerativeModel({ model: modelName });
+
       const validHistory = history.map(msg => ({
         role: msg.role,
         parts: [{ text: msg.content }] 
       }));
+
       const chat = model.startChat({ history: validHistory });
+
       if (history.length === 0 && systemPrompt) {
         try {
           const sysResult = await chat.sendMessage(systemPrompt);
@@ -54,30 +59,33 @@ async function getTamaResponse(userMessage, history = []) {
           history.push({ role: 'model', content: sysResponse });
         } catch (systemError) {
           console.warn(`[${modelName}] systemPrompt送信で失敗: ${systemError.message}`);
-           throw systemError; 
+          lastError = systemError; // エラーを記録
+          continue; // 次のモデルを試す
         }
       }
+
       const result = await chat.sendMessage(userMessage);
       const responseText = await result.response.text();
+
       if (i > 0 && !fallbackNoticeShown) {
-        console.warn(`[INFO] ${tryModels[0]} が失敗したため、${modelName} にフォールバックしました。`);
+        console.warn(`[INFO] モデル '${tryModels[0]}' が失敗したため、'${modelName}' にフォールバックしました。`);
         fallbackNoticeShown = true;
       }
-      return responseText;
+      return responseText; 
+
     } catch (error) {
-      console.warn(`[${modelName}] で失敗: ${error.message}`, error.stack);
-      lastError = error;
+      console.warn(`[${modelName}] での応答生成に失敗: ${error.message}`, error.stack);
+      lastError = error; 
+
       if (error.message.includes('429') || error.message.includes('Quota') || error.message.includes('API key not valid')) {
-        console.error(`[${modelName}] 回復不能なAPIエラー。getTamaResponse処理を中断します。: ${error.message}`);
-        throw error;
+         console.error(`[${modelName}] APIクォータ超過、キー無効、またはその他の回復不能なエラーの可能性。次のモデルを試します (もしあれば)。: ${error.message}`);
       }
-      continue;
+      continue; // 次のモデルを試す
     }
   }
-  if (lastError) {
-    throw new Error(`全てのモデルで応答に失敗しました: ${lastError.message}`);
-  }
-  throw new Error(`全てのモデルで応答に失敗しました (不明なエラー)`);
+
+  console.error("全てのAIモデルでの応答生成に失敗しました。", lastError ? lastError.message : "不明なエラー");
+  return defaultOopsMessage; // 全て失敗したらデフォルトメッセージを返す
 }
 
 
@@ -86,12 +94,10 @@ module.exports = {
     .setName('toka')
     .setDescription('AI彼女(誰のかは知らないけど)を召喚します。'),
   async execute(interaction) {
-    // ephemeral を指定せずに deferReply (公開される「Botが考えています...」)
-    await interaction.deferReply(); 
+    await interaction.deferReply({ ephemeral: true });
 
     if (!interaction.channel || !interaction.channel.isTextBased() || interaction.channel.type === ChannelType.DM) {
-        // このエラーメッセージは ephemeral のままにする
-        await interaction.editReply({ content: 'このコマンドはDM以外のテキストチャンネルでのみ使用できます。', ephemeral: true });
+        await interaction.editReply({ content: 'このコマンドはDM以外のテキストチャンネルでのみ使用できます。' });
         return;
     }
 
@@ -103,8 +109,7 @@ module.exports = {
         baseUser = await interaction.client.users.fetch(userId);
     } catch (error) {
         console.error(`ベースユーザーID (${userId}) の取得に失敗:`, error);
-        // このエラーメッセージは ephemeral のままにする
-        await interaction.editReply({ content: 'Webhookアバター用のユーザー情報取得に失敗しました。', ephemeral: true });
+        await interaction.editReply({ content: 'Webhookアバター用のユーザー情報取得に失敗しました。' });
         return;
     }
     
@@ -114,8 +119,7 @@ module.exports = {
         webhooks = await channel.fetchWebhooks();
     } catch (error) {
         console.error("Webhookの取得に失敗:", error);
-        // このエラーメッセージは ephemeral のままにする
-        await interaction.editReply({ content: 'Webhook情報の取得に失敗しました。権限を確認してください。', ephemeral: true });
+        await interaction.editReply({ content: 'Webhook情報の取得に失敗しました。権限を確認してください。' });
         return;
     }
     
@@ -128,13 +132,11 @@ module.exports = {
         if (interaction.client.activeCollectors && interaction.client.activeCollectors.has(collectorKey)) {
             interaction.client.activeCollectors.get(collectorKey).stop('Toka dismissed by command.');
         }
-        const embed = new EmbedBuilder().setColor(0xFF0000).setDescription('とーかを退出させました。またね、ちーくん…(；；)');
-        // この応答は公開 (ephemeral なし)
+        const embed = new EmbedBuilder().setColor(0xFF0000).setDescription('とーかを退出させました。');
         await interaction.editReply({ embeds: [embed] }); 
       } catch (error) {
         console.error("Webhook退出処理エラー:", error);
-        // このエラーメッセージは ephemeral のままにする
-        await interaction.editReply({ content: 'Webhookの退出処理中にエラーが発生しました。', ephemeral: true });
+        await interaction.editReply({ content: 'Webhookの退出処理中にエラーが発生しました。' });
       }
       return; 
     }
@@ -149,22 +151,21 @@ module.exports = {
         });
     } catch (error) {
         console.error("Webhook作成エラー:", error);
-        // このエラーメッセージは ephemeral のままにする
-        await interaction.editReply({ content: 'Webhookの作成に失敗しました。権限を確認してください。', ephemeral: true });
+        await interaction.editReply({ content: 'Webhookの作成に失敗しました。権限を確認してください。' });
         return;
     }
     
     if (interaction.client.activeCollectors && interaction.client.activeCollectors.has(collectorKey)) {
         interaction.client.activeCollectors.get(collectorKey).stop('New Toka instance summoned.');
     } else if (!interaction.client.activeCollectors) {
-        interaction.client.activeCollectors = new Map();
+        // 本来はメインファイルで client.activeCollectors = new Map(); と初期化するのが望ましい
+        interaction.client.activeCollectors = new Map(); 
     }
 
     const collector = channel.createMessageCollector({ filter: (msg) => !msg.author.bot && msg.author.id !== interaction.client.user.id });
     interaction.client.activeCollectors.set(collectorKey, collector);
 
     collector.on('collect', async (message) => {
-      // (collectイベント内のコードは変更なし、前回のものと同様)
       if (!newCreatedWebhook || !(await channel.fetchWebhooks().then(whs => whs.has(newCreatedWebhook.id)))) {
         console.warn(`TokaのWebhookが見つからないため、コレクターを停止 (Channel: ${channel.id})`);
         collector.stop("Webhook lost");
@@ -190,18 +191,20 @@ module.exports = {
       }
 
       const history = conversationHistory.get(channelId);
-      try {
-        const responseText = await getTamaResponse(content, history);
-        history.push({ role: 'user', content: content }); 
-        history.push({ role: 'model', content: responseText });
-        if (history.length > 20) history.splice(0, history.length - 20);
+      // getTamaResponse はエラーをthrowせず、デフォルトメッセージを返すようになった
+      const responseText = await getTamaResponse(content, history);
+      
+      // 履歴には元の形式 (contentプロパティ) で保存
+      history.push({ role: 'user', content: content }); 
+      history.push({ role: 'model', content: responseText });
+      if (history.length > 20) history.splice(0, history.length - 20); // 元の (history.length - 20) に修正
 
+      try {
         await newCreatedWebhook.send(responseText);
-      } catch (error) {
-        console.error('Gemini応答取得またはWebhook送信時のエラー (Toka):', error.message);
-        if (error.message.includes('Quota') || error.message.includes('429')) {
-            message.reply("ごめんね、とーか今ちょっと疲れちゃったみたい…少し時間をおいて話しかけてくれる？").catch(console.error);
-        }
+      } catch (webhookSendError){
+        console.error(`Webhook (${webhookName}) からメッセージ送信時にエラー:`, webhookSendError);
+        // ここでユーザーに通知するかどうかは任意
+        // message.reply("ごめん、メッセージを送ろうとしたけど失敗しちゃったみたい…").catch(console.error);
       }
     });
     
@@ -213,7 +216,6 @@ module.exports = {
     });
 
     const embed = new EmbedBuilder().setColor(0x00FF00).setDescription('とーかを召喚しました。');
-    // この応答は公開 (ephemeral なし)
     await interaction.editReply({ embeds: [embed] }); 
   },
 };
