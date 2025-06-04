@@ -46,10 +46,15 @@ async function getTamaResponse(userMessage, history = []) {
       const chat = model.startChat({ history: validHistory });
 
       if (history.length === 0) {
-        const sysResult = await chat.sendMessage(systemPrompt);
-        const sysResponse = await sysResult.response.text();
-        history.push({ role: 'user', content: systemPrompt });
-        history.push({ role: 'model', content: sysResponse });
+        try {
+          const sysResult = await chat.sendMessage(systemPrompt);
+          const sysResponse = await sysResult.response.text();
+          history.push({ role: 'user', content: systemPrompt });
+          history.push({ role: 'model', content: sysResponse });
+        } catch (systemError) {
+          console.warn(`[${modelName}] systemPrompt送信で失敗: ${systemError.message}`);
+          throw systemError;
+        }
       }
 
       const result = await chat.sendMessage(userMessage);
