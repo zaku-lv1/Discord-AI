@@ -14,7 +14,8 @@ const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
     GatewayIntentBits.GuildMessages,
-    GatewayIntentBits.DirectMessages, // DM機能を利用する場合。100以上のサーバーに参加するボットは検証が必要になることがあります。
+    GatewayIntentBits.DirectMessages,
+    GatewayIntentBits.MessageContent,
   ],
 });
 
