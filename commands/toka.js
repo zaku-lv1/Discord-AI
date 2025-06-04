@@ -1,5 +1,5 @@
 // toka.js
-const { EmbedBuilder, SlashCommandBuilder, ChannelType } = require('discord.js'); // ★★★ この行を確認！ SlashCommandBuilder が入ってる？ ★★★
+const { EmbedBuilder, SlashCommandBuilder, ChannelType } = require('discord.js');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 
 // APIキーを環境変数から取得

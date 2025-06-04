@@ -4,7 +4,15 @@ const dotenv = require('dotenv');
 
 dotenv.config();
 
-const client = new Client({ intents: [Intents.FLAGS.GUILDS, Intents.FLAGS.GUILD_MESSAGES, Intents.FLAGS.DIRECT_MESSAGES] });
+const client = new Client({
+  intents: [
+    GatewayIntentBits.Guilds,
+    GatewayIntentBits.GuildMessages,
+    GatewayIntentBits.DirectMessages,
+    GatewayIntentBits.MessageContent // ★★★ これを絶対に追加してね！ ★★★
+                                     // 前回の「メッセージ内容が空になる問題」を解決するために必要だよ！
+  ]
+});
 
 const commands = {};
 const commandFiles = fs.readdirSync('./commands').filter((file) => file.endsWith('.js'));
@@ -18,8 +26,6 @@ for (const file of commandFiles) {
 }
 
 
-// 禁止ワードのリスト
-const prohibitedWords = {};
 
 client.once('ready', async () => {
   console.log('Botが起動しました。');
