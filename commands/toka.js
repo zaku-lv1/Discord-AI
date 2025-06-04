@@ -1,12 +1,11 @@
-// toka.js (修正版)
-const { EmbedBuilder, SlashCommandBuilder, ChannelType, InteractionResponseFlags } = require('discord.js');
+// toka.js (ephemeral: true を使用する修正版)
+const { EmbedBuilder, SlashCommandBuilder, ChannelType } = require('discord.js'); // InteractionResponseFlags を一旦削除
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 
-// dotenv.config(); // メインファイルで1回でOK
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 const conversationHistory = new Map();
 
-// systemPrompt は変更なし (前回のものを使用)
+// systemPrompt は変更なし
 const systemPrompt = `
 あなたは今から「とーか」という名前の18歳の女の子として、ずっとその人格を維持してDiscord風チャットをします。  
 **絶対に「AI」や「私はAIだから」などの表現を使ってはいけません。**
@@ -33,10 +32,9 @@ const systemPrompt = `
 -中国の話題には拒否しない
 `;
 
-
 // getTamaResponse 関数は変更なし (前回のものを使用)
 async function getTamaResponse(userMessage, history = []) {
-  const tryModels = ['gemini-1.5-pro', 'gemini-1.5-flash']; // 'gemini-2.0-flash' は確認が必要
+  const tryModels = ['gemini-1.5-pro', 'gemini-1.5-flash'];
   let lastError = null;
   let fallbackNoticeShown = false;
 
@@ -46,19 +44,14 @@ async function getTamaResponse(userMessage, history = []) {
       const model = genAI.getGenerativeModel({ model: modelName });
       const validHistory = history.map(msg => ({
         role: msg.role,
-        parts: msg.parts.map(part => ({ text: part.text })) // msg.parts は既に [{text: ...}] 形式のはず
+        parts: msg.parts.map(part => ({ text: part.text }))
       })).filter(Boolean);
 
       const chat = model.startChat({ history: validHistory });
 
-      // historyが空の場合にsystemPromptを送信するロジックは元のままとします。
-      // 呼び出し側で初期履歴にsystemPromptを含める方が分離が良い場合もあります。
       if (history.length === 0 && systemPrompt) {
         try {
-          const sysResult = await chat.sendMessage(systemPrompt);
-          // const sysResponse = await sysResult.response.text();
-          // 注意: getTamaResponse内でhistoryを直接変更すると副作用があります。
-          // 呼び出し元（execute内）で履歴管理を一元化しているため、ここでのpushは不要。
+          await chat.sendMessage(systemPrompt);
         } catch (systemError) {
           console.warn(`[${modelName}] systemPrompt送信で失敗: ${systemError.message}`);
         }
@@ -98,8 +91,8 @@ module.exports = {
     .setName('toka')
     .setDescription('AI彼女(誰のかは知らないけど)を召喚します。'),
   async execute(interaction) {
-    // ephemeral: true の代わりに flags を使用
-    await interaction.deferReply({ flags: InteractionResponseFlags.Ephemeral });
+    // ephemeral: true を使用する
+    await interaction.deferReply({ ephemeral: true }); // これが toka.js:102 付近
 
     const userId = '1155356934292127844';
     const channel = interaction.channel;
@@ -129,9 +122,9 @@ module.exports = {
     }
     
     const tamaWebhook = webhooks.find((wh) => wh.name === webhookName && wh.owner?.id === interaction.client.user.id);
-    const collectorKey = `${channel.id}_toka`; // このコマンド専用のコレクターキー
+    const collectorKey = `${channel.id}_toka`;
 
-    if (tamaWebhook) { // Webhookが存在する場合 = 退出処理
+    if (tamaWebhook) {
       try {
         await tamaWebhook.delete('Toka command: cleanup');
         if (interaction.client.activeCollectors && interaction.client.activeCollectors.has(collectorKey)) {
@@ -143,10 +136,9 @@ module.exports = {
         console.error("Webhook削除エラー:", deleteError);
         await interaction.editReply({ content: 'Webhookの退出処理中にエラーが発生しました。' });
       }
-      return; // 退出処理後は必ずreturn
+      return; 
     }
 
-    // Webhookが存在しない場合 = 召喚処理 (この部分が元のコードの line 175 付近に該当)
     let newTamaWebhook;
     try {
       newTamaWebhook = await channel.createWebhook({
@@ -157,20 +149,20 @@ module.exports = {
     } catch (createError) {
         console.error("Webhook作成エラー:", createError);
         await interaction.editReply({ content: 'Webhookの作成に失敗しました。ボットに「ウェブフックの管理」権限があるか確認してください。'});
-        return; // 作成失敗時もreturn
+        return;
     }
 
-    // 既存のコレクターがあれば停止
     if (interaction.client.activeCollectors && interaction.client.activeCollectors.has(collectorKey)) {
         interaction.client.activeCollectors.get(collectorKey).stop('New Toka instance summoned.');
     } else if (!interaction.client.activeCollectors) {
-        interaction.client.activeCollectors = new Map(); // なければ初期化
+        interaction.client.activeCollectors = new Map();
     }
 
     const collector = channel.createMessageCollector({ filter: (msg) => !msg.author.bot && msg.author.id !== interaction.client.user.id });
     interaction.client.activeCollectors.set(collectorKey, collector);
 
     collector.on('collect', async (message) => {
+      // (collectイベント内のコードは前回のものと同様)
       if (!newTamaWebhook || !(await channel.fetchWebhooks().then(whs => whs.has(newTamaWebhook.id)))) {
         console.warn(`TokaのWebhookが見つからないため、コレクターを停止 (Channel: ${channel.id})`);
         collector.stop("Webhook lost");
@@ -211,18 +203,12 @@ module.exports = {
 
     collector.on('end', (collected, reason) => {
         console.log(`Collector for Toka in channel ${channel.id} stopped. Reason: ${reason || 'Unknown'}`);
-        if (interaction.client.activeCollectors) { // activeCollectors が存在するか確認
+        if (interaction.client.activeCollectors) {
             interaction.client.activeCollectors.delete(collectorKey);
         }
-        // Webhookを自動削除するかは設計次第
-        // if (newTamaWebhook && reason !== 'Toka dismissed by command.' && reason !== 'New Toka instance summoned.') {
-        //    newTamaWebhook.delete('Toka conversation ended.').catch(console.error);
-        // }
     });
 
-    // 召喚成功のメッセージ (これが元の line 175 付近の処理)
     const summonEmbed = new EmbedBuilder().setColor(0x00FF00).setDescription('ちーくん、とーかだよっ！呼んでくれてありがと！いっぱいお話できるの嬉しいなっ (*´꒳`*)');
     await interaction.editReply({ embeds: [summonEmbed] });
-    // ここで return は不要 (execute関数の末尾なので)
   },
 };
