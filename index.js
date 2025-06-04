@@ -6,12 +6,12 @@ const dotenv = require('dotenv');
 dotenv.config();
 
 const client = new Client({ intents: [Intents.FLAGS.GUILDS, Intents.FLAGS.GUILD_MESSAGES, Intents.FLAGS.DIRECT_MESSAGES] });
-discordModals(client); // discord-modalsをセットアップ
+discordModals(client); // discord-modalsセットアップ
 
 const commands = {};
 const commandFiles = fs.readdirSync('./commands').filter((file) => file.endsWith('.js'));
 
-// ダミーのHTTPサーバーを起動して Render のポート監視を回避（必須ではないが安定化）
+// ダミーHTTPサーバー起動（Render環境用の安定化措置）
 require('http').createServer((_, res) => res.end('Bot is running')).listen(process.env.PORT || 3000);
 
 for (const file of commandFiles) {
@@ -57,15 +57,21 @@ client.on('interactionCreate', async (interaction) => {
       });
     }
   } else if (interaction.isModalSubmit()) {
-    // モーダル送信イベントを処理する例
+    // モーダル送信イベント処理
     if (interaction.customId === 'scheduleAddModal') {
       const { google } = require('googleapis');
-      const sheets = google.sheets({ version: 'v4', auth: process.env.sheet_api_key });
+
+      // ここでAPIキーをauthに指定（これが重要）
+      const sheets = google.sheets({
+        version: 'v4',
+        auth: process.env.SHEET_API_KEY,
+      });
 
       const type = interaction.getTextInputValue('typeInput');
       const task = interaction.getTextInputValue('taskInput');
       const due = interaction.getTextInputValue('dueInput');
 
+      // 日付形式チェック（YYYY-MM-DD）
       if (!/^\d{4}-\d{2}-\d{2}$/.test(due)) {
         await interaction.reply({ content: '❌ 期限は YYYY-MM-DD 形式で入力してください。', ephemeral: true });
         return;
@@ -75,7 +81,6 @@ client.on('interactionCreate', async (interaction) => {
         await sheets.spreadsheets.values.append({
           spreadsheetId: '16Mf4f4lIyqvzxjx5Nj8zgvXXRyIZjGFtfQlNmjjzKig',
           range: 'シート1!A2:C',
-          key: process.env.SHEET_API_KEY,  // ここにAPIキーを渡す
           valueInputOption: 'USER_ENTERED',
           requestBody: {
             values: [[type, task, due]],
