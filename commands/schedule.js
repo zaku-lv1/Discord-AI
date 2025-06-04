@@ -1,162 +1,242 @@
-const { SlashCommandBuilder, ModalBuilder, TextInputBuilder, ActionRowBuilder, TextInputStyle, EmbedBuilder, InteractionResponseFlags } = require('discord.js'); // InteractionResponseFlags をインポート
+const { SlashCommandBuilder, ModalBuilder, TextInputBuilder, ActionRowBuilder, TextInputStyle, EmbedBuilder, InteractionResponseFlags } = require('discord.js');
 const { google } = require('googleapis');
 const { JWT } = require('google-auth-library');
-require('dotenv').config();
+// dotenv は index.js で読み込まれていれば、ここで再度読み込む必要は通常ありません。
+// ただし、このファイル単体でテストする場合などを考慮して残しても問題ありません。
+// require('dotenv').config();
 
-const sheetId = '16Mf4f4lIyqvzxjx5Nj8zgvXXRyIZjGFtfQlNmjjzKig';
-const listRange = 'シート1!A2:C';
-const appendRange = 'シート1!A:A';
+// --- 設定値 ---
+const SPREADSHEET_ID = process.env.SPREADSHEET_ID;
+const GOOGLE_SERVICE_ACCOUNT_CREDENTIALS_JSON = process.env.GOOGLE_SERVICE_ACCOUNT_CREDENTIALS_JSON;
 
-// Google Sheets APIクライアントを取得する非同期関数
+// スプレッドシートの範囲 (注意: 'シート1' のようなシート名は実際の名前に合わせてください)
+const LIST_RANGE = 'シート1!A2:C';
+const APPEND_RANGE = 'シート1!A:A'; // A列の最終行の次から追記
+
+// --- Google Sheets API クライアント取得関数 ---
 async function getSheetsClient() {
-    if (!process.env.GOOGLE_SERVICE_ACCOUNT_CREDENTIALS_JSON) {
-        console.error('GOOGLE_SERVICE_ACCOUNT_CREDENTIALS_JSON environmental variable is not set.');
-        throw new Error('Google API 認証情報が設定されていません。'); // ユーザー向けのエラーメッセージも考慮
+    const timestamp = new Date().toISOString();
+    if (!GOOGLE_SERVICE_ACCOUNT_CREDENTIALS_JSON) {
+        console.error(`[${timestamp}] [エラー] getSheetsClient: GOOGLE_SERVICE_ACCOUNT_CREDENTIALS_JSON が設定されていません。`);
+        throw new Error('Google API 認証情報が設定されていません。管理者にお問い合わせください。');
     }
+    if (!SPREADSHEET_ID) {
+        console.error(`[${timestamp}] [エラー] getSheetsClient: SPREADSHEET_ID が設定されていません。`);
+        throw new Error('スプレッドシートIDが設定されていません。管理者にお問い合わせください。');
+    }
+
     try {
-        const serviceAccountCreds = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_CREDENTIALS_JSON);
+        const serviceAccountCreds = JSON.parse(GOOGLE_SERVICE_ACCOUNT_CREDENTIALS_JSON);
         const jwtClient = new JWT({
             email: serviceAccountCreds.client_email,
             key: serviceAccountCreds.private_key,
             scopes: ['https://www.googleapis.com/auth/spreadsheets'],
         });
         // await jwtClient.authorize(); // 通常、最初のAPIコール時に自動で認証されます
+        console.log(`[${timestamp}] getSheetsClient: Google Sheets APIクライアントを正常に初期化しました。`);
         return google.sheets({ version: 'v4', auth: jwtClient });
     } catch (e) {
-        console.error("Error parsing service account credentials or creating JWT client:", e);
-        throw new Error('Google API 認証クライアントの作成に失敗しました。');
+        console.error(`[${timestamp}] [エラー] getSheetsClient: Google Sheets APIクライアントの初期化に失敗しました:`, e);
+        throw new Error('Google API クライアントの初期化に失敗しました。認証情報や形式を確認してください。');
     }
 }
 
 module.exports = {
-  data: new SlashCommandBuilder()
-    .setName('schedule')
-    .setDescription('宿題や小テストの予定を確認・追加します')
-    .addStringOption(option =>
-      option
-        .setName('action')
-        .setDescription('操作を選択してください')
-        .setRequired(true)
-        .addChoices(
-          { name: '一覧表示', value: 'list' },
-          { name: '予定を追加', value: 'add' },
-        )
-    ),
+    data: new SlashCommandBuilder()
+        .setName('schedule')
+        .setDescription('宿題や小テストの予定を確認・追加します。')
+        .addStringOption(option =>
+            option
+                .setName('action')
+                .setDescription('操作を選択してください')
+                .setRequired(true)
+                .addChoices(
+                    { name: '一覧表示', value: 'list' },
+                    { name: '予定を追加', value: 'add' }
+                )
+        ),
 
-  async execute(interaction) {
-    if (!interaction.inGuild()) {
-        await interaction.reply({ content: 'このコマンドはサーバー内でのみ使用できます。', flags: InteractionResponseFlags.EPHEMERAL });
-        return;
-    }
+    async execute(interaction) {
+        const timestamp = new Date().toISOString();
+        console.log(`[${timestamp}] schedule.execute: 開始。Action: ${interaction.options.getString('action')}, User: ${interaction.user.tag}, Interaction ID: ${interaction.id}`);
 
-    const action = interaction.options.getString('action');
-
-    if (action === 'list') {
-      await interaction.deferReply({ flags: InteractionResponseFlags.EPHEMERAL }); // 先に acknowledge (必要に応じてephemeralを解除)
-      try {
-        const sheets = await getSheetsClient(); // APIコール直前にクライアント取得
-        const response = await sheets.spreadsheets.values.get({
-          spreadsheetId: sheetId,
-          range: listRange,
-        });
-
-        const rows = response.data.values;
-
-        if (!rows || rows.length === 0) {
-          const emptyEmbed = new EmbedBuilder()
-            .setColor(0x0099FF)
-            .setTitle('🗓 スケジュール一覧')
-            .setDescription('📭 スケジュールは現在空です。');
-          await interaction.editReply({ embeds: [emptyEmbed] });
-          return;
+        if (!interaction.inGuild()) {
+            console.log(`[${timestamp}] schedule.execute: コマンドがDM内で使用されました。User: ${interaction.user.tag}`);
+            await interaction.reply({ content: 'このコマンドはサーバー内でのみ使用できます。', flags: InteractionResponseFlags.EPHEMERAL });
+            return;
         }
 
-        rows.sort((a, b) => { /* ...ソート処理... */ });
+        const action = interaction.options.getString('action');
 
-        const embed = new EmbedBuilder() /* ...Embed作成... */ ;
-        // fieldsToShow, embed.addFields, embed.setFooter など
-        // ... (元のlistのロジックをここに記述) ...
+        if (action === 'list') {
+            console.log(`[${timestamp}] schedule.list: "list" アクション開始。User: ${interaction.user.tag}`);
+            await interaction.deferReply({ flags: InteractionResponseFlags.EPHEMERAL }); // 必要に応じてephemeralを解除
 
-        // 仮のEmbed表示 (元のロジックに置き換えてください)
-        embed.setColor(0x0099FF).setTitle('🗓 現在のスケジュール一覧');
-        const fieldsToShow = rows.slice(0, 10);
-        fieldsToShow.forEach(([type, task, due]) => {
-            embed.addFields({ name: `📌 ${type}「${task}」`, value: `締切: ${due || '未定'}`, inline: false });
-        });
-        if (rows.length > 10) {
-            embed.setFooter({text: `全 ${rows.length} 件中、${fieldsToShow.length} 件を表示しています。`});
-        } else if (rows.length === 0) {
-             embed.setDescription('データがありません。');
+            try {
+                const sheets = await getSheetsClient();
+                console.log(`[${timestamp}] schedule.list: スプレッドシートからデータを取得中... Range: ${LIST_RANGE}`);
+                const response = await sheets.spreadsheets.values.get({
+                    spreadsheetId: SPREADSHEET_ID,
+                    range: LIST_RANGE,
+                });
+                console.log(`[${timestamp}] schedule.list: データ取得成功。行数: ${response.data.values ? response.data.values.length : 0}`);
+
+                const rows = response.data.values;
+
+                if (!rows || rows.length === 0) {
+                    const emptyEmbed = new EmbedBuilder()
+                        .setColor(0x0099FF)
+                        .setTitle('🗓 スケジュール一覧')
+                        .setDescription('📭 スケジュールは現在空です。');
+                    await interaction.editReply({ embeds: [emptyEmbed] });
+                    console.log(`[${timestamp}] schedule.list: スケジュール空のメッセージを送信しました。`);
+                    return;
+                }
+
+                // 日付でソート (YYYY-MM-DD 形式を前提, C列が日付と仮定)
+                rows.sort((a, b) => {
+                    const dateA = new Date(a[2]); // C列 (0-indexed)
+                    const dateB = new Date(b[2]); // C列
+                    if (isNaN(dateA.getTime()) || isNaN(dateB.getTime())) {
+                        return isNaN(dateA.getTime()) ? 1 : -1; // 無効な日付は末尾へ
+                    }
+                    return dateA - dateB;
+                });
+                console.log(`[${timestamp}] schedule.list: データを日付でソートしました。`);
+
+                const embed = new EmbedBuilder()
+                    .setColor(0x0099FF)
+                    .setTitle('🗓 現在のスケジュール一覧')
+                    .setDescription('締切が近い順に表示しています（最大10件）:');
+
+                const fieldsToShow = rows.slice(0, 10);
+                fieldsToShow.forEach(([type, task, due]) => { // A, B, C列を想定
+                    embed.addFields({
+                        name: `📌 ${type || '種別未設定'} 「${task || '内容未設定'}」`,
+                        value: `締切: ${due || '未定'}`,
+                        inline: false
+                    });
+                });
+
+                if (rows.length > 10) {
+                    embed.setFooter({ text: `全 ${rows.length} 件中、${fieldsToShow.length} 件を表示しています。` });
+                }
+                 if (rows.length === 0 && fieldsToShow.length === 0) { // この条件は上の if(!rows) でカバーされるはずだが念のため
+                    embed.setDescription('データがありません。');
+                }
+
+
+                await interaction.editReply({ embeds: [embed] });
+                console.log(`[${timestamp}] schedule.list: スケジュール一覧を送信しました。`);
+
+            } catch (error) {
+                console.error(`[${timestamp}] [エラー] schedule.list: "list" アクション処理中にエラーが発生しました:`, error);
+                // interaction.editReply は deferReply 後なので、失敗時も editReply を試みる
+                if (!interaction.replied && !interaction.deferred) { // 万が一deferReplyに失敗した場合
+                    await interaction.reply({ content: '❌ データの取得中にエラーが発生しました。しばらくしてから再度お試しください。', flags: InteractionResponseFlags.EPHEMERAL }).catch(e => console.error(`[${timestamp}] [エラー] listアクションのエラー応答(reply)に失敗:`, e));
+                } else {
+                     await interaction.editReply({ content: '❌ データの取得中にエラーが発生しました。しばらくしてから再度お試しください。' }).catch(e => console.error(`[${timestamp}] [エラー] listアクションのエラー応答(editReply)に失敗:`, e));
+                }
+            }
+
+        } else if (action === 'add') {
+            console.log(`[${timestamp}] schedule.add: "add" アクション開始。User: ${interaction.user.tag}`);
+
+            const modal = new ModalBuilder()
+                .setCustomId('scheduleAddModal-' + interaction.id) // Interaction IDを含めてユニークにする
+                .setTitle('新しい予定を追加');
+
+            const typeInput = new TextInputBuilder()
+                .setCustomId('typeInput')
+                .setLabel('予定の種別 (例: 宿題, 小テスト)')
+                .setStyle(TextInputStyle.Short)
+                .setPlaceholder('宿題')
+                .setRequired(true);
+
+            const taskInput = new TextInputBuilder()
+                .setCustomId('taskInput')
+                .setLabel('予定の内容 (例: 数学P.10-15)')
+                .setStyle(TextInputStyle.Paragraph)
+                .setPlaceholder('数学P.10-15')
+                .setRequired(true);
+
+            const dueInput = new TextInputBuilder()
+                .setCustomId('dueInput')
+                .setLabel('期限 (例: 2025-06-05)')
+                .setStyle(TextInputStyle.Short)
+                .setPlaceholder('YYYY-MM-DD または MM/DD 形式')
+                .setMinLength(4)
+                .setMaxLength(10)
+                .setRequired(true);
+
+            const firstActionRow = new ActionRowBuilder().addComponents(typeInput);
+            const secondActionRow = new ActionRowBuilder().addComponents(taskInput);
+            const thirdActionRow = new ActionRowBuilder().addComponents(dueInput);
+            modal.addComponents(firstActionRow, secondActionRow, thirdActionRow);
+
+            console.log(`[${timestamp}] schedule.add: モーダル表示を試みます。User: ${interaction.user.tag}, Interaction ID: ${interaction.id}`);
+            try {
+                await interaction.showModal(modal);
+                console.log(`[${timestamp}] schedule.add: モーダル表示成功。User: ${interaction.user.tag}, Interaction ID: ${interaction.id}`);
+            } catch (modalError) {
+                console.error(`[${timestamp}] [エラー] schedule.add: モーダルの表示に失敗しました。User: ${interaction.user.tag}, Interaction ID: ${interaction.id}:`, modalError);
+                // showModalが失敗した場合、ユーザーへのフィードバックは難しい
+                // index.jsのグローバルエラーハンドラに任せるか、ここでログのみ
+                return; // 処理中断
+            }
+
+            let submittedInteraction;
+            try {
+                console.log(`[${timestamp}] schedule.add: モーダル送信待機中... CustomID: ${modal.data.custom_id}, User: ${interaction.user.tag}`);
+                // ModalのCustomIDをinteraction.idに紐付けているため、filterもそれに合わせる
+                const filter = (i) => i.customId === modal.data.custom_id && i.user.id === interaction.user.id;
+                submittedInteraction = await interaction.awaitModalSubmit({ filter, time: 300_000 }); // 5分間のタイムアウト
+                console.log(`[${timestamp}] schedule.add: モーダル送信を受け付けました。Submitted Interaction ID: ${submittedInteraction.id}, User: ${interaction.user.tag}`);
+
+                await submittedInteraction.deferReply({ flags: InteractionResponseFlags.EPHEMERAL });
+                console.log(`[${timestamp}] schedule.add: モーダル送信をdeferReplyしました。Submitted Interaction ID: ${submittedInteraction.id}`);
+
+                const type = submittedInteraction.fields.getTextInputValue('typeInput');
+                const task = submittedInteraction.fields.getTextInputValue('taskInput');
+                const due = submittedInteraction.fields.getTextInputValue('dueInput');
+                console.log(`[${timestamp}] schedule.add: モーダル入力値: Type="${type}", Task="${task}", Due="${due}"`);
+
+                const sheets = await getSheetsClient();
+                console.log(`[${timestamp}] schedule.add: スプレッドシートにデータを追記中... Range: ${APPEND_RANGE}`);
+                await sheets.spreadsheets.values.append({
+                    spreadsheetId: SPREADSHEET_ID,
+                    range: APPEND_RANGE,
+                    valueInputOption: 'USER_ENTERED',
+                    resource: { values: [[type, task, due]] },
+                });
+                console.log(`[${timestamp}] schedule.add: データ追記成功。`);
+
+                await submittedInteraction.editReply({ content: '✅ 予定をスプレッドシートに追加しました！' });
+                console.log(`[${timestamp}] schedule.add: 成功メッセージを送信しました。Submitted Interaction ID: ${submittedInteraction.id}`);
+
+            } catch (error) {
+                const errorTimestamp = new Date().toISOString();
+                if (error.name === 'InteractionCollectorError' || (error.code && error.code === 'InteractionCollectorError')) {
+                    console.warn(`[${errorTimestamp}] [警告] schedule.add: モーダル入力がタイムアウトしました。User: ${interaction.user.tag}, Original Interaction ID: ${interaction.id}`);
+                    // タイムアウトの場合、submittedInteractionは未定義。ユーザーへの通知はしないか、元のインタラクションにfollowUp(ただし期限切れの可能性)
+                } else {
+                    console.error(`[${errorTimestamp}] [エラー] schedule.add: モーダル送信処理またはGoogle Sheets API (append) でエラーが発生しました:`, error);
+                    if (submittedInteraction && (submittedInteraction.replied || submittedInteraction.deferred)) {
+                        await submittedInteraction.editReply({ content: '❌ 予定の追加中にエラーが発生しました。入力内容やAPI設定、権限を確認してください。' }).catch(e => console.error(`[${errorTimestamp}] [エラー] addアクションのエラー応答(editReply)に失敗:`, e));
+                    } else if (submittedInteraction && submittedInteraction.isRepliable()) {
+                         await submittedInteraction.reply({ content: '❌ 予定の追加中にエラーが発生しました。', flags: InteractionResponseFlags.EPHEMERAL }).catch(e => console.error(`[${errorTimestamp}] [エラー] addアクションのエラー応答(reply)に失敗:`, e));
+                    } else {
+                        // submittedInteraction がない、または応答できない場合
+                        console.log(`[${errorTimestamp}] schedule.add: submittedInteractionが未定義または応答不能。元のインタラクション(${interaction.id})にフォールバックを試みます (既にタイムアウトしている可能性あり)。`);
+                        if (interaction.isRepliable() && !(interaction.replied || interaction.deferred)) { // showModalは最初の応答なので、ここは通常通らないはず
+                             interaction.reply({content: '❌ 予定の追加処理で問題が発生しました (詳細不明)。', flags: InteractionResponseFlags.EPHEMERAL }).catch(e => console.error(`[${errorTimestamp}] [エラー] 元のinteractionへのフォールバックreply失敗:`, e));
+                        } else if (interaction.isRepliable()){
+                             interaction.followUp({content: '❌ 予定の追加処理で問題が発生しました (詳細不明)。', flags: InteractionResponseFlags.EPHEMERAL }).catch(e => console.error(`[${errorTimestamp}] [エラー] 元のinteractionへのフォールバックfollowUp失敗:`, e));
+                        }
+                    }
+                }
+            }
         }
-
-
-        await interaction.editReply({ embeds: [embed] });
-      } catch (error) {
-        console.error('Error in list action:', error);
-        // interaction.editReply は deferReply 後なので、失敗時も editReply を試みる
-        await interaction.editReply({ content: '❌ データの処理中にエラーが発生しました。設定や権限を確認してください。' }).catch(e => console.error("EditReply after error failed:", e));
-      }
-    } else if (action === 'add') {
-      // モーダル定義
-      const modal = new ModalBuilder()
-        .setCustomId('scheduleAddModal')
-        .setTitle('新しい予定を追加');
-      const typeInput = new TextInputBuilder() /* ... */ .setCustomId('typeInput').setLabel("種別").setStyle(TextInputStyle.Short).setRequired(true);
-      const taskInput = new TextInputBuilder() /* ... */ .setCustomId('taskInput').setLabel("内容").setStyle(TextInputStyle.Paragraph).setRequired(true);
-      const dueInput = new TextInputBuilder() /* ... */ .setCustomId('dueInput').setLabel("期限 (YYYY-MM-DD)").setStyle(TextInputStyle.Short).setRequired(true);
-      const firstActionRow = new ActionRowBuilder().addComponents(typeInput);
-      const secondActionRow = new ActionRowBuilder().addComponents(taskInput);
-      const thirdActionRow = new ActionRowBuilder().addComponents(dueInput);
-      modal.addComponents(firstActionRow, secondActionRow, thirdActionRow);
-
-      try {
-        await interaction.showModal(modal); // モーダル表示を試みる (これは3秒以内に行われるべき)
-      } catch (modalError) {
-        console.error('Failed to show modal:', modalError);
-        // showModalが失敗した場合、ユーザーへのフィードバックは難しいことが多い
-        // index.js側のグローバルエラーハンドラに処理が移るか、ここでログのみで終了
-        return;
-      }
-
-      let submittedInteraction;
-      try {
-        const filter = (i) => i.customId === 'scheduleAddModal' && i.user.id === interaction.user.id;
-        submittedInteraction = await interaction.awaitModalSubmit({ filter, time: 300_000 }); // 5分間のタイムアウト
-
-        // モーダルが送信されたので、ここで acknowledge (deferReply)
-        await submittedInteraction.deferReply({ flags: InteractionResponseFlags.EPHEMERAL });
-
-        const type = submittedInteraction.fields.getTextInputValue('typeInput');
-        const task = submittedInteraction.fields.getTextInputValue('taskInput');
-        const due = submittedInteraction.fields.getTextInputValue('dueInput');
-
-        const sheets = await getSheetsClient(); // APIコール直前にクライアント取得
-        await sheets.spreadsheets.values.append({
-          spreadsheetId: sheetId,
-          range: appendRange,
-          valueInputOption: 'USER_ENTERED',
-          resource: { values: [[type, task, due]] },
-        });
-
-        await submittedInteraction.editReply({ content: '✅ 予定をスプレッドシートに追加しました！' });
-
-      } catch (error) {
-        // error.code === 'InteractionCollectorError' は awaitModalSubmit のタイムアウト
-        if (error.name === 'InteractionCollectorError' || (error.code && error.code === 'InteractionCollectorError')) { // discord.js のバージョンによってエラーオブジェクトの形式が若干異なる可能性
-          console.log(`Modal (scheduleAddModal) for user ${interaction.user.tag} timed out.`);
-          // タイムアウトの場合、submittedInteraction は未定義。ユーザーへの通知はしないか、元のインタラクションに followUp (ただし期限切れの可能性)
-          // この時点では submittedInteraction.editReply は呼べない。
-          // 元の interaction (スラッシュコマンドの) に followUp する手もあるが、これも3秒ルールや15分ルールに注意
-        } else {
-          console.error('Modal submission or Google Sheets API (append) error:', error);
-          if (submittedInteraction && (submittedInteraction.replied || submittedInteraction.deferred)) {
-             await submittedInteraction.editReply({ content: '❌ 予定の追加中にエラーが発生しました。入力内容やAPI設定、権限を確認してください。' }).catch(e => console.error("EditReply after error failed:", e));
-          } else if (submittedInteraction && submittedInteraction.isRepliable()){ // 万が一 defer に失敗等していたら
-             await submittedInteraction.reply({ content: '❌ 予定の追加中にエラーが発生しました。', flags: InteractionResponseFlags.EPHEMERAL }).catch(e => console.error("Reply after error failed:", e));
-          }
-          // submittedInteraction がない場合 (例: deferReply 前のエラー) は、元の interaction にフォールバックも検討できるが、状況による
-        }
-      }
-    }
-  },
+        console.log(`[${timestamp}] schedule.execute: 終了。User: ${interaction.user.tag}, Interaction ID: ${interaction.id}`);
+    },
 };
