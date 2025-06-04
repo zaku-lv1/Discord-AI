@@ -58,41 +58,40 @@ client.on('interactionCreate', async (interaction) => {
     }
   } else if (interaction.isModalSubmit()) {
     // モーダル送信イベント処理
-    if (interaction.customId === 'scheduleAddModal') {
-      const { google } = require('googleapis');
+if (interaction.customId === 'scheduleAddModal') {
+  const { google } = require('googleapis');
 
-      // ここでAPIキーをauthに指定（これが重要）
-      const sheets = google.sheets({
-        version: 'v4',
-        auth: process.env.SHEET_API_KEY,
-      });
+  const sheets = google.sheets({
+    version: 'v4',
+    auth: process.env.SHEET_API_KEY,
+  });
 
-      const type = interaction.getTextInputValue('typeInput');
-      const task = interaction.getTextInputValue('taskInput');
-      const due = interaction.getTextInputValue('dueInput');
+  // 入力値の取得（修正点）
+  const type = interaction.textInputValues['typeInput'];
+  const task = interaction.textInputValues['taskInput'];
+  const due = interaction.textInputValues['dueInput'];
 
-      // 日付形式チェック（YYYY-MM-DD）
-      if (!/^\d{4}-\d{2}-\d{2}$/.test(due)) {
-        await interaction.reply({ content: '❌ 期限は YYYY-MM-DD 形式で入力してください。', ephemeral: true });
-        return;
-      }
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(due)) {
+    await interaction.reply({ content: '❌ 期限は YYYY-MM-DD 形式で入力してください。', ephemeral: true });
+    return;
+  }
 
-      try {
-        await sheets.spreadsheets.values.append({
-          spreadsheetId: '16Mf4f4lIyqvzxjx5Nj8zgvXXRyIZjGFtfQlNmjjzKig',
-          range: 'シート1!A2:C',
-          valueInputOption: 'USER_ENTERED',
-          requestBody: {
-            values: [[type, task, due]],
-          },
-        });
+  try {
+    await sheets.spreadsheets.values.append({
+      spreadsheetId: '16Mf4f4lIyqvzxjx5Nj8zgvXXRyIZjGFtfQlNmjjzKig',
+      range: 'シート1!A2:C',
+      valueInputOption: 'USER_ENTERED',
+      requestBody: {
+        values: [[type, task, due]],
+      },
+    });
 
-        await interaction.reply({ content: `✅ 予定を追加しました:\n📌 **${type}**: ${task}（締切: ${due}）`, ephemeral: true });
-      } catch (error) {
-        console.error(error);
-        await interaction.reply({ content: '❌ 予定の追加中にエラーが発生しました。', ephemeral: true });
-      }
-    }
+    await interaction.reply({ content: `✅ 予定を追加しました:\n📌 **${type}**: ${task}（締切: ${due}）`, ephemeral: true });
+  } catch (error) {
+    console.error(error);
+    await interaction.reply({ content: '❌ 予定の追加中にエラーが発生しました。', ephemeral: true });
+  }
+}
   }
 });
 
