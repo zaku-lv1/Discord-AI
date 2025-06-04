@@ -1,18 +1,20 @@
+// discord.js v14 のインポート
 const fs = require('fs');
-const { Client, Intents, WebhookClient } = require('discord.js');
+const { Client, GatewayIntentBits, Collection, Events, WebhookClient } = require('discord.js'); // ★★★ ここを修正！ Intents → GatewayIntentBits, Collection, Events を追加 ★★★
 const dotenv = require('dotenv');
 
 dotenv.config();
 
+// ↓↓↓ この client の設定部分は、GatewayIntentBits.MessageContent も入っていて完璧だよ！ ↓↓↓
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
     GatewayIntentBits.GuildMessages,
     GatewayIntentBits.DirectMessages,
-    GatewayIntentBits.MessageContent // ★★★ これを絶対に追加してね！ ★★★
-                                     // 前回の「メッセージ内容が空になる問題」を解決するために必要だよ！
+    GatewayIntentBits.MessageContent
   ]
 });
+
 
 const commands = {};
 const commandFiles = fs.readdirSync('./commands').filter((file) => file.endsWith('.js'));
