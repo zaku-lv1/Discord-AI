@@ -42,41 +42,65 @@ async function getTamaResponse(userMessage, history = []) {
     const modelName = tryModels[i];
     try {
       const model = genAI.getGenerativeModel({ model: modelName });
-      const validHistory = history.map(msg => ({
+      // startChatに渡す履歴は、システムプロンプトを含まない純粋な会話履歴とする
+      const chatHistoryForModel = history.map(msg => ({
         role: msg.role,
-        parts: [{ text: msg.content }] 
+        parts: [{ text: msg.content }]
       }));
-      const chat = model.startChat({ history: validHistory });
-      if (history.length === 0 && systemPrompt) {
+
+      const chat = model.startChat({ history: chatHistoryForModel });
+      let currentHistory = [...history]; // getTamaResponse内で完結する一時的な履歴コピー
+
+      // 履歴が空の場合、またはシステムプロンプトがまだ送信されていない場合にシステムプロンプトを送信
+      // 注意: この判定は getTamaResponse が呼ばれるたびに行われるため、
+      // 実際のシステムプロンプト送信はセッションの最初だけにしたい。
+      // conversationHistory の管理方法と併せて検討が必要。
+      // 今回の修正では、呼び出し側で conversationHistory をクリアするので、
+      // 新しいセッションの最初の呼び出しでは history が空になる。
+      if (currentHistory.length === 0 && systemPrompt) {
+        console.log(`[${modelName}] Sending system prompt for new session.`);
+        // システムプロンプト自体はユーザーメッセージではないので、APIに直接送信する
+        // その応答は通常表示しないが、ここでは会話履歴の文脈として追加する
+        // Gemini APIのstartChatでは、historyにsystem instructionを渡すのが一般的だが、
+        // ここでは会話の最初のやり取りとしてsystemPromptをuserロールで送信し、
+        // それに対するAIの最初の応答をmodelロールで記録する形を取っている。
+        // もしsystem instructionとして扱いたいなら、getGenerativeModelの第二引数で指定する。
         try {
-          const sysResult = await chat.sendMessage(systemPrompt);
-          const sysResponse = await sysResult.response.text();
-          history.push({ role: 'user', content: systemPrompt });
-          history.push({ role: 'model', content: sysResponse });
+          // ユーザーがシステムプロンプトを入力したという体で履歴に追加
+          currentHistory.push({ role: 'user', content: systemPrompt });
+          // モデルにシステムプロンプトを送信し、応答を得る（この応答は通常ユーザーには見せない）
+          const sysResult = await chat.sendMessage(systemPrompt); // systemPromptを初手として送信
+          const sysResponseText = await sysResult.response.text();
+          currentHistory.push({ role: 'model', content: sysResponseText }); // AIの初期応答を履歴に追加
+          console.log(`[${modelName}] System prompt processed. Initial model response: ${sysResponseText.substring(0, 50)}...`);
         } catch (systemError) {
-          console.warn(`[${modelName}] systemPrompt送信で失敗: ${systemError.message}`);
+          console.warn(`[${modelName}] systemPrompt processing failed: ${systemError.message}`);
           lastError = systemError;
-          continue;
+          continue; // 次のモデルへ
         }
       }
+
+      // 実際のユーザーメッセージを送信
       const result = await chat.sendMessage(userMessage);
       const responseText = await result.response.text();
+
       if (i > 0 && !fallbackNoticeShown) {
-        console.warn(`[INFO] モデル '${tryModels[0]}' が失敗したため、'${modelName}' にフォールバックしました。`);
+        console.warn(`[INFO] Model '${tryModels[0]}' failed, fallback to '${modelName}'.`);
         fallbackNoticeShown = true;
       }
-      return responseText; 
+      return { response: responseText, updatedHistory: currentHistory }; // 更新された履歴も返す
     } catch (error) {
-      console.warn(`[${modelName}] での応答生成に失敗: ${error.message}`, error.stack);
-      lastError = error; 
+      console.warn(`[${modelName}] Response generation failed: ${error.message}`, error.stack);
+      lastError = error;
       if (error.message.includes('429') || error.message.includes('Quota') || error.message.includes('API key not valid')) {
-         console.error(`[${modelName}] APIクォータ超過、キー無効、またはその他の回復不能なエラーの可能性。次のモデルを試します (もしあれば)。: ${error.message}`);
+         console.error(`[${modelName}] API quota exceeded, key invalid, or other non-recoverable error. Trying next model (if any).: ${error.message}`);
       }
-      continue;
+      // continue; // ループの最後なので不要
     }
   }
-  console.error("全てのAIモデルでの応答生成に失敗しました。", lastError ? lastError.message : "不明なエラー");
-  return defaultOopsMessage;
+  console.error("All AI models failed to generate a response.", lastError ? lastError.message : "Unknown error");
+  // エラー時も、ここまでの履歴は返せるかもしれないが、今回はデフォルトメッセージのみ
+  return { response: defaultOopsMessage, updatedHistory: history }; // 元の履歴をそのまま返す
 }
 
 
@@ -92,10 +116,10 @@ module.exports = {
         return;
     }
 
-    const userId = '1155356934292127844'; // このIDのユーザーの表示名を使用
+    const userId = '1155356934292127844'; 
     const channel = interaction.channel;
     
-    let baseUser; // グローバルなUserオブジェクト
+    let baseUser;
     try {
         baseUser = await interaction.client.users.fetch(userId);
     } catch (error) {
@@ -104,7 +128,6 @@ module.exports = {
         return;
     }
     
-    // Webhook名に User オブジェクトの displayName (グローバル名またはユーザー名) を使用
     const webhookCharacterName = baseUser.displayName; 
     
     let webhooks;
@@ -116,7 +139,6 @@ module.exports = {
         return;
     }
     
-    // Webhook検索時も webhookCharacterName を使用し、かつボットがオーナーであるかを確認
     const existingWebhook = webhooks.find((wh) => wh.name === webhookCharacterName && wh.owner?.id === interaction.client.user.id);
     const collectorKey = `${channel.id}_toka_${webhookCharacterName.replace(/\s+/g, '_')}`;
 
@@ -125,7 +147,10 @@ module.exports = {
         await existingWebhook.delete(`Toka command: cleanup for ${webhookCharacterName}`);
         if (interaction.client.activeCollectors && interaction.client.activeCollectors.has(collectorKey)) {
             interaction.client.activeCollectors.get(collectorKey).stop('Toka dismissed by command.');
+            // activeCollectors から削除するのは collector.on('end') で行うのでここでは不要
         }
+        // conversationHistory.delete(channel.id); // ★ 退出時に履歴を削除する場合
+        // console.log(`[INFO] Cleared conversation history for channel ${channel.id} on Toka dismissal.`);
         const embed = new EmbedBuilder().setColor(0xFF0000).setDescription(`${webhookCharacterName} を退出させました。`);
         await interaction.editReply({ embeds: [embed] }); 
       } catch (error) {
@@ -136,11 +161,15 @@ module.exports = {
     }
 
     // --- 召喚処理 ---
+    // ★ 新しいTokaを召喚する前に、このチャンネルの古い会話履歴をクリア
+    conversationHistory.delete(channel.id);
+    console.log(`[INFO] Cleared conversation history for channel ${channel.id} for new Toka session.`);
+
     let newCreatedWebhook;
     try {
         newCreatedWebhook = await channel.createWebhook({
-            name: webhookCharacterName, // グローバルな表示名をWebhook名として使用
-            avatar: baseUser.displayAvatarURL(), // アバターはグローバルユーザーのものを使用
+            name: webhookCharacterName, 
+            avatar: baseUser.displayAvatarURL(), 
             reason: `Toka AI character webhook (${webhookCharacterName})`
         });
     } catch (error) {
@@ -150,8 +179,9 @@ module.exports = {
     }
     
     if (interaction.client.activeCollectors && interaction.client.activeCollectors.has(collectorKey)) {
-        interaction.client.activeCollectors.get(collectorKey).stop('New Toka instance summoned.');
-    } else if (!interaction.client.activeCollectors) {
+        interaction.client.activeCollectors.get(collectorKey).stop('New Toka instance summoned, stopping old collector.');
+    }
+    if (!interaction.client.activeCollectors) { // activeCollectorsが未定義の場合の初期化
         interaction.client.activeCollectors = new Map(); 
     }
 
@@ -165,9 +195,9 @@ module.exports = {
         return;
       }
       
-      const channelId = message.channel.id;
-      if (!conversationHistory.has(channelId)) {
-        conversationHistory.set(channelId, []);
+      const currentChannelId = message.channel.id; // collectorが複数のチャンネルで動く可能性はないが、明示的に
+      if (!conversationHistory.has(currentChannelId)) {
+        conversationHistory.set(currentChannelId, []);
       }
 
       let content = message.content;
@@ -183,17 +213,27 @@ module.exports = {
         }
       }
 
-      const history = conversationHistory.get(channelId);
-      const responseText = await getTamaResponse(content, history);
+      const historyForAI = conversationHistory.get(currentChannelId);
       
-      history.push({ role: 'user', content: content }); 
-      history.push({ role: 'model', content: responseText });
-      if (history.length > 20) history.splice(0, history.length - 20);
+      // ユーザーメッセージを履歴に追加する前にAIに渡す
+      const { response: responseText, updatedHistory: processedHistory } = await getTamaResponse(content, historyForAI);
+      
+      // AIからの応答を得た後、ユーザーメッセージとAIの応答を会話履歴に正式に追加
+      const newHistory = [...(processedHistory || historyForAI)]; // getTamaResponseが履歴を返さなかった場合のフォールバック
+      newHistory.push({ role: 'user', content: content }); 
+      newHistory.push({ role: 'model', content: responseText });
+      
+      // 履歴の長さを制限
+      while (newHistory.length > 20) { // システムプロンプト分も考慮すると22だが、シンプルに20とする
+        newHistory.shift(); // 古いものから削除
+      }
+      conversationHistory.set(currentChannelId, newHistory);
 
       try {
         await newCreatedWebhook.send(responseText);
       } catch (webhookSendError){
         console.error(`Webhook (${webhookCharacterName}) からメッセージ送信時にエラー:`, webhookSendError);
+        // ここで collector.stop() を呼ぶか、あるいはWebhook再作成を試みるかなどのエラー処理も考えられる
       }
     });
     
@@ -202,6 +242,11 @@ module.exports = {
         if (interaction.client.activeCollectors) {
             interaction.client.activeCollectors.delete(collectorKey);
         }
+        // 退出時にWebhookを自動削除する場合はここにロジックを追加できるが、
+        // 現在はコマンドによる明示的な削除のみ
+        // if (newCreatedWebhook && reason !== 'Toka dismissed by command' && reason !== 'New Toka instance summoned, stopping old collector.') {
+        //   newCreatedWebhook.delete('Collector stopped unexpectedly.').catch(err => console.error('Error deleting webhook on collector end:', err));
+        // }
     });
 
     const embed = new EmbedBuilder().setColor(0x00FF00).setDescription(`${webhookCharacterName} を召喚しました。`);
