@@ -1,223 +1,189 @@
 // discord.js から必要なビルダーとスタイルをインポート
-const { SlashCommandBuilder, ModalBuilder, TextInputBuilder, ActionRowBuilder, TextInputStyle, EmbedBuilder, MessageFlags } = require('discord.js');
+const { SlashCommandBuilder, EmbedBuilder, MessageFlags } = require('discord.js'); // ButtonBuilder, ButtonStyle は不要に
 const { google } = require('googleapis');
-const { JWT } = require('google-auth-library'); // JWTクライアントをインポート
+const { JWT } = require('google-auth-library');
+const { GoogleGenerativeAI } = require('@google/generative-ai');
 require('dotenv').config();
 
-// スプレッドシートIDと範囲
-// 環境変数 GOOGLE_SHEET_ID が設定されていればそれを使用し、なければデフォルト値を使用
+// スプレッドシートIDと範囲 (変更なし)
 const sheetId = process.env.GOOGLE_SHEET_ID || '16Mf4f4lIyqvzxjx5Nj8zgvXXRyIZjGFtfQlNmjjzKig';
-const listRange = 'シート1!A2:C'; // 一覧表示用の範囲
-const appendRange = 'シート1!A:A'; // 追記操作の開始セル
+const listRange = 'シート1!A2:C';
+const appendRange = 'シート1!A:A';
+
+// Google Sheets API クライアントを取得するヘルパー関数 (変更なし)
+async function getSheetsClient() {
+  if (!process.env.GOOGLE_SERVICE_ACCOUNT_CREDENTIALS_JSON) {
+    throw new Error('GOOGLE_SERVICE_ACCOUNT_CREDENTIALS_JSON environmental variable is not set.');
+  }
+  const serviceAccountCreds = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_CREDENTIALS_JSON);
+  const jwtClient = new JWT({
+    email: serviceAccountCreds.client_email,
+    key: serviceAccountCreds.private_key,
+    scopes: ['https://www.googleapis.com/auth/spreadsheets'],
+  });
+  return google.sheets({ version: 'v4', auth: jwtClient });
+}
+
+// Gemini API クライアントの初期化 (変更なし)
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+
+/**
+ * ユーザー入力から予定情報を抽出するAI関数 (変更なし)
+ * @param {string} userInput ユーザーが入力した予定に関するテキスト
+ * @returns {Promise<object|null>} 抽出された予定情報 {type, task, due}、またはエラー時は null
+ */
+async function extractScheduleInfoWithAI(userInput) {
+  const tryModels = ['gemini-1.5-flash', 'gemini-1.5-pro'];
+  let lastError = null;
+
+  const prompt = `
+以下のユーザー入力を分析し、予定の「種別」「内容」「期限」を抽出してください。
+結果は必ず以下のJSON形式の文字列で出力してください。他の説明や前置きは一切不要です。
+
+{
+  "type": "抽出した種別 (例: 宿題, 小テスト, 提出物, イベント 等。不明な場合は「未分類」)",
+  "task": "抽出した具体的な内容",
+  "due": "抽出した期限 (可能な限りYYYY-MM-DD形式、またはMM/DD形式、または具体的な日付表現。不明な場合は「不明」)"
+}
+
+ユーザー入力: "${userInput}"
+`;
+
+  for (const modelName of tryModels) {
+    try {
+      const model = genAI.getGenerativeModel({ model: modelName });
+      const result = await model.generateContent(prompt);
+      const response = await result.response;
+      const jsonResponse = response.text().trim();
+
+      if (jsonResponse.startsWith('{') && jsonResponse.endsWith('}')) {
+        return JSON.parse(jsonResponse);
+      } else {
+        console.warn(`[${modelName} - ScheduleAI] AIがJSON形式でない応答を返しました: ${jsonResponse}`);
+        lastError = new Error(`AI response was not valid JSON: ${jsonResponse}`);
+        continue;
+      }
+    } catch (error) {
+      console.warn(`[${modelName} - ScheduleAI] での情報抽出に失敗: ${error.message}`);
+      lastError = error;
+      if (error.message.includes('429') || error.message.includes('Quota') || error.message.includes('API key not valid')) {
+        console.error(`[${modelName} - ScheduleAI] APIエラー。処理を中断します。: ${error.message}`);
+        break;
+      }
+    }
+  }
+  console.error("全てのAIモデルでの情報抽出に失敗しました (ScheduleAI)。", lastError ? lastError.message : "不明なエラー");
+  return null;
+}
 
 module.exports = {
   data: new SlashCommandBuilder()
     .setName('schedule')
-    .setDescription('宿題や小テストの予定を確認・追加します')
-    .addStringOption(option =>
-      option
-        .setName('action')
-        .setDescription('操作を選択してください')
-        .setRequired(true)
-        .addChoices(
-          { name: '一覧表示', value: 'list' },
-          { name: '予定を追加', value: 'add' },
-        )
-    ),
+    .setDescription('宿題や小テストの予定を管理します')
+    .addSubcommand(subcommand =>
+      subcommand
+        .setName('list')
+        .setDescription('登録されている予定の一覧を表示します'))
+    .addSubcommand(subcommand =>
+      subcommand
+        .setName('add')
+        .setDescription('AIを使って新しい予定を文章で追加します')
+        .addStringOption(option =>
+          option.setName('text')
+            .setDescription('予定の内容を文章で入力 (例: 明日の数学の宿題 P10-15 提出は土曜日)')
+            .setRequired(true))),
 
   async execute(interaction) {
-    const action = interaction.options.getString('action');
-
-    // listアクションの場合、先にdeferReplyで応答を遅延させます。
-    // これにより、APIからのデータ取得に時間がかかってもDiscord側でタイムアウトエラーになりにくくなります。
-    // ここでは一覧表示をチャンネルの全員に見える通常のメッセージとして defer します。
-    // エラー時のみ ephemeral (送信者のみに見える) メッセージにします。
-    if (action === 'list') {
-      try {
-        await interaction.deferReply(); // 通常のdefer (ephemeralではない)
-      } catch (deferError) {
-        console.error('Failed to defer reply for list action:', deferError);
-        return; // deferに失敗したら処理を中断
-      }
-    }
-    // 'add' アクションの場合はモーダルを表示するため、ここでは deferReply しません。
-
     if (!interaction.inGuild()) {
-      const content = 'このコマンドはサーバー内でのみ使用できます。';
-      // interaction.deferred は list アクションで deferReply が成功した場合 true
-      if (interaction.deferred) { // list アクションで defer 済み
-        await interaction.editReply({ content, flags: MessageFlags.Ephemeral }); // エラーなのでephemeral
-      } else if (!interaction.replied) { // add アクションなど、まだ応答していない場合
-        await interaction.reply({ content, flags: MessageFlags.Ephemeral });
-      }
+      await interaction.reply({ content: 'このコマンドはサーバー内でのみ使用できます。', ephemeral: true });
       return;
     }
 
-    let sheets;
-    try {
-      if (!process.env.GOOGLE_SERVICE_ACCOUNT_CREDENTIALS_JSON) {
-        throw new Error('GOOGLE_SERVICE_ACCOUNT_CREDENTIALS_JSON environmental variable is not set.');
-      }
-      const serviceAccountCreds = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_CREDENTIALS_JSON);
+    const subcommand = interaction.options.getSubcommand();
+    let sheets; // sheetsクライアントは必要な場合のみ初期化
 
-      const jwtClient = new JWT({
-        email: serviceAccountCreds.client_email,
-        key: serviceAccountCreds.private_key,
-        scopes: ['https://www.googleapis.com/auth/spreadsheets'],
-      });
-      sheets = google.sheets({ version: 'v4', auth: jwtClient });
-    } catch (authError) {
-      console.error('Google API Authentication Error:', authError);
-      const authErrorMessage = '❌ Google APIへの認証に失敗しました。設定を確認してください。';
-      if (interaction.deferred) { // list アクションで defer 済み
-        await interaction.editReply({ content: authErrorMessage, flags: MessageFlags.Ephemeral });
-      } else if (!interaction.replied) { // add アクションなど
-        await interaction.reply({ content: authErrorMessage, flags: MessageFlags.Ephemeral });
-      } else {
-        // 既に何らかの応答がされている場合 (モーダル表示後など)
-        await interaction.followUp({ content: authErrorMessage, flags: MessageFlags.Ephemeral }).catch(e => console.error("FollowUp Error in auth fail:", e));
-      }
-      return;
-    }
-
-    if (action === 'list') {
+    if (subcommand === 'list') {
       try {
+        sheets = await getSheetsClient();
+      } catch (authError) {
+        console.error('Google API Authentication Error (List Subcommand):', authError);
+        await interaction.reply({ content: '❌ Google APIへの認証に失敗しました。設定を確認してください。', ephemeral: true });
+        return;
+      }
+
+      try {
+        await interaction.deferReply(); // 通常の応答 (ephemeral ではない)
         const response = await sheets.spreadsheets.values.get({
           spreadsheetId: sheetId,
           range: listRange,
         });
-
         const rows = response.data.values;
 
         if (rows && rows.length) {
           const embed = new EmbedBuilder()
             .setTitle('📅 予定一覧')
-            .setColor(0x0099FF) // 好みの色に変更してください
+            .setColor(0x0099FF)
             .setDescription('現在登録されている予定は以下の通りです。')
             .setTimestamp();
-
           rows.forEach((row, index) => {
-            // 各行が [種別, 内容, 期限] の形式であると仮定
-            const type = row[0] || 'N/A';    // 種別 (A列)
-            const task = row[1] || 'N/A';    // 内容 (B列)
-            const dueDate = row[2] || 'N/A'; // 期限 (C列)
+            const type = row[0] || 'N/A';
+            const task = row[1] || 'N/A';
+            const dueDate = row[2] || 'N/A';
             embed.addFields({
-              name: `📝 ${type} (No.${index + 1})`, // 各項目に番号を振る
+              name: `📝 ${type} (No.${index + 1})`,
               value: `**内容:** ${task}\n**期限:** ${dueDate}`,
-              inline: false // 各項目を縦に並べる
+              inline: false
             });
           });
-          // deferReply済みなのでeditReply。一覧表示は通常のメッセージとして表示
           await interaction.editReply({ embeds: [embed] });
         } else {
-          // データがない場合も通常のメッセージとして表示（エラーではないため）
           await interaction.editReply({ content: 'ℹ️ スプレッドシートに予定が見つかりませんでした。' });
         }
       } catch (error) {
-        console.error('Google Sheets API (get) error:', error);
-        let errorMessage = '❌ データの取得中にエラーが発生しました。API設定やスプレッドシートの共有設定、範囲を確認してください。';
-        // Google APIからの詳細なエラーメッセージがあれば追加することも可能
-        if (error.response && error.response.data && error.response.data.error) {
-            const googleError = error.response.data.error;
-            if (googleError.message) errorMessage += `\n詳細: ${googleError.message}`;
+        console.error('Error handling "list" subcommand or Google Sheets API (get):', error);
+        let errorMessage = '❌ データの取得中にエラーが発生しました。';
+        if (error.response && error.response.data && error.response.data.error && error.response.data.error.message) {
+            errorMessage += `\n詳細: ${error.response.data.error.message}`;
         }
-        // エラーなのでephemeralメッセージで表示
-        await interaction.editReply({ content: errorMessage, flags: MessageFlags.Ephemeral });
-      }
-    } else if (action === 'add') {
-      const modal = new ModalBuilder()
-        .setCustomId('scheduleAddModal')
-        .setTitle('新しい予定を追加');
-
-      const typeInput = new TextInputBuilder()
-        .setCustomId('typeInput')
-        .setLabel('予定の種別 (例: 宿題, 小テスト)')
-        .setStyle(TextInputStyle.Short)
-        .setPlaceholder('宿題')
-        .setRequired(true);
-
-      const taskInput = new TextInputBuilder()
-        .setCustomId('taskInput')
-        .setLabel('予定の内容 (例: 数学P.10-15)')
-        .setStyle(TextInputStyle.Paragraph)
-        .setPlaceholder('数学P.10-15')
-        .setRequired(true);
-
-      const dueInput = new TextInputBuilder()
-        .setCustomId('dueInput')
-        .setLabel('期限 (例: 2025-06-05)')
-        .setStyle(TextInputStyle.Short)
-        .setPlaceholder('YYYY-MM-DD または MM/DD')
-        .setMinLength(4) // MM/DDを許容
-        .setMaxLength(10) // YYYY-MM-DD
-        .setRequired(true);
-
-      // 各 TextInput を ActionRow に追加
-      const firstActionRow = new ActionRowBuilder().addComponents(typeInput);
-      const secondActionRow = new ActionRowBuilder().addComponents(taskInput);
-      const thirdActionRow = new ActionRowBuilder().addComponents(dueInput);
-
-      modal.addComponents(firstActionRow, secondActionRow, thirdActionRow);
-
-      try {
-        await interaction.showModal(modal);
-      } catch (showModalError) {
-          console.error("Error showing modal:", showModalError);
-          // showModalが失敗した場合、通常は元のinteractionにreplyもできない状態になっている可能性が高い
-          // (例: Interaction Tokenの期限切れなど)
-          // 必要であればログに詳細を記録する
-          return;
-      }
-
-      let submitted;
-      try {
-        // awaitModalSubmit は元の interaction オブジェクトから呼び出す
-        submitted = await interaction.awaitModalSubmit({
-            filter: (i) => i.customId === 'scheduleAddModal' && i.user.id === interaction.user.id,
-            time: 300_000 // 5分間 (300,000ミリ秒)
-        });
-
-        const type = submitted.fields.getTextInputValue('typeInput');
-        const task = submitted.fields.getTextInputValue('taskInput');
-        const due = submitted.fields.getTextInputValue('dueInput');
-
-        await sheets.spreadsheets.values.append({
-          spreadsheetId: sheetId,
-          range: appendRange, // A列から追記
-          valueInputOption: 'USER_ENTERED',
-          resource: {
-            values: [[type, task, due]], // 3つの値を配列で渡す
-          },
-        });
-
-        // モーダル送信成功のメッセージ (ephemeral)
-        await submitted.reply({ content: '✅ 予定をスプレッドシートに追加しました！', flags: MessageFlags.Ephemeral });
-
-      } catch (error) {
-        // submitted.reply が呼ばれる前のエラー (awaitModalSubmit のタイムアウトなど)
-        // または submitted.reply が失敗した後のエラー
-        if (error.code === 'InteractionCollectorError' || (error.message && error.message.toLowerCase().includes('time'))) {
-          console.log(`Modal (scheduleAddModal) for user ${interaction.user.tag} timed out or was cancelled.`);
-          // タイムアウトした場合、ユーザーに通知するなら元の interaction 経由で followUp を試みる
-          // (モーダル自体は応答を返さないため、元のインタラクションはまだfollowUp可能)
-          if (interaction.channel) { // submitted.replied のチェックはここでは不要な場合が多い
-             await interaction.followUp({ content: '⏰ モーダルの入力がタイムアウトしました。再度コマンドを実行してください。', flags: MessageFlags.Ephemeral }).catch(e => console.error("Timeout FollowUp Error:", e));
-          }
+        if (interaction.deferred || interaction.replied) {
+            await interaction.editReply({ content: errorMessage, flags: MessageFlags.Ephemeral });
         } else {
-          console.error('Modal submission or Google Sheets API (append) error:', error);
-          const appendErrorMessage = '❌ 予定の追加中にエラーが発生しました。入力内容やAPI設定、スプレッドシートの共有設定を確認してください。';
-          // submitted.reply が失敗した場合、またはそれ以前のSheets APIエラーの場合
-          if (submitted && submitted.isRepliable()) { // submittedが存在し、まだ応答可能な場合
-            await submitted.reply({ content: appendErrorMessage, flags: MessageFlags.Ephemeral }).catch(async e => { // submitted.replyも失敗した場合
-                console.error("Error replying to submitted modal:", e);
-                if (interaction.channel) { // 元のinteractionでfollowUpを試みる
-                    await interaction.followUp({ content: appendErrorMessage, flags: MessageFlags.Ephemeral }).catch(fe => console.error("FollowUp Error after submitted.reply failure:", fe));
-                }
-            });
-          } else if (interaction.channel) { // submittedがない、または応答不可の場合
-            await interaction.followUp({ content: appendErrorMessage, flags: MessageFlags.Ephemeral }).catch(e => console.error("FollowUp Error in modal processing:", e));
-          }
+            await interaction.reply({ content: errorMessage, flags: MessageFlags.Ephemeral });
         }
+      }
+    } else if (subcommand === 'add') {
+      const userInput = interaction.options.getString('text');
+      await interaction.deferReply({ ephemeral: true }); // AI処理とシート書き込みがあるので、まずは送信者のみに応答を遅延
+
+      const scheduleData = await extractScheduleInfoWithAI(userInput);
+
+      if (scheduleData && scheduleData.task) {
+        const { type = '未分類', task, due = '不明' } = scheduleData;
+
+        try {
+          sheets = await getSheetsClient();
+        } catch (authError) {
+          console.error('Google API Authentication Error (Add Subcommand):', authError);
+          await interaction.editReply({ content: '❌ Google API認証に失敗しました。予定を登録できません。' });
+          return;
+        }
+
+        try {
+          await sheets.spreadsheets.values.append({
+            spreadsheetId: sheetId,
+            range: appendRange,
+            valueInputOption: 'USER_ENTERED',
+            resource: {
+              values: [[type, task, due]],
+            },
+          });
+          await interaction.editReply({ content: `✅ 予定をスプレッドシートに追加しました！\n種別: ${type}\n内容: ${task}\n期限: ${due}` });
+        } catch (sheetError) {
+          console.error('Google Sheets API (append) error:', sheetError);
+          await interaction.editReply({ content: '❌ スプレッドシートへの予定追加中にエラーが発生しました。' });
+        }
+      } else {
+        await interaction.editReply({ content: '❌ AIが予定情報をうまく抽出できませんでした。もう少し具体的に入力してみてください。\n例: 「種別は宿題、内容は国語の教科書P20、期限は来週の月曜日」' });
       }
     }
   },
