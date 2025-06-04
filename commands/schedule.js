@@ -108,14 +108,14 @@ async function extractScheduleInfoWithAI(userInput) {
 }
 
 /**
- * ユーザー入力と予定リストから削除対象を特定するAI関数 (新規追加)
+ * ユーザー入力と予定リストから削除対象を特定するAI関数
  */
 async function extractDeletionTargetWithAI(userInput, currentSchedules) {
   const tryModels = ['gemini-1.5-flash', 'gemini-1.5-pro'];
   let lastError = null;
 
   const formattedSchedules = currentSchedules.map((item, index) => ({
-    index, // 0-based index in the currentSchedules array
+    index, 
     type: item[0] || 'N/A',
     task: item[1] || 'N/A',
     due: item[2] || 'N/A',
@@ -208,7 +208,7 @@ function createScheduleEmbed(scheduleItem, currentIndex, totalSchedules) {
 }
 
 /**
- * ナビゲーションボタン、追加ボタン、削除ボタンを作成・更新する関数 (更新)
+ * ナビゲーション、追加、編集、削除ボタンを作成・更新する関数 (更新)
  */
 function updateScheduleButtons(currentIndex, totalSchedules, schedulesExist) {
   const row = new ActionRowBuilder()
@@ -225,15 +225,19 @@ function updateScheduleButtons(currentIndex, totalSchedules, schedulesExist) {
         .setDisabled(currentIndex >= totalSchedules - 1 || !schedulesExist),
       new ButtonBuilder()
         .setCustomId('schedule_add_modal_trigger')
-        .setLabel('予定を追加')
+        .setLabel('追加')
         .setStyle(ButtonStyle.Success)
     );
 
-  if (schedulesExist) { // 予定が存在する場合のみ「削除」ボタンを追加
+  if (schedulesExist) {
     row.addComponents(
+      new ButtonBuilder() // ★編集ボタン追加
+        .setCustomId('schedule_edit_modal_trigger')
+        .setLabel('編集')
+        .setStyle(ButtonStyle.Secondary),
       new ButtonBuilder()
         .setCustomId('schedule_delete_modal_trigger')
-        .setLabel('予定を削除')
+        .setLabel('削除')
         .setStyle(ButtonStyle.Danger)
     );
   }
@@ -243,11 +247,11 @@ function updateScheduleButtons(currentIndex, totalSchedules, schedulesExist) {
 module.exports = {
   data: new SlashCommandBuilder()
     .setName('schedule')
-    .setDescription('登録されている予定をボタンで確認・追加・削除します。'), // 説明を更新
+    .setDescription('登録されている予定をボタンで確認・追加・編集・削除します。'), // 説明を更新
 
   async execute(interaction) {
     if (!interaction.inGuild()) {
-      await interaction.reply({ content: 'このコマンドはサーバー内でのみ使用できます。', flags: MessageFlags.Ephemeral });
+      await interaction.reply({ content: 'このコマンドはサーバー内でのみ使用できます。', ephemeral: true });
       return;
     }
 
@@ -277,12 +281,11 @@ module.exports = {
 
     let currentIndex = 0;
     const totalSchedules = schedules.length;
-    const schedulesExist = totalSchedules > 0; // 予定が存在するかのフラグ
+    const schedulesExist = totalSchedules > 0;
 
     if (!schedulesExist) {
-      const row = updateScheduleButtons(0, 0, false); // schedulesExist を false に
-      await interaction.editReply({ content: 'ℹ️ 登録されている予定はありません。「予定を追加」ボタンから新しい予定を登録できます。', components: [row] });
-      // この後、追加ボタンに対応するためにコレクターはセットアップされる
+      const row = updateScheduleButtons(0, 0, false);
+      await interaction.editReply({ content: 'ℹ️ 登録されている予定はありません。「追加」ボタンから新しい予定を登録できます。', components: [row] });
     }
 
     const initialEmbed = schedulesExist ? createScheduleEmbed(schedules[currentIndex], currentIndex, totalSchedules) : null;
@@ -292,19 +295,18 @@ module.exports = {
     if (initialEmbed) {
       replyOptions.embeds = [initialEmbed];
     } else if (!schedulesExist) { 
-      replyOptions.content = 'ℹ️ 登録されている予定はありません。「予定を追加」ボタンから新しい予定を登録できます。';
+      replyOptions.content = 'ℹ️ 登録されている予定はありません。「追加」ボタンから新しい予定を登録できます。';
     }
-
 
     const message = await interaction.editReply(replyOptions);
 
     const filter = (i) => {
       if (!i.isButton()) return false;
       if (i.user.id !== interaction.user.id) {
-        i.reply({ content: 'このボタンはコマンドの実行者のみ操作できます。', flags: MessageFlags.Ephemeral });
+        i.reply({ content: 'このボタンはコマンドの実行者のみ操作できます。', ephemeral: true });
         return false;
       }
-      return ['schedule_previous', 'schedule_next', 'schedule_add_modal_trigger', 'schedule_delete_modal_trigger'].includes(i.customId);
+      return ['schedule_previous', 'schedule_next', 'schedule_add_modal_trigger', 'schedule_edit_modal_trigger', 'schedule_delete_modal_trigger'].includes(i.customId);
     };
 
     const collector = message.createMessageComponentCollector({ filter, time: 300000 }); 
@@ -324,6 +326,7 @@ module.exports = {
           const newRow = updateScheduleButtons(currentIndex, totalSchedules, schedulesExist);
           await i.update({ embeds: [newEmbed], components: [newRow] });
         } else if (i.customId === 'schedule_add_modal_trigger') {
+          // ... (既存の追加モーダル表示処理) ...
           const modal = new ModalBuilder()
             .setCustomId('schedule_add_text_modal')
             .setTitle('新しい予定を文章で追加');
@@ -336,7 +339,52 @@ module.exports = {
           const actionRowModal = new ActionRowBuilder().addComponents(scheduleInput);
           modal.addComponents(actionRowModal);
           await i.showModal(modal);
+        } else if (i.customId === 'schedule_edit_modal_trigger') { // ★編集ボタンの処理
+          if (!schedulesExist || !schedules[currentIndex]) {
+            await i.reply({ content: '編集対象の予定がありません。', ephemeral: true });
+            return;
+          }
+          const currentSchedule = schedules[currentIndex];
+          const type = currentSchedule[0] || '';
+          const task = currentSchedule[1] || '';
+          const due = currentSchedule[2] || '';
+
+          const editModal = new ModalBuilder()
+            .setCustomId(`schedule_edit_modal_submit_${currentIndex}`) // customId に現在のインデックスを含める
+            .setTitle('予定を編集');
+
+          const typeInput = new TextInputBuilder()
+            .setCustomId('edit_type_input')
+            .setLabel('種別')
+            .setStyle(TextInputStyle.Short)
+            .setValue(type)
+            .setPlaceholder('例: 課題, テスト, その他')
+            .setRequired(false);
+
+          const taskInput = new TextInputBuilder()
+            .setCustomId('edit_task_input')
+            .setLabel('内容')
+            .setStyle(TextInputStyle.Paragraph)
+            .setValue(task)
+            .setPlaceholder('例: 数学の宿題 P10-15')
+            .setRequired(true);
+
+          const dueInput = new TextInputBuilder()
+            .setCustomId('edit_due_input')
+            .setLabel('期限')
+            .setStyle(TextInputStyle.Short)
+            .setValue(due)
+            .setPlaceholder('例: 明日, YYYY-MM-DD, MM/DD')
+            .setRequired(false);
+
+          editModal.addComponents(
+            new ActionRowBuilder().addComponents(typeInput),
+            new ActionRowBuilder().addComponents(taskInput),
+            new ActionRowBuilder().addComponents(dueInput)
+          );
+          await i.showModal(editModal);
         } else if (i.customId === 'schedule_delete_modal_trigger') {
+          // ... (既存の削除モーダル表示処理) ...
           const deleteModal = new ModalBuilder()
             .setCustomId('schedule_delete_text_modal') 
             .setTitle('削除する予定の情報を入力');
@@ -352,10 +400,13 @@ module.exports = {
         }
       } catch (error) {
         console.error('Error during button interaction:', error);
-        if (!i.replied && !i.deferred) {
-          await i.reply({ content: '⚠️ ボタンの処理中にエラーが発生しました。', flags: MessageFlags.Ephemeral }).catch(console.error);
+        // エラーが reply/deferUpdate 前か後かで分岐
+        if (!i.replied && !i.deferred && i.isRepliable()) { // isRepliable() で確認
+            await i.reply({ content: '⚠️ ボタンの処理中にエラーが発生しました。', ephemeral: true }).catch(console.error);
+        } else if (i.isRepliable()){ // deferUpdate 済みの場合など
+            await i.followUp({ content: '⚠️ ボタンの処理中にエラーが発生しました。', ephemeral: true }).catch(console.error);
         } else {
-          await i.followUp({ content: '⚠️ ボタンの処理中にエラーが発生しました。', flags: MessageFlags.Ephemeral }).catch(console.error);
+            console.error("Interaction is not repliable.");
         }
       }
     });
@@ -374,10 +425,11 @@ module.exports = {
   },
 
   /**
-   * モーダルから送信されたテキストをAIで処理し、スプレッドシートに追記する関数
+   * 追加用モーダル処理
    */
   async handleScheduleModalSubmit(modalInteraction) {
-    await modalInteraction.deferReply({ flags: MessageFlags.Ephemeral });
+    // ... (変更なし) ...
+    await modalInteraction.deferReply({ ephemeral: true });
 
     const userInput = modalInteraction.fields.getTextInputValue('schedule_text_input');
     const scheduleData = await extractScheduleInfoWithAI(userInput);
@@ -413,11 +465,11 @@ module.exports = {
   },
 
   /**
-   * 削除用モーダルから送信されたテキストをAIで処理し、スプレッドシートから該当行を削除する関数 (新規追加)
-   * @param {import('discord.js').ModalSubmitInteraction} modalInteraction
+   * 削除用モーダル処理
    */
   async handleScheduleDeleteModal(modalInteraction) {
-    await modalInteraction.deferReply({ flags: MessageFlags.Ephemeral });
+    // ... (変更なし) ...
+    await modalInteraction.deferReply({ ephemeral: true });
 
     const userInput = modalInteraction.fields.getTextInputValue('schedule_delete_description_input');
     let sheets;
@@ -454,7 +506,7 @@ module.exports = {
       const due = scheduleToDelete[2] || 'N/A';
 
       try {
-        let targetSheetGid = 0; // デフォルトは0 (通常、最初のシート)
+        let targetSheetGid = 0; 
         try {
           const spreadsheetInfo = await sheets.spreadsheets.get({ spreadsheetId: sheetId });
           const sheet1 = spreadsheetInfo.data.sheets.find(s => s.properties.title === 'シート1');
@@ -466,13 +518,7 @@ module.exports = {
         } catch (e) {
           console.warn(`シートのgid取得に失敗: ${e.message}. デフォルトのgid=0 を使用します。`);
         }
-
-        // listRange ('シート1!A2:C') はヘッダーを除いたデータ範囲
-        // 配列のインデックス targetIndex は、ヘッダーを除いたデータの0番目から始まるインデックス
-        // Google Sheets API の deleteDimension の startIndex は 0-indexed で、シート全体の行を指す
-        // シートの1行目 (ヘッダー) = startIndex 0
-        // シートの2行目 (データ開始行) = startIndex 1
-        // よって、データ配列のインデックス targetIndex に対応するシート全体の行の startIndex は targetIndex + 1
+        
         const sheetRowStartIndex = targetIndex + 1;
 
         await sheets.spreadsheets.batchUpdate({
@@ -500,6 +546,60 @@ module.exports = {
     } else {
       const reason = deletionTarget.reason || "AIが予定を特定できませんでした。";
       await modalInteraction.editReply({ content: `❌ 削除対象の予定を特定できませんでした。\n理由: ${reason}\nもう少し具体的に入力するか、内容が正しいか確認してください。` });
+    }
+  },
+
+  /**
+   * ★編集用モーダルから送信されたデータを処理し、スプレッドシートを更新する関数 (新規追加)★
+   * @param {import('discord.js').ModalSubmitInteraction} modalInteraction
+   * @param {number} targetIndex 編集対象の予定の0ベースインデックス
+   */
+  async handleScheduleEditModal(modalInteraction, targetIndex) {
+    await modalInteraction.deferReply({ ephemeral: true });
+
+    const newType = modalInteraction.fields.getTextInputValue('edit_type_input').trim() || 'その他';
+    const newTask = modalInteraction.fields.getTextInputValue('edit_task_input').trim();
+    const newDueRaw = modalInteraction.fields.getTextInputValue('edit_due_input').trim() || '不明';
+
+    if (!newTask) {
+        await modalInteraction.editReply({ content: '❌ 内容は必須です。' });
+        return;
+    }
+
+    let newDue = newDueRaw;
+    // 期限が入力されており、かつ「不明」でない場合、AIで日付形式に変換を試みる
+    if (newDueRaw && newDueRaw.toLowerCase() !== '不明' && newDueRaw.toLowerCase() !== 'na' && newDueRaw.toLowerCase() !== 'n/a') {
+        const scheduleLikeString = `${newType} ${newTask} ${newDueRaw}`; // AIが解釈しやすいように文字列を構成
+        const extractedDateInfo = await extractScheduleInfoWithAI(scheduleLikeString); // 既存のAI関数を利用
+        if (extractedDateInfo && extractedDateInfo.due && extractedDateInfo.due !== '不明') {
+            newDue = extractedDateInfo.due;
+        } else {
+            // AIが日付を抽出できなかった場合、ユーザーの入力をそのまま使うか、エラーとするか選択
+            // ここではユーザーの入力をそのまま使う（ただし、スプレッドシート側での日付解釈に依存する）
+            console.warn(`AIによる期限 '${newDueRaw}' の解析に失敗、または「不明」と判断されました。元の入力を期限として使用します。`);
+        }
+    }
+    
+    try {
+      const sheets = await getSheetsClient();
+      // listRange ('シート1!A2:C') はヘッダーを除いたデータ範囲を指すため、
+      // targetIndex はそのデータ配列のインデックス。
+      // スプレッドシートの実際の行番号は targetIndex + 2 (A1形式)。
+      const rangeToUpdate = `'シート1'!A${targetIndex + 2}:C${targetIndex + 2}`;
+      
+      await sheets.spreadsheets.values.update({
+        spreadsheetId: sheetId,
+        range: rangeToUpdate,
+        valueInputOption: 'USER_ENTERED', // スプレッドシート側で日付等を解釈させる
+        resource: {
+          values: [[newType, newTask, newDue]],
+        },
+      });
+
+      await modalInteraction.editReply({ content: `✅ 予定 (元のリストでの ${targetIndex + 1}番目) を更新しました。\n新しい内容:\n種別: ${newType}\n内容: ${newTask}\n期限: ${newDue}\n\nリストを最新の状態にするには、再度 \`/schedule\` コマンドを実行してください。` });
+    } catch (error) {
+      console.error('Error updating schedule in Google Sheets:', error);
+      await modalInteraction.editReply({ content: '❌ スプレッドシートの予定更新中にエラーが発生しました。' });
     }
   }
 };

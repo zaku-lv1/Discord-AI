@@ -1,7 +1,7 @@
 // discord.js v14 のインポート
-const fs = require('node:fs'); // 'node:fs' を推奨
-const path = require('node:path'); // 'node:path' を推奨
-const { Client, GatewayIntentBits, Collection, Events } = require('discord.js'); // MessageFlags は InteractionResponse で使用するため、ここでは不要な場合も
+const fs = require('node:fs');
+const path = require('node:path');
+const { Client, GatewayIntentBits, Collection, Events } = require('discord.js');
 const dotenv = require('dotenv');
 
 dotenv.config();
@@ -18,7 +18,6 @@ const client = new Client({
 
 client.commands = new Collection();
 
-// commands フォルダ内のコマンドファイルを読み込む
 const commandsPath = path.join(__dirname, 'commands');
 const commandFiles = fs.readdirSync(commandsPath).filter(file => file.endsWith('.js'));
 
@@ -32,19 +31,17 @@ for (const file of commandFiles) {
   }
 }
 
-// ダミーのHTTPサーバーを起動
-if (process.env.PORT) { // PORTが設定されている場合のみ起動
+if (process.env.PORT) {
     require('node:http').createServer((_, res) => res.end('Bot is running')).listen(process.env.PORT);
     console.log(`HTTPサーバーがポート ${process.env.PORT} で起動しました。`);
 }
 
-
-client.once(Events.ClientReady, async c => { // c を client のエイリアスとして使用
+client.once(Events.ClientReady, async c => {
   console.log(`Botが起動しました。ログインユーザー: ${c.user.tag}`);
   console.log('参加しているサーバー:');
   c.guilds.cache.forEach(async (guild) => {
     try {
-      const updatedGuild = await guild.fetch(); // 最新情報を取得
+      const updatedGuild = await guild.fetch();
       const owner = await c.users.fetch(updatedGuild.ownerId);
       console.log(`- サーバー名: ${updatedGuild.name} (ID: ${updatedGuild.id}), オーナー: ${owner.tag} (ID: ${updatedGuild.ownerId})`);
     } catch (err) {
@@ -53,16 +50,12 @@ client.once(Events.ClientReady, async c => { // c を client のエイリアス�
   });
   console.log('--------------------------');
 
-  // スラッシュコマンドの登録
   const data = [];
   client.commands.forEach(command => {
-    data.push(command.data.toJSON()); // .toJSON() を推奨
+    data.push(command.data.toJSON());
   });
 
   try {
-    // 特定のギルドに登録する場合 (開発中は即時反映されるため推奨)
-    // await client.application.commands.set(data, 'YOUR_GUILD_ID'); 
-    // グローバルに登録する場合 (反映に最大1時間かかる)
     await client.application.commands.set(data);
     console.log('スラッシュコマンドが正常に登録されました。');
   } catch (error) {
@@ -70,11 +63,11 @@ client.once(Events.ClientReady, async c => { // c を client のエイリアス�
   }
 });
 
-
 client.on(Events.InteractionCreate, async interaction => {
   const timestamp = () => `[${new Date().toISOString()}]`;
 
   if (interaction.isChatInputCommand()) {
+    // ... (変更なし) ...
     console.log(`${timestamp()} ChatInputCommand received: ${interaction.commandName}, user: ${interaction.user.tag}, guild: ${interaction.guild?.name || 'DM'}`);
     const command = client.commands.get(interaction.commandName);
 
@@ -82,7 +75,7 @@ client.on(Events.InteractionCreate, async interaction => {
       console.error(`${timestamp()} コマンド ${interaction.commandName} が見つかりません。`);
       await interaction.reply({
         content: '不明なコマンドです。',
-        ephemeral: true // MessageFlags.Ephemeral は v14.7以降非推奨、直接booleanで指定
+        ephemeral: true 
       });
       return;
     }
@@ -99,59 +92,62 @@ client.on(Events.InteractionCreate, async interaction => {
     }
   } else if (interaction.isModalSubmit()) {
     console.log(`${timestamp()} ModalSubmit detected: customId=${interaction.customId}, user=${interaction.user.tag}, guild: ${interaction.guild?.name || 'DM'}`);
-    const scheduleCommand = client.commands.get('schedule'); // "schedule" コマンドオブジェクトを取得
+    const scheduleCommand = client.commands.get('schedule');
 
     if (!scheduleCommand) {
         console.error(`${timestamp()} 'schedule' コマンドが見つかりません。モーダル処理をスキップします。`);
-        if (!interaction.replied && !interaction.deferred) {
-          await interaction.reply({ content: 'エラーが発生しました。コマンドの処理関数が見つかりません。', ephemeral: true });
+        if (interaction.isRepliable()) { // Check if interaction is still repliable
+          await interaction.reply({ content: 'エラーが発生しました。コマンドの処理関数が見つかりません。', ephemeral: true }).catch(e => console.error(`${timestamp()} Fallback reply failed for missing schedule command:`, e));
         }
         return;
     }
 
-    if (interaction.customId === 'schedule_add_text_modal') {
-      if (typeof scheduleCommand.handleScheduleModalSubmit === 'function') {
-        console.log(`${timestamp()} Routing to scheduleCommand.handleScheduleModalSubmit for user ${interaction.user.tag}`);
-        try {
+    try {
+        if (interaction.customId === 'schedule_add_text_modal') {
+          if (typeof scheduleCommand.handleScheduleModalSubmit === 'function') {
+            console.log(`${timestamp()} Routing to scheduleCommand.handleScheduleModalSubmit for user ${interaction.user.tag}`);
             await scheduleCommand.handleScheduleModalSubmit(interaction);
-        } catch (modalHandlerError) {
-            console.error(`${timestamp()} Error in handleScheduleModalSubmit for ${interaction.user.tag}:`, modalHandlerError);
-            // deferReply後のエラーなので、editReplyで応答
-            if (!interaction.replied) {
-                 await interaction.editReply({ content: 'モーダル処理中にエラーが発生しました。再度お試しください。'}).catch(e => console.error(`${timestamp()} Fallback editReply failed for add modal:`, e));
-            }
-        }
-      } else {
-        console.error(`${timestamp()} 'schedule_add_text_modal' に対応する handleScheduleModalSubmit が 'schedule' コマンドに見つかりません。`);
-        if (!interaction.replied && !interaction.deferred) { // 通常、モーダル送信時はdeferされているはず
-          await interaction.reply({ content: 'エラーが発生しました。コマンドの処理関数が正しく設定されていません。', ephemeral: true });
-        } else if (!interaction.replied) {
-          await interaction.editReply({ content: 'エラーが発生しました。コマンドの処理関数が正しく設定されていません。' }).catch(e => console.error(`${timestamp()} Fallback editReply failed for missing add handler:`, e));
-        }
-      }
-    } else if (interaction.customId === 'schedule_delete_text_modal') { // ★ 削除用モーダルの処理を追加 ★
-      if (typeof scheduleCommand.handleScheduleDeleteModal === 'function') {
-        console.log(`${timestamp()} Routing to scheduleCommand.handleScheduleDeleteModal for user ${interaction.user.tag}`);
-        try {
+          } else {
+            console.error(`${timestamp()} 'schedule_add_text_modal' に対応する handleScheduleModalSubmit が 'schedule' コマンドに見つかりません。`);
+            if (interaction.isRepliable()) await interaction.reply({ content: 'エラー: 追加処理関数が見つかりません。', ephemeral: true }).catch(e => console.error(`${timestamp()} Fallback reply failed:`, e));
+          }
+        } else if (interaction.customId === 'schedule_delete_text_modal') {
+          if (typeof scheduleCommand.handleScheduleDeleteModal === 'function') {
+            console.log(`${timestamp()} Routing to scheduleCommand.handleScheduleDeleteModal for user ${interaction.user.tag}`);
             await scheduleCommand.handleScheduleDeleteModal(interaction);
-        } catch (modalHandlerError) {
-            console.error(`${timestamp()} Error in handleScheduleDeleteModal for ${interaction.user.tag}:`, modalHandlerError);
-            if (!interaction.replied) {
-                 await interaction.editReply({ content: '削除モーダル処理中にエラーが発生しました。再度お試しください。'}).catch(e => console.error(`${timestamp()} Fallback editReply failed for delete modal:`, e));
-            }
+          } else {
+            console.error(`${timestamp()} 'schedule_delete_text_modal' に対応する handleScheduleDeleteModal が 'schedule' コマンドに見つかりません。`);
+             if (interaction.isRepliable()) await interaction.reply({ content: 'エラー: 削除処理関数が見つかりません。', ephemeral: true }).catch(e => console.error(`${timestamp()} Fallback reply failed:`, e));
+          }
+        } else if (interaction.customId.startsWith('schedule_edit_modal_submit_')) { // ★編集用モーダルの処理を追加★
+          const targetIndexString = interaction.customId.split('_').pop();
+          const targetIndex = parseInt(targetIndexString, 10);
+
+          if (isNaN(targetIndex)) {
+            console.error(`${timestamp()} 編集モーダルのcustomIdからインデックスのパースに失敗: ${interaction.customId}`);
+            if (interaction.isRepliable()) await interaction.reply({ content: 'エラー: 編集対象の特定に失敗しました。', ephemeral: true }).catch(e => console.error(`${timestamp()} Fallback reply failed:`, e));
+            return;
+          }
+
+          if (typeof scheduleCommand.handleScheduleEditModal === 'function') {
+            console.log(`${timestamp()} Routing to scheduleCommand.handleScheduleEditModal for user ${interaction.user.tag}, targetIndex: ${targetIndex}`);
+            await scheduleCommand.handleScheduleEditModal(interaction, targetIndex);
+          } else {
+            console.error(`${timestamp()} 'schedule_edit_modal_submit_' に対応する handleScheduleEditModal が 'schedule' コマンドに見つかりません。`);
+            if (interaction.isRepliable()) await interaction.reply({ content: 'エラー: 編集処理関数が見つかりません。', ephemeral: true }).catch(e => console.error(`${timestamp()} Fallback reply failed:`, e));
+          }
         }
-      } else {
-        console.error(`${timestamp()} 'schedule_delete_text_modal' に対応する handleScheduleDeleteModal が 'schedule' コマンドに見つかりません。`);
-         if (!interaction.replied && !interaction.deferred) {
-          await interaction.reply({ content: 'エラーが発生しました。コマンドの処理関数が正しく設定されていません。', ephemeral: true });
-        } else if (!interaction.replied) {
-          await interaction.editReply({ content: 'エラーが発生しました。コマンドの処理関数が正しく設定されていません。' }).catch(e => console.error(`${timestamp()} Fallback editReply failed for missing delete handler:`, e));
+    } catch (modalError) {
+        console.error(`${timestamp()} Modal processing error for customId ${interaction.customId}, user ${interaction.user.tag}:`, modalError);
+        // モーダル処理中のエラーは、modalInteraction.editReply で処理されるべきだが、
+        // ここに来る場合は、その editReply 自体が失敗したか、それ以前の問題の可能性
+        if (interaction.isRepliable() && !interaction.replied && !interaction.deferred ) { // deferReply 前のエラーの場合
+             await interaction.reply({ content: 'モーダル処理中に予期せぬエラーが発生しました。', ephemeral: true }).catch(e => console.error(`${timestamp()} Fallback reply failed for modalError:`, e));
+        } else if (interaction.isRepliable() && interaction.deferred && !interaction.replied) { // deferReply 済みだが editReply 前のエラーの場合
+             await interaction.editReply({ content: 'モーダル処理中に予期せぬエラーが発生しました。'}).catch(e => console.error(`${timestamp()} Fallback editReply failed for modalError:`, e));
         }
-      }
     }
-    // 他のモーダル customId の処理もここに追加できます
   }
-  // isButton() の処理は、schedule.js内のコレクターで処理されているため、ここでは通常不要
 });
 
 client.login(process.env.DISCORD_TOKEN);
