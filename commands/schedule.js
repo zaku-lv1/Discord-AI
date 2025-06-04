@@ -1,5 +1,5 @@
 // discord.js から必要なビルダーとスタイルをインポート
-const { SlashCommandBuilder, EmbedBuilder, MessageFlags } = require('discord.js'); // ButtonBuilder, ButtonStyle は不要に
+const { SlashCommandBuilder, EmbedBuilder, MessageFlags } = require('discord.js');
 const { google } = require('googleapis');
 const { JWT } = require('google-auth-library');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
@@ -28,7 +28,7 @@ async function getSheetsClient() {
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
 /**
- * ユーザー入力から予定情報を抽出するAI関数 (変更なし)
+ * ユーザー入力から予定情報を抽出するAI関数
  * @param {string} userInput ユーザーが入力した予定に関するテキスト
  * @returns {Promise<object|null>} 抽出された予定情報 {type, task, due}、またはエラー時は null
  */
@@ -56,21 +56,42 @@ async function extractScheduleInfoWithAI(userInput) {
       const model = genAI.getGenerativeModel({ model: modelName });
       const result = await model.generateContent(prompt);
       const response = await result.response;
-      const jsonResponse = response.text().trim();
+      const rawResponseText = response.text().trim();
+      let jsonToParse = rawResponseText;
 
-      if (jsonResponse.startsWith('{') && jsonResponse.endsWith('}')) {
-        return JSON.parse(jsonResponse);
+      // Markdownコードブロックを削除する処理
+      if (jsonToParse.startsWith("```json")) {
+        jsonToParse = jsonToParse.substring(7); // "```json\n" を削除
+        if (jsonToParse.endsWith("```")) {
+          jsonToParse = jsonToParse.substring(0, jsonToParse.length - 3); // 末尾の "```" を削除
+        }
+      } else if (jsonToParse.startsWith("```")) { // "```" のみの場合
+        jsonToParse = jsonToParse.substring(3);
+        if (jsonToParse.endsWith("```")) {
+          jsonToParse = jsonToParse.substring(0, jsonToParse.length - 3);
+        }
+      }
+      jsonToParse = jsonToParse.trim(); // 前後の空白を再度トリム
+
+      if (jsonToParse.startsWith('{') && jsonToParse.endsWith('}')) {
+        try {
+          return JSON.parse(jsonToParse);
+        } catch (parseError) {
+          console.warn(`[${modelName} - ScheduleAI] JSONのパースに失敗 (Markdown除去後): ${parseError.message}. 元の応答: ${rawResponseText}`);
+          lastError = parseError;
+          continue; // 次のモデルを試行
+        }
       } else {
-        console.warn(`[${modelName} - ScheduleAI] AIがJSON形式でない応答を返しました: ${jsonResponse}`);
-        lastError = new Error(`AI response was not valid JSON: ${jsonResponse}`);
-        continue;
+        console.warn(`[${modelName} - ScheduleAI] AIの応答がJSON形式ではありません (Markdown除去後): ${jsonToParse}. 元の応答: ${rawResponseText}`);
+        lastError = new Error(`AI response was not valid JSON after stripping Markdown. Content: ${jsonToParse}`);
+        continue; // 次のモデルを試行
       }
     } catch (error) {
       console.warn(`[${modelName} - ScheduleAI] での情報抽出に失敗: ${error.message}`);
       lastError = error;
       if (error.message.includes('429') || error.message.includes('Quota') || error.message.includes('API key not valid')) {
         console.error(`[${modelName} - ScheduleAI] APIエラー。処理を中断します。: ${error.message}`);
-        break;
+        break; // APIキーやクォータの問題なら他のモデルを試しても無駄
       }
     }
   }
@@ -97,24 +118,26 @@ module.exports = {
 
   async execute(interaction) {
     if (!interaction.inGuild()) {
-      await interaction.reply({ content: 'このコマンドはサーバー内でのみ使用できます。', ephemeral: true });
+      // ephemeral: true を flags: MessageFlags.Ephemeral に変更
+      await interaction.reply({ content: 'このコマンドはサーバー内でのみ使用できます。', flags: MessageFlags.Ephemeral });
       return;
     }
 
     const subcommand = interaction.options.getSubcommand();
-    let sheets; // sheetsクライアントは必要な場合のみ初期化
+    let sheets;
 
     if (subcommand === 'list') {
       try {
         sheets = await getSheetsClient();
       } catch (authError) {
         console.error('Google API Authentication Error (List Subcommand):', authError);
-        await interaction.reply({ content: '❌ Google APIへの認証に失敗しました。設定を確認してください。', ephemeral: true });
+        // ephemeral: true を flags: MessageFlags.Ephemeral に変更
+        await interaction.reply({ content: '❌ Google APIへの認証に失敗しました。設定を確認してください。', flags: MessageFlags.Ephemeral });
         return;
       }
 
       try {
-        await interaction.deferReply(); // 通常の応答 (ephemeral ではない)
+        await interaction.deferReply(); // 通常の応答 (ephemeralではない)
         const response = await sheets.spreadsheets.values.get({
           spreadsheetId: sheetId,
           range: listRange,
@@ -147,6 +170,7 @@ module.exports = {
         if (error.response && error.response.data && error.response.data.error && error.response.data.error.message) {
             errorMessage += `\n詳細: ${error.response.data.error.message}`;
         }
+        // ephemeral: true を flags: MessageFlags.Ephemeral に変更
         if (interaction.deferred || interaction.replied) {
             await interaction.editReply({ content: errorMessage, flags: MessageFlags.Ephemeral });
         } else {
@@ -155,7 +179,8 @@ module.exports = {
       }
     } else if (subcommand === 'add') {
       const userInput = interaction.options.getString('text');
-      await interaction.deferReply({ ephemeral: true }); // AI処理とシート書き込みがあるので、まずは送信者のみに応答を遅延
+      // ephemeral: true を flags: MessageFlags.Ephemeral に変更
+      await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
       const scheduleData = await extractScheduleInfoWithAI(userInput);
 
@@ -166,6 +191,7 @@ module.exports = {
           sheets = await getSheetsClient();
         } catch (authError) {
           console.error('Google API Authentication Error (Add Subcommand):', authError);
+          // editReply は deferReply の ephemeral 設定を引き継ぐ
           await interaction.editReply({ content: '❌ Google API認証に失敗しました。予定を登録できません。' });
           return;
         }
@@ -179,12 +205,15 @@ module.exports = {
               values: [[type, task, due]],
             },
           });
+          // editReply は deferReply の ephemeral 設定を引き継ぐ
           await interaction.editReply({ content: `✅ 予定をスプレッドシートに追加しました！\n種別: ${type}\n内容: ${task}\n期限: ${due}` });
         } catch (sheetError) {
           console.error('Google Sheets API (append) error:', sheetError);
+          // editReply は deferReply の ephemeral 設定を引き継ぐ
           await interaction.editReply({ content: '❌ スプレッドシートへの予定追加中にエラーが発生しました。' });
         }
       } else {
+        // editReply は deferReply の ephemeral 設定を引き継ぐ
         await interaction.editReply({ content: '❌ AIが予定情報をうまく抽出できませんでした。もう少し具体的に入力してみてください。\n例: 「種別は宿題、内容は国語の教科書P20、期限は来週の月曜日」' });
       }
     }
