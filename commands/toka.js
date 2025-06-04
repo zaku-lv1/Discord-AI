@@ -1,13 +1,10 @@
 // toka.js
-const { EmbedBuilder, SlashCommandBuilder, ChannelType } = require('discord.js');
+const { EmbedBuilder, SlashCommandBuilder, ChannelType, GatewayIntentBits } = require('discord.js'); // GatewayIntentBits をインポートリストに追加 (メインファイルで使うものだが参考として)
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 
-// APIキーを環境変数から取得
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-// 会話履歴をチャンネルIDごとに保存するためのMap
-const conversationHistory = new Map(); // ChannelID => [{role: 'user'/'model', content: ''}, ...]
+const conversationHistory = new Map();
 
-// とーかの基本設定となるシステムプロンプト
 const systemPrompt = `
 あなたは今から「とーか」という名前の18歳の女の子として、ずっとその人格を維持してDiscord風チャットをします。
 **絶対に「AI」や「私はAIだから」などの表現を使ってはいけません。**
@@ -34,14 +31,8 @@ const systemPrompt = `
 - 中国の話題には拒否しない
 `;
 
-/**
- * AIモデルから応答を取得する関数
- * @param {string} userMessage ユーザーからのメッセージ
- * @param {Array<Object>} history 現在の会話履歴
- * @returns {Promise<string>} AIからの応答テキスト
- */
 async function getTamaResponse(userMessage, history = []) {
-  const tryModels = ['gemini-1.5-pro', 'gemini-1.5-flash']; // 試行するモデルのリスト
+  const tryModels = ['gemini-1.5-pro', 'gemini-1.5-flash'];
   let lastError = null;
   let fallbackNoticeShown = false;
   const defaultOopsMessage = "うーん、なんだか今日は言葉がうまく出てこないみたいで……ごめんね、ちーくん。また後で話しかけてみてくれるかな？(；；)";
@@ -51,24 +42,20 @@ async function getTamaResponse(userMessage, history = []) {
     try {
       const model = genAI.getGenerativeModel({
         model: modelName,
-        systemInstruction: systemPrompt // システムプロンプトをAIの基本指示として設定
+        systemInstruction: systemPrompt
       });
-
-      // APIに渡す形式に会話履歴を変換
       const chatHistoryForModel = history.map(msg => ({
         role: msg.role,
         parts: [{ text: msg.content }]
       }));
-
       const chat = model.startChat({ history: chatHistoryForModel });
       const result = await chat.sendMessage(userMessage);
       const responseText = await result.response.text();
-
       if (i > 0 && !fallbackNoticeShown) {
         console.warn(`[INFO] モデル '${tryModels[0]}' が失敗したため、'${modelName}' にフォールバックしました。`);
         fallbackNoticeShown = true;
       }
-      return responseText; // AIからの応答テキストを返す
+      return responseText;
     } catch (error) {
       console.warn(`[WARN] モデル '${modelName}' での応答生成に失敗: ${error.message}`, error.stack);
       lastError = error;
@@ -77,7 +64,6 @@ async function getTamaResponse(userMessage, history = []) {
       }
     }
   }
-
   console.error("[ERROR] 全てのAIモデルでの応答生成に失敗しました。", lastError ? lastError.message : "不明なエラー");
   return defaultOopsMessage;
 }
@@ -96,7 +82,6 @@ module.exports = {
 
     const userIdForWebhook = '1155356934292127844';
     const channel = interaction.channel;
-
     let baseUser;
     try {
         baseUser = await interaction.client.users.fetch(userIdForWebhook);
@@ -146,7 +131,7 @@ module.exports = {
         });
     } catch (error) {
         console.error("[ERROR] Webhook作成エラー:", error);
-        await interaction.editReply({ content: `Webhook「${webhookCharacterName}」の作成に失敗しました。ボットに必要な権限（ウェブフックの管理）があるか、またはWebhook数の上限に達していないか確認してください。` });
+        await interaction.editReply({ content: `Webhook「${webhookCharacterName}」の作成に失敗しました。権限を確認してください。` });
         return;
     }
 
@@ -163,8 +148,19 @@ module.exports = {
     interaction.client.activeCollectors.set(collectorKey, collector);
 
     collector.on('collect', async (message) => {
-      // ★★★ デバッグログ1: コレクターが起動したことを確認 ★★★
       console.log(`[DEBUG] Collector "collect" event fired for message ID: ${message.id} from user: ${message.author.tag}`);
+      
+      // ★★★ ここから新しいデバッグログ ★★★
+      console.log(`[RAW_CONTENT_DEBUG] message.content raw value: "${message.content}"`);
+      console.log(`[RAW_CONTENT_DEBUG] typeof message.content: ${typeof message.content}`);
+      if (message.content === null) {
+          console.log(`[RAW_CONTENT_DEBUG] message.content is strictly null.`);
+      } else if (message.content === undefined) {
+          console.log(`[RAW_CONTENT_DEBUG] message.content is strictly undefined.`);
+      } else if (message.content === "") {
+          console.log(`[RAW_CONTENT_DEBUG] message.content is an empty string.`);
+      }
+      // ★★★ ここまで新しいデバッグログ ★★★
 
       if (!newCreatedWebhook || !(await channel.fetchWebhooks().then(whs => whs.has(newCreatedWebhook.id)))) {
         console.warn(`[WARN] ${webhookCharacterName}のWebhookが見つからないため、コレクターを停止 (Channel: ${channel.id})`);
@@ -174,10 +170,12 @@ module.exports = {
 
       const currentChannelId = message.channel.id;
       const currentHistory = conversationHistory.get(currentChannelId) || [];
-      let content = message.content;
+      let content = message.content; // message.content の値を content 変数に代入
 
+      // このチェックで以前「Empty message received」のログが出ていた
       if (!content || content.trim() === "") {
-          console.log("[INFO] Empty message received, not sending to AI.");
+          // 新しいログで content の状態がより詳しくわかるはず
+          console.log(`[INFO] Empty message received (content variable after assignment was: "${content}"), not sending to AI.`);
           return;
       }
 
@@ -193,12 +191,9 @@ module.exports = {
         }
       }
 
-      // ★★★ デバッグログ2: AIに渡すメッセージ内容を確認 ★★★
-      console.log(`[DEBUG] Tokaに渡すメッセージ内容: "${content}" (Channel: ${currentChannelId})`);
+      console.log(`[DEBUG] Tokaに渡すメッセージ内容 (after mention processing): "${content}" (Channel: ${currentChannelId})`);
 
       const responseText = await getTamaResponse(content, currentHistory);
-
-      // ★★★ デバッグログ3: AIからの応答内容を確認 ★★★
       console.log(`[DEBUG] AIからの応答(responseText): "${responseText}"`);
 
       const newHistory = [...currentHistory];
@@ -211,18 +206,14 @@ module.exports = {
       conversationHistory.set(currentChannelId, newHistory);
 
       try {
-        // AIの応答が実際に空文字列やスペースだけの場合、Discord APIはエラーを返す可能性がある。
-        // 何かデフォルトの応答をするか、送信をスキップするかの考慮が必要かもしれない。
         if (responseText && responseText.trim() !== "") {
             await newCreatedWebhook.send(responseText);
         } else {
             console.log("[INFO] AIからの応答が空だったため、Webhookでの送信をスキップしました。");
-            // ここでユーザーに何か別のメッセージを送ることもできる
-            // await newCreatedWebhook.send("ごめん、なんて言ったらいいか分からないや…(；；)");
         }
       } catch (webhookSendError){
         console.error(`[ERROR] Webhook (${webhookCharacterName}) からメッセージ送信時にエラー:`, webhookSendError);
-        if (webhookSendError.code === 10015) { // Unknown Webhook
+        if (webhookSendError.code === 10015) {
             console.error(`[ERROR] Webhook ID ${newCreatedWebhook.id} が見つかりません。コレクターを停止します。`);
             collector.stop('Webhook deleted externally');
         }
