@@ -1,4 +1,4 @@
-const { SlashCommandBuilder } = require('discord.js');
+const { SlashCommandBuilder } = require('@discordjs/builders');
 const { google } = require('googleapis');
 require('dotenv').config();
 
@@ -31,7 +31,6 @@ module.exports = {
 
     const sheets = google.sheets({ version: 'v4', auth: process.env.sheet_api_key });
 
-    // 予定を追加する処理
     if (type && task && due) {
       try {
         await sheets.spreadsheets.values.append({
@@ -51,7 +50,6 @@ module.exports = {
       return;
     }
 
-    // 予定を取得して表示する処理
     try {
       const response = await sheets.spreadsheets.values.get({
         spreadsheetId: sheetId,
