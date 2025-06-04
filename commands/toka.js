@@ -1,4 +1,4 @@
-// toka.js (Webhook名にdisplayNameを使用)
+// toka.js (Webhook名にグローバルなdisplayNameを使用)
 const { EmbedBuilder, SlashCommandBuilder, ChannelType } = require('discord.js');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 
@@ -95,26 +95,18 @@ module.exports = {
     const userId = '1155356934292127844'; // このIDのユーザーの表示名を使用
     const channel = interaction.channel;
     
-    let baseUser; // グローバルなUserオブジェクト (主にアバター用)
+    let baseUser; // グローバルなUserオブジェクト
     try {
         baseUser = await interaction.client.users.fetch(userId);
     } catch (error) {
         console.error(`ベースユーザーID (${userId}) の取得に失敗:`, error);
-        await interaction.editReply({ content: 'Webhookアバター用のユーザー情報取得に失敗しました。' });
+        await interaction.editReply({ content: 'Webhook用のユーザー情報取得に失敗しました。' });
         return;
     }
     
-    // Webhook名に使用する表示名を取得
-    let webhookCharacterName;
-    try {
-        const member = await interaction.guild.members.fetch(userId);
-        webhookCharacterName = member.displayName; // サーバーでの表示名（ニックネーム優先）
-    } catch (e) {
-        console.warn(`サーバーメンバー (${userId}) のdisplayName取得に失敗。グローバル名を使用します。Guild: ${interaction.guild.id}`);
-        webhookCharacterName = baseUser.username; // サーバーにいない場合はグローバルユーザー名
-    }
+    // Webhook名に User オブジェクトの displayName (グローバル名またはユーザー名) を使用
+    const webhookCharacterName = baseUser.displayName; 
     
-    // Webhook検索・作成時の名前として webhookCharacterName を使用
     let webhooks;
     try {
         webhooks = await channel.fetchWebhooks();
@@ -124,8 +116,9 @@ module.exports = {
         return;
     }
     
+    // Webhook検索時も webhookCharacterName を使用し、かつボットがオーナーであるかを確認
     const existingWebhook = webhooks.find((wh) => wh.name === webhookCharacterName && wh.owner?.id === interaction.client.user.id);
-    const collectorKey = `${channel.id}_toka_${webhookCharacterName.replace(/\s+/g, '_')}`; // コレクターキーにも影響
+    const collectorKey = `${channel.id}_toka_${webhookCharacterName.replace(/\s+/g, '_')}`;
 
     if (existingWebhook) {
       try {
@@ -146,8 +139,8 @@ module.exports = {
     let newCreatedWebhook;
     try {
         newCreatedWebhook = await channel.createWebhook({
-            name: webhookCharacterName, // 取得した表示名をWebhook名として使用
-            avatar: baseUser.displayAvatarURL(), // アバターはグローバルユーザーのものを引き続き使用
+            name: webhookCharacterName, // グローバルな表示名をWebhook名として使用
+            avatar: baseUser.displayAvatarURL(), // アバターはグローバルユーザーのものを使用
             reason: `Toka AI character webhook (${webhookCharacterName})`
         });
     } catch (error) {
