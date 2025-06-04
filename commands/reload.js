@@ -1,8 +1,7 @@
-const fs = require('node:fs'); // 'node:' プレフィックスを推奨
-const path = require('node:path'); // 'node:' プレフィックスを推奨
-const { SlashCommandBuilder } = require('discord.js'); // discord.js から直接インポート
+const fs = require('node:fs');
+const path = require('node:path');
+const { SlashCommandBuilder } = require('discord.js');
 
-// 許可されたユーザーID (メインファイルで dotenv.config() が呼ばれている前提)
 const OWNER_ID = process.env.ADMIN;
 
 module.exports = {
@@ -13,7 +12,9 @@ module.exports = {
     // .addStringOption(option =>
     //   option.setName('command')
     //     .setDescription('再読み込みするコマンド名 (指定しない場合は全て)')
-    //     .setRequired(false)),
+    //     .setRequired(false) // コメントアウトする場合、この行末のカンマは不要
+    // ) // コメントアウトされたブロックの終わり
+  , // data プロパティの値の定義が終わった後にカンマを置く
   async execute(interaction) {
     // 権限チェック
     if (interaction.user.id !== OWNER_ID) {
@@ -25,24 +26,21 @@ module.exports = {
     const reloadedCommands = [];
     const failedCommands = [];
 
-    // この reload.js が存在するディレクトリをコマンドフォルダとする
-    const commandsPath = __dirname; // path.join は不要、__dirname は絶対パス
+    const commandsPath = __dirname;
     const commandFiles = fs.readdirSync(commandsPath).filter(file => file.endsWith('.js'));
 
     for (const file of commandFiles) {
       const filePath = path.join(commandsPath, file);
       // reload.js 自体はリロード対象外
-      if (file === 'reload.js' && filePath === require.resolve('./reload.js')) {
+      if (file === 'reload.js' && filePath === require.resolve('./reload.js')) { // require.resolveの引数を修正
           continue;
       }
 
       try {
-        // モジュールキャッシュから削除して再読み込み
         delete require.cache[require.resolve(filePath)];
         const command = require(filePath);
 
         if ('data' in command && 'execute' in command) {
-          // client.commands (Collection) にコマンドを再セット
           interaction.client.commands.set(command.data.name, command);
           reloadedCommands.push(command.data.name);
         } else {
@@ -55,8 +53,6 @@ module.exports = {
       }
     }
 
-    // Discordに登録されているコマンドを更新 (全てのコマンドを再登録する形)
-    // client.commands Collection から最新のコマンド定義を取得して登録
     try {
       const commandsToRegister = Array.from(interaction.client.commands.values()).map(cmd => cmd.data.toJSON());
       await interaction.client.application.commands.set(commandsToRegister);
