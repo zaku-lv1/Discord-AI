@@ -1,14 +1,7 @@
-// discord.js から必要なビルダーとスタイルをインポート
-const {
-  SlashCommandBuilder,
-  EmbedBuilder,
-  ActionRowBuilder,
-  ButtonBuilder,
-  ButtonStyle,
-  ModalBuilder,
-  TextInputBuilder,
-  TextInputStyle
-} = require('discord.js');
+// discord.js v14 のインポート
+const fs = require('node:fs');
+const path = require('node:path');
+const { Client, GatewayIntentBits, Collection, Events, SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ModalBuilder, TextInputBuilder, TextInputStyle } = require('discord.js'); // 必要なものをまとめてインポート
 const { google } = require('googleapis');
 const { JWT } = require('google-auth-library');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
@@ -39,7 +32,6 @@ const TRY_MODELS = ['gemini-1.5-flash', 'gemini-1.5-pro'];
 
 /**
  * ★ ユーザー入力から予定情報を抽出し、常に配列で返すAI関数 (修正)
- * 単一の予定でも複数の予定でも対応。
  */
 async function extractScheduleInfoWithAI(userInput) {
   const tryModels = TRY_MODELS;
@@ -50,7 +42,9 @@ async function extractScheduleInfoWithAI(userInput) {
 ユーザーが複数の予定を記述している場合（例：改行区切り、箇条書き、「と」「や」での接続など）、それぞれを個別の予定として認識してください。
 種別の記述がない場合は「課題」「テスト」「その他」の中から考えて選んでください。
 漢数字はすべて半角算用数字に書き換えること。内容は冗長にならないように気をつけること。
-「明日」「明後日」は今日 (${new Date().toLocaleDateString('ja-JP', { year: 'numeric', month: '2-digit', day: '2-digit'})}) からの日付で期限を考えること。
+「明日」「明後日」は今日 (${new Date().toLocaleDateString('ja-JP', { year: 'numeric', month: '2-digit', day: '2-digit'})}) からの日付で期限をYYYY-MM-DD形式で考えること。
+例：「明日」なら ${new Date(Date.now() + 24 * 60 * 60 * 1000).toLocaleDateString('ja-JP', {year: 'numeric', month: '2-digit', day: '2-digit'}).replace(/\//g, '-')}
+「来週の月曜日」のような表現もYYYY-MM-DD形式に変換すること。
 結果は必ず以下のJSON形式の文字列（予定オブジェクトの配列）で出力してください。単一の予定の場合でも、要素数1の配列としてください。
 他の説明や前置きは一切不要です。抽出できる予定がない場合は空の配列 "[]" を返してください。
 
@@ -77,7 +71,7 @@ async function extractScheduleInfoWithAI(userInput) {
   {
     "type": "テスト",
     "task": "英語の単語テスト",
-    "due": "来週の月曜日"
+    "due": "YYYY-MM-DD" // 来週の月曜日の具体的な日付
   }
 ]
 
@@ -103,7 +97,23 @@ async function extractScheduleInfoWithAI(userInput) {
         try {
           const parsedArray = JSON.parse(jsonToParse);
           if (Array.isArray(parsedArray)) {
-            return parsedArray;
+            // 日付形式の簡易チェックとフォーマット (YYYY-MM-DD)
+            return parsedArray.map(item => {
+              if (item.due) {
+                try {
+                  // AIが MM/DD や YYYY/MM/DD を返す可能性を考慮
+                  const dateParts = item.due.replace(/\//g, '-').split('-');
+                  if (dateParts.length === 3) { // YYYY-MM-DD
+                    item.due = `${dateParts[0]}-${String(dateParts[1]).padStart(2, '0')}-${String(dateParts[2]).padStart(2, '0')}`;
+                  } else if (dateParts.length === 2) { // MM-DD (当年と仮定)
+                     const currentYear = new Date().getFullYear();
+                     item.due = `${currentYear}-${String(dateParts[0]).padStart(2, '0')}-${String(dateParts[1]).padStart(2, '0')}`;
+                  }
+                  // それ以外のフォーマットはそのまま（AIが正しくYYYY-MM-DDで返すと期待）
+                } catch (e) { /* ignore date formatting error, use as is */ }
+              }
+              return item;
+            });
           } else {
             console.warn(`[${modelName} - ScheduleAI] AIの応答がJSON配列形式ではありません（パース後）: ${jsonToParse}`);
             lastError = new Error(`AI response was parsed but not an array. Content: ${jsonToParse}`);
@@ -129,7 +139,7 @@ async function extractScheduleInfoWithAI(userInput) {
     }
   }
   console.error("全てのAIモデルでの情報抽出に失敗しました (ScheduleAI)。", lastError ? lastError.message : "不明なエラー");
-  return []; // 失敗時は空配列を返す
+  return [];
 }
 
 /**
@@ -140,7 +150,7 @@ async function extractDeletionTargetWithAI(userInput, currentSchedules) {
   let lastError = null;
 
   const formattedSchedules = currentSchedules.map((item, index) => ({
-    index, 
+    index,
     type: item[0] || 'N/A',
     task: item[1] || 'N/A',
     due: item[2] || 'N/A',
@@ -181,11 +191,10 @@ JSON形式:
         jsonToParse = jsonToParse.substring(3, jsonToParse.endsWith("```") ? jsonToParse.length - 3 : undefined);
       }
       jsonToParse = jsonToParse.trim();
-      
+
       if (jsonToParse.startsWith('{') && jsonToParse.endsWith('}')) {
         try {
           const parsed = JSON.parse(jsonToParse);
-          // indicesToDeleteが配列であることを保証
           if (!Array.isArray(parsed.indicesToDelete)) {
             console.warn(`[${modelName} - DeletionAI] indicesToDeleteが配列ではありませんでした。応答: ${rawResponseText}`);
             parsed.indicesToDelete = [];
@@ -216,7 +225,7 @@ JSON形式:
 }
 
 /**
- * 1件の予定情報を Embed に整形する関数 (既存)
+ * 1件の予定情報を Embed に整形する関数
  */
 function createScheduleEmbed(scheduleItem, currentIndex, totalSchedules) {
   const type = scheduleItem[0] || 'N/A';
@@ -235,7 +244,7 @@ function createScheduleEmbed(scheduleItem, currentIndex, totalSchedules) {
 }
 
 /**
- * ★ ナビゲーション、追加、編集、削除ボタンを作成・更新する関数 (元の状態に戻す)
+ * ★ ナビゲーション、追加、編集、完了、削除ボタンを作成・更新する関数
  */
 function updateScheduleButtons(currentIndex, totalSchedules, schedulesExist) {
   const row = new ActionRowBuilder()
@@ -258,23 +267,27 @@ function updateScheduleButtons(currentIndex, totalSchedules, schedulesExist) {
 
   if (schedulesExist) {
     row.addComponents(
-      new ButtonBuilder() 
+      new ButtonBuilder()
         .setCustomId('schedule_edit_modal_trigger')
         .setLabel('編集')
         .setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder() // ★完了ボタン追加
+        .setCustomId('schedule_complete_trigger')
+        .setLabel('完了 ✅')
+        .setStyle(ButtonStyle.Success), // 他のSuccessと区別するためPrimaryも検討
       new ButtonBuilder()
         .setCustomId('schedule_delete_modal_trigger')
-        .setLabel('削除')
+        .setLabel('削除 🗑️')
         .setStyle(ButtonStyle.Danger)
     );
   }
-  return row; // ★ 単一のActionRowを返す
+  return row;
 }
 
 module.exports = {
   data: new SlashCommandBuilder()
     .setName('schedule')
-    .setDescription('登録されている予定をボタンで確認・追加・編集・削除します。'), 
+    .setDescription('登録されている予定をボタンで確認・追加・編集・削除します。'),
 
   async execute(interaction) {
     if (!interaction.inGuild()) {
@@ -307,46 +320,46 @@ module.exports = {
     }
 
     let currentIndex = 0;
-    const totalSchedules = schedules.length;
-    const schedulesExist = totalSchedules > 0;
+    let totalSchedules = schedules.length; // letに変更
+    let schedulesExist = totalSchedules > 0; // letに変更
 
     const initialEmbed = schedulesExist ? createScheduleEmbed(schedules[currentIndex], currentIndex, totalSchedules) : null;
-    const initialRow = updateScheduleButtons(currentIndex, totalSchedules, schedulesExist); // ★ 単一のActionRowを取得
+    const initialRow = updateScheduleButtons(currentIndex, totalSchedules, schedulesExist);
 
-    const replyOptions = { components: [initialRow] }; // ★ componentsはActionRowの配列
+    const replyOptions = { components: [initialRow] };
     if (initialEmbed) {
       replyOptions.embeds = [initialEmbed];
-    } else { 
+    } else {
       replyOptions.content = 'ℹ️ 登録されている予定はありません。「追加」ボタンから新しい予定を登録できます。';
     }
 
     const message = await interaction.editReply(replyOptions);
 
-    // ★ コレクターのフィルターを元に戻す
     const filter = (i) => {
       if (!i.isButton()) return false;
       if (i.user.id !== interaction.user.id) {
         i.reply({ content: 'このボタンはコマンドの実行者のみ操作できます。', ephemeral: true });
         return false;
       }
-      return ['schedule_previous', 'schedule_next', 'schedule_add_modal_trigger', 'schedule_edit_modal_trigger', 'schedule_delete_modal_trigger'].includes(i.customId);
+      // ★ 'schedule_complete_trigger' を追加
+      return ['schedule_previous', 'schedule_next', 'schedule_add_modal_trigger', 'schedule_edit_modal_trigger', 'schedule_delete_modal_trigger', 'schedule_complete_trigger'].includes(i.customId);
     };
 
-    const collector = message.createMessageComponentCollector({ filter, time: 300000 }); 
+    const collector = message.createMessageComponentCollector({ filter, time: 300000 }); // 5分間
 
     collector.on('collect', async (i) => {
       try {
         if (i.customId === 'schedule_previous') {
           if (!schedulesExist) { await i.deferUpdate().catch(console.error); return; }
           currentIndex--;
-          if (currentIndex < 0) currentIndex = 0; // 配列範囲チェック
+          if (currentIndex < 0) currentIndex = 0;
           const newEmbed = createScheduleEmbed(schedules[currentIndex], currentIndex, totalSchedules);
           const newRow = updateScheduleButtons(currentIndex, totalSchedules, schedulesExist);
           await i.update({ embeds: [newEmbed], components: [newRow] });
         } else if (i.customId === 'schedule_next') {
           if (!schedulesExist) { await i.deferUpdate().catch(console.error); return; }
           currentIndex++;
-          if (currentIndex >= totalSchedules) currentIndex = totalSchedules -1; // 配列範囲チェック
+          if (currentIndex >= totalSchedules) currentIndex = totalSchedules - 1;
           const newEmbed = createScheduleEmbed(schedules[currentIndex], currentIndex, totalSchedules);
           const newRow = updateScheduleButtons(currentIndex, totalSchedules, schedulesExist);
           await i.update({ embeds: [newEmbed], components: [newRow] });
@@ -363,7 +376,7 @@ module.exports = {
           const actionRowModal = new ActionRowBuilder().addComponents(scheduleInput);
           modal.addComponents(actionRowModal);
           await i.showModal(modal);
-        } else if (i.customId === 'schedule_edit_modal_trigger') { 
+        } else if (i.customId === 'schedule_edit_modal_trigger') {
           if (!schedulesExist || !schedules[currentIndex]) {
             await i.reply({ content: '編集対象の予定がありません。', ephemeral: true });
             return;
@@ -374,7 +387,7 @@ module.exports = {
           const due = currentSchedule[2] || '';
 
           const editModal = new ModalBuilder()
-            .setCustomId(`schedule_edit_modal_submit_${currentIndex}`) 
+            .setCustomId(`schedule_edit_modal_submit_${currentIndex}`)
             .setTitle('予定を編集');
           const typeInput = new TextInputBuilder().setCustomId('edit_type_input').setLabel('種別').setStyle(TextInputStyle.Short).setValue(type).setPlaceholder('例: 課題, テスト, その他').setRequired(false);
           const taskInput = new TextInputBuilder().setCustomId('edit_task_input').setLabel('内容').setStyle(TextInputStyle.Paragraph).setValue(task).setPlaceholder('例: 数学の宿題 P10-15').setRequired(true);
@@ -387,57 +400,119 @@ module.exports = {
           await i.showModal(editModal);
         } else if (i.customId === 'schedule_delete_modal_trigger') {
           const deleteModal = new ModalBuilder()
-            .setCustomId('schedule_delete_text_modal') 
+            .setCustomId('schedule_delete_text_modal')
             .setTitle('削除する予定の情報を入力');
           const deleteInput = new TextInputBuilder()
-            .setCustomId('schedule_delete_description_input') 
+            .setCustomId('schedule_delete_description_input')
             .setLabel('削除したい予定の特徴を教えてください')
-            .setStyle(TextInputStyle.Paragraph) // ★ 複数削除を意識してParagraphに変更も検討
+            .setStyle(TextInputStyle.Paragraph)
             .setPlaceholder('例: 明日の数学の宿題、または「会議の資料」と「〇〇のレポート」')
             .setRequired(true);
           const actionRowModalDelete = new ActionRowBuilder().addComponents(deleteInput);
           deleteModal.addComponents(actionRowModalDelete);
           await i.showModal(deleteModal);
+        } else if (i.customId === 'schedule_complete_trigger') { // ★完了処理
+          if (!schedulesExist || currentIndex < 0 || currentIndex >= totalSchedules) {
+            await i.reply({ content: '完了対象の予定が正しく選択されていません。', ephemeral: true });
+            return;
+          }
+          await i.deferUpdate();
+
+          const scheduleToComplete = schedules[currentIndex];
+          const taskToComplete = scheduleToComplete[1] || '不明なタスク';
+          const sheetsClient = await getSheetsClient();
+
+          let targetSheetGid = 0;
+          try {
+            const spreadsheetInfo = await sheetsClient.spreadsheets.get({ spreadsheetId: sheetId });
+            const sheet1 = spreadsheetInfo.data.sheets.find(s => s.properties.title === 'シート1');
+            if (sheet1 && typeof sheet1.properties.sheetId === 'number') {
+              targetSheetGid = sheet1.properties.sheetId;
+            }
+          } catch (e) {
+            console.warn(`[完了処理] シートのgid取得に失敗: ${e.message}. デフォルトのgid=0を使用します。`);
+          }
+
+          const deleteRequest = {
+            deleteDimension: {
+              range: {
+                sheetId: targetSheetGid,
+                dimension: 'ROWS',
+                startIndex: currentIndex + 1, // listRange A2:C を考慮 (A2がデータ0行目なので、シート上ではcurrentIndex + 1 行目から始まる)
+                endIndex: currentIndex + 2,
+              },
+            },
+          };
+
+          await sheetsClient.spreadsheets.batchUpdate({
+            spreadsheetId: sheetId,
+            resource: { requests: [deleteRequest] },
+          });
+
+          schedules.splice(currentIndex, 1);
+          totalSchedules = schedules.length;
+          schedulesExist = totalSchedules > 0;
+
+          if (currentIndex >= totalSchedules && totalSchedules > 0) {
+            currentIndex = totalSchedules - 1;
+          } else if (totalSchedules === 0) {
+            currentIndex = 0;
+          }
+
+          const updatedReplyOptions = {};
+          if (schedulesExist) {
+            updatedReplyOptions.embeds = [createScheduleEmbed(schedules[currentIndex], currentIndex, totalSchedules)];
+            updatedReplyOptions.components = [updateScheduleButtons(currentIndex, totalSchedules, true)];
+          } else {
+            updatedReplyOptions.content = '✅ 最後の予定を完了として削除しました。現在登録されている予定はありません。「追加」ボタンから新しい予定を登録できます。';
+            updatedReplyOptions.embeds = [];
+            updatedReplyOptions.components = [updateScheduleButtons(0, 0, false)];
+          }
+          await interaction.editReply(updatedReplyOptions).catch(console.error); // 元のインタラクションを更新
+
+          await i.followUp({ content: `✅ 予定「${taskToComplete}」を完了としてマークし、リストから削除しました。`, ephemeral: true });
         }
       } catch (error) {
         console.error('Error during button interaction:', error);
-        if (!i.replied && !i.deferred && i.isRepliable()) { 
-            await i.reply({ content: '⚠️ ボタンの処理中にエラーが発生しました。', ephemeral: true }).catch(console.error);
-        } else if (i.isRepliable()){ 
-            await i.followUp({ content: '⚠️ ボタンの処理中にエラーが発生しました。', ephemeral: true }).catch(console.error);
-        } else {
-            console.error("Interaction is not repliable.");
+        if (!i.replied && !i.deferred && i.isRepliable()) {
+          await i.reply({ content: '⚠️ ボタンの処理中にエラーが発生しました。', ephemeral: true }).catch(console.error);
+        } else if (i.isRepliable()) {
+          await i.followUp({ content: '⚠️ ボタンの処理中にエラーが発生しました。', ephemeral: true }).catch(console.error);
         }
       }
     });
 
     collector.on('end', (collected, reason) => {
-      const finalRow = updateScheduleButtons(currentIndex, totalSchedules, schedulesExist); 
+      const finalRow = updateScheduleButtons(currentIndex, totalSchedules, schedulesExist);
       const disabledRow = new ActionRowBuilder();
-      finalRow.components.forEach(button => { // finalRow は ActionRowBuilder のインスタンスなので、その components を直接参照
+      finalRow.components.forEach(button => {
         disabledRow.addComponents(ButtonBuilder.from(button).setDisabled(true));
       });
-        
+
       if (message && message.editable) {
-         message.edit({ components: [disabledRow] }).catch(console.error);
+        const endReplyOptions = { components: [disabledRow] };
+        if (schedulesExist && totalSchedules > 0) { // タイムアウト時も現在のembedは維持
+             endReplyOptions.embeds = [createScheduleEmbed(schedules[currentIndex], currentIndex, totalSchedules)];
+        } else if (!schedulesExist) { // 予定が全てなくなった場合
+            endReplyOptions.content = '表示していた予定は削除されたか、タイムアウトしました。';
+            endReplyOptions.embeds = [];
+        }
+        message.edit(endReplyOptions).catch(console.error);
       }
     });
   },
 
-  /**
-   * ★ 追加用モーダル処理 (修正：複数追加に対応)
-   */
   async handleScheduleModalSubmit(modalInteraction) {
     await modalInteraction.deferReply({ ephemeral: true });
 
     const userInput = modalInteraction.fields.getTextInputValue('schedule_text_input');
-    const extractedSchedules = await extractScheduleInfoWithAI(userInput); // 常に配列を期待
+    const extractedSchedules = await extractScheduleInfoWithAI(userInput);
 
     if (!extractedSchedules || extractedSchedules.length === 0) {
       await modalInteraction.editReply({ content: '❌ AIが予定情報をうまく抽出できませんでした。入力形式を確認するか、もう少し具体的に入力してみてください。\n例1: 明日の国語の音読\n例2: 数学のドリルP5 金曜日まで、そして理科のレポート 来週の月曜提出' });
       return;
     }
-    
+
     let sheets;
     try {
       sheets = await getSheetsClient();
@@ -448,16 +523,16 @@ module.exports = {
     }
 
     const valuesToAppend = extractedSchedules.map(scheduleData => {
-        if (scheduleData && scheduleData.task) {
-            const { type = '未分類', task, due = '不明' } = scheduleData;
-            return [type, task, due];
-        }
-        return null;
-    }).filter(row => row !== null); // taskがないものや不正なものを除外
+      if (scheduleData && scheduleData.task) {
+        const { type = '未分類', task, due = '不明' } = scheduleData;
+        return [type, task, due];
+      }
+      return null;
+    }).filter(row => row !== null);
 
     if (valuesToAppend.length === 0) {
-        await modalInteraction.editReply({ content: '❌ 抽出された情報から有効な予定を作成できませんでした。内容（task）が必須です。' });
-        return;
+      await modalInteraction.editReply({ content: '❌ 抽出された情報から有効な予定を作成できませんでした。内容（task）が必須です。' });
+      return;
     }
 
     try {
@@ -466,7 +541,7 @@ module.exports = {
         range: appendRange,
         valueInputOption: 'USER_ENTERED',
         resource: {
-          values: valuesToAppend, // ★ 複数の値を一度に送信
+          values: valuesToAppend,
         },
       });
       const count = valuesToAppend.length;
@@ -477,9 +552,6 @@ module.exports = {
     }
   },
 
-  /**
-   * ★ 削除用モーダル処理 (修正：複数削除に対応)
-   */
   async handleScheduleDeleteModal(modalInteraction) {
     await modalInteraction.deferReply({ ephemeral: true });
 
@@ -504,7 +576,7 @@ module.exports = {
       return;
     }
 
-    const deletionData = await extractDeletionTargetWithAI(userInput, currentSchedules); // {indicesToDelete: [...], reason: "..."} を期待
+    const deletionData = await extractDeletionTargetWithAI(userInput, currentSchedules);
     let indicesToDelete = deletionData.indicesToDelete || [];
     const reason = deletionData.reason;
 
@@ -518,18 +590,17 @@ module.exports = {
       return;
     }
 
-    // インデックスのバリデーションと重複削除、降順ソート
-    indicesToDelete = [...new Set(indicesToDelete)] 
-        .filter(idx => typeof idx === 'number' && idx >= 0 && idx < currentSchedules.length)
-        .sort((a, b) => b - a); // ★ 降順ソート (重要：行削除時のインデックスずれを防ぐため)
+    indicesToDelete = [...new Set(indicesToDelete)]
+      .filter(idx => typeof idx === 'number' && idx >= 0 && idx < currentSchedules.length)
+      .sort((a, b) => b - a);
 
     if (indicesToDelete.length === 0) {
-        await modalInteraction.editReply({ content: `❌ 有効な削除対象が見つかりませんでした。AIが示したインデックスが不正か、対象が特定できませんでした。${reason ? `\nAIからの注記: ${reason}` : ''}` });
-        return;
+      await modalInteraction.editReply({ content: `❌ 有効な削除対象が見つかりませんでした。AIが示したインデックスが不正か、対象が特定できませんでした。${reason ? `\nAIからの注記: ${reason}` : ''}` });
+      return;
     }
 
     try {
-      let targetSheetGid = 0; 
+      let targetSheetGid = 0;
       try {
         const spreadsheetInfo = await sheets.spreadsheets.get({ spreadsheetId: sheetId });
         const sheet1 = spreadsheetInfo.data.sheets.find(s => s.properties.title === 'シート1');
@@ -541,9 +612,9 @@ module.exports = {
       } catch (e) {
         console.warn(`シートのgid取得に失敗: ${e.message}. デフォルトのgid=0 を使用します。`);
       }
-      
+
       const deleteRequests = indicesToDelete.map(targetIndex => {
-        const sheetRowStartIndex = targetIndex + 1; // listRange A2:C を考慮した0ベースの行インデックス
+        const sheetRowStartIndex = targetIndex + 1; // listRange A2:C を考慮
         return {
           deleteDimension: {
             range: {
@@ -555,7 +626,7 @@ module.exports = {
           },
         };
       });
-      
+
       if (deleteRequests.length > 0) {
         await sheets.spreadsheets.batchUpdate({
           spreadsheetId: sheetId,
@@ -564,13 +635,12 @@ module.exports = {
           },
         });
         let replyMessage = `✅ ${deleteRequests.length}件の予定をスプレッドシートから削除しました。\nリストを更新するには、再度 \`/schedule\` コマンドを実行してください。`;
-        // AIが理由を返していて、かつ実際に削除された件数がAIが示唆した件数より少ない場合、その理由を表示する
-        if (reason && deletionData.indicesToDelete.length > indicesToDelete.length) { 
-            replyMessage += `\nAIからの注記: ${reason}`;
+        if (reason && deletionData.indicesToDelete.length > indicesToDelete.length) {
+          replyMessage += `\nAIからの注記: ${reason}`;
         }
         await modalInteraction.editReply({ content: replyMessage });
       } else {
-         await modalInteraction.editReply({ content: 'ℹ️ 削除リクエストを作成できませんでした (有効なインデックスなし)。' });
+        await modalInteraction.editReply({ content: 'ℹ️ 削除リクエストを作成できませんでした (有効なインデックスなし)。' });
       }
 
     } catch (sheetError) {
@@ -579,9 +649,6 @@ module.exports = {
     }
   },
 
-  /**
-   * 編集用モーダル処理 (既存のまま)
-   */
   async handleScheduleEditModal(modalInteraction, targetIndex) {
     await modalInteraction.deferReply({ ephemeral: true });
 
@@ -590,36 +657,34 @@ module.exports = {
     const newDueRaw = modalInteraction.fields.getTextInputValue('edit_due_input').trim() || '不明';
 
     if (!newTask) {
-        await modalInteraction.editReply({ content: '❌ 内容は必須です。' });
-        return;
+      await modalInteraction.editReply({ content: '❌ 内容は必須です。' });
+      return;
     }
 
     let newDue = newDueRaw;
     if (newDueRaw && newDueRaw.toLowerCase() !== '不明' && newDueRaw.toLowerCase() !== 'na' && newDueRaw.toLowerCase() !== 'n/a') {
-        // 編集時は単一の予定に対する更新なので、単一情報抽出用のAI関数を呼び出す
-        // ただし、extractScheduleInfoWithAIが配列を返すようになったので、その最初の要素を使う
-        const scheduleLikeString = `${newType} ${newTask} ${newDueRaw}`;
-        const extractedDateInfoArray = await extractScheduleInfoWithAI(scheduleLikeString); 
-        if (extractedDateInfoArray && extractedDateInfoArray.length > 0) {
-            const extractedDateInfo = extractedDateInfoArray[0]; // 配列の最初の要素を取得
-            if (extractedDateInfo && extractedDateInfo.due && extractedDateInfo.due !== '不明') {
-                newDue = extractedDateInfo.due;
-            } else {
-                console.warn(`AIによる期限 '${newDueRaw}' の解析に失敗、または「不明」と判断されました。元の入力を期限として使用します。`);
-            }
+      const scheduleLikeString = `${newType} ${newTask} ${newDueRaw}`;
+      const extractedDateInfoArray = await extractScheduleInfoWithAI(scheduleLikeString);
+      if (extractedDateInfoArray && extractedDateInfoArray.length > 0) {
+        const extractedDateInfo = extractedDateInfoArray[0];
+        if (extractedDateInfo && extractedDateInfo.due && extractedDateInfo.due !== '不明') {
+          newDue = extractedDateInfo.due;
         } else {
-             console.warn(`AIによる期限 '${newDueRaw}' の解析に失敗しました。元の入力を期限として使用します。`);
+          console.warn(`AIによる期限 '${newDueRaw}' の解析に失敗、または「不明」と判断されました。元の入力を期限として使用します。`);
         }
+      } else {
+        console.warn(`AIによる期限 '${newDueRaw}' の解析に失敗しました。元の入力を期限として使用します。`);
+      }
     }
-    
+
     try {
       const sheets = await getSheetsClient();
-      const rangeToUpdate = `'シート1'!A${targetIndex + 2}:C${targetIndex + 2}`;
-      
+      const rangeToUpdate = `'シート1'!A${targetIndex + 2}:C${targetIndex + 2}`; // A2がデータ0行目なので、(targetIndex+2)行目
+
       await sheets.spreadsheets.values.update({
         spreadsheetId: sheetId,
         range: rangeToUpdate,
-        valueInputOption: 'USER_ENTERED', 
+        valueInputOption: 'USER_ENTERED',
         resource: {
           values: [[newType, newTask, newDue]],
         },
@@ -630,5 +695,11 @@ module.exports = {
       console.error('Error updating schedule in Google Sheets:', error);
       await modalInteraction.editReply({ content: '❌ スプレッドシートの予定更新中にエラーが発生しました。' });
     }
-  }
+  },
+
+  // ★リマインダー機能などから参照するためにエクスポート
+  getSheetsClient,
+  sheetId,
+  listRange,
+  createScheduleEmbed, // 必要に応じて
 };
