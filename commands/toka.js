@@ -57,8 +57,7 @@ async function getTamaResponse(userMessage, history = []) {
       }));
       const chat = model.startChat({ history: chatHistoryForModel });
       const result = await chat.sendMessage(userMessage);
-      const senderName = message.member?.nickname || message.author.username;
-      const responseText = await getTamaResponse(content, currentHistory, senderName);
+      const responseText = await result.response.text();
       if (i > 0 && !fallbackNoticeShown) {
         console.warn(`[INFO] モデル '${tryModels[0]}' が失敗したため、'${modelName}' にフォールバックしました。`);
         fallbackNoticeShown = true;
