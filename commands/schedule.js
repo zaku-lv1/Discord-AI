@@ -19,28 +19,20 @@ require('dotenv').config();
 // =================================================================================
 // 定数と設定
 // =================================================================================
-// .envファイルから環境変数を読み込む
 const GOOGLE_SHEET_ID = process.env.GOOGLE_SHEET_ID;
 const GOOGLE_SERVICE_ACCOUNT_CREDENTIALS_JSON = process.env.GOOGLE_SERVICE_ACCOUNT_CREDENTIALS_JSON;
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 
-// スプレッドシートの定義
-const SHEET_ID = GOOGLE_SHEET_ID || 'YOUR_FALLBACK_SHEET_ID'; // フォールバックIDを設定
-const SHEET_NAME = 'シート1'; // シート名を定数化
-const LIST_RANGE = `${SHEET_NAME}!A2:C`; // 予定を一覧取得する範囲
-const APPEND_RANGE = `${SHEET_NAME}!A:A`; // 予定を追記する範囲
+const SHEET_ID = GOOGLE_SHEET_ID || 'YOUR_FALLBACK_SHEET_ID';
+const SHEET_NAME = 'シート1';
+const LIST_RANGE = `${SHEET_NAME}!A2:C`;
+const APPEND_RANGE = `${SHEET_NAME}!A:A`;
 
-// 【変更点】使用するAIモデルを gemini-1.5-flash のみに限定
 const TRY_MODELS = ['gemini-1.5-flash'];
 
 // =================================================================================
 // Google API 関連
 // =================================================================================
-
-/**
- * Google Sheets APIの認証済みクライアントを取得します。
- * @returns {Promise<import('googleapis').sheets_v4.Sheets>} Google Sheets APIクライアント
- */
 async function getSheetsClient() {
     if (!GOOGLE_SERVICE_ACCOUNT_CREDENTIALS_JSON) {
         throw new Error('環境変数 "GOOGLE_SERVICE_ACCOUNT_CREDENTIALS_JSON" が設定されていません。');
@@ -57,16 +49,8 @@ async function getSheetsClient() {
 // =================================================================================
 // Gemini AI 関連
 // =================================================================================
-
 const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
 
-/**
- * AIモデルを順に試行し、特定のタスクを実行する汎用ヘルパー関数。
- * @param {string} prompt - AIに送信するプロンプト。
- * @param {Function} responseParser - AIの応答をパースして検証する関数。
- * @param {string} taskName - ログ出力用のタスク名。
- * @returns {Promise<any>} パースされたAIの応答。
- */
 async function tryModelsForTask(prompt, responseParser, taskName) {
     let lastError = null;
     for (const modelName of TRY_MODELS) {
@@ -85,7 +69,6 @@ async function tryModelsForTask(prompt, responseParser, taskName) {
             jsonToParse = jsonToParse.trim();
 
             return responseParser(jsonToParse, modelName, rawResponseText);
-
         } catch (error) {
             console.warn(`[${modelName} - ${taskName}] での情報抽出に失敗: ${error.message}`);
             lastError = error;
@@ -99,11 +82,6 @@ async function tryModelsForTask(prompt, responseParser, taskName) {
     return null;
 }
 
-/**
- * ユーザー入力から予定情報を抽出します。
- * @param {string} userInput - ユーザーが入力したテキスト。
- * @returns {Promise<Array<{type: string, task: string, due: string}>>}
- */
 async function extractScheduleInfoWithAI(userInput) {
     const today = new Date();
     today.setHours(today.getHours() + 9);
@@ -116,12 +94,6 @@ async function extractScheduleInfoWithAI(userInput) {
     return Array.isArray(parsedResult) ? parsedResult : [];
 }
 
-/**
- * ユーザー入力から削除対象のインデックスを特定します。
- * @param {string} userInput
- * @param {Array<Array<string>>} currentSchedules
- * @returns {Promise<{indicesToDelete: number[], reason: string}>}
- */
 async function extractDeletionTargetWithAI(userInput, currentSchedules) {
     const today = new Date();
     today.setHours(today.getHours() + 9);
@@ -147,18 +119,60 @@ async function cleanupExpiredSchedules(sheets) {
         if (currentSchedules.length === 0) return 0;
     } catch (error) {
         console.error('クリーンアップのための予定読み込みエラー:', error);
-        return 0; // エラー時は何もしない
+        return 0;
     }
 
     const today = new Date();
-    today.setHours(today.getHours() + 9);
+    today.setHours(today.getHours() + 9); // JST
     const todayStr = today.toISOString().slice(0, 10);
-    const formattedSchedules = currentSchedules.map((item, index) => ({ index, due: item[2], task: item[1] }));
+    const tomorrow = new Date(today.getTime() + 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+    const formattedSchedules = currentSchedules.map((item, index) => ({
+        index,
+        task: item[1] || 'N/A',
+        due: item[2] || 'N/A',
+    }));
 
-    const prompt = `今日は${todayStr}です。予定リストから期限が過ぎた(今日を含む)全予定のインデックスを抽出してください。未来の日付や解釈不能な期限は対象外です。結果は{"expiredIndices": [index1,...]}のJSON形式で。他説明は不要。該当なしは空配列で。\n予定リスト: ${JSON.stringify(formattedSchedules)}`;
+    // 【重要】AIへの指示をより厳密に修正
+    const prompt = `
+あなたはタスク管理システムの有能なアシスタントです。
+今日の日付は「${todayStr}」です。
+
+以下のルールに厳密に従って、提供された予定リストの中から「完全に期限が過ぎた」予定のインデックス番号のみを抽出してください。
+
+# ルール
+1.  **期限切れの定義**: 予定の期限 (due) が、今日 (${todayStr}) またはそれより前の日付である場合のみ「期限切れ」とみなします。
+2.  **未来の予定は除外**: 期限が明日以降（例: '${tomorrow}', '来週', '2025-12-31'）の予定は、絶対に「期限切れ」に含めないでください。
+3.  **日付でない期限は除外**: 期限が「未定」「いつでも」「不明」のような、特定の日付として解釈できない文字列の場合は、絶対に「期限切れ」に含めないでください。
+4.  **安全第一**: 少しでも期限切れかどうかの判断に迷う場合は、その予定を「期限切れ」に含めないでください。間違って未来の予定を削除しないことが最優先です。
+
+# 例 (今日が ${todayStr} の場合)
+- \`{"task": "レポート提出", "due": "${todayStr}"}\` -> 期限切れ (OK)
+- \`{"task": "古い宿題", "due": "2025-06-01"}\` -> 期限切れ (OK)
+- \`{"task": "明日の準備", "due": "${tomorrow}"}\` -> 期限切れではない (NG)
+- \`{"task": "来週のテスト", "due": "来週の月曜"}\` -> 期限切れではない (NG)
+- \`{"task": "買い物", "due": "未定"}\` -> 期限切れではない (NG)
+
+# 指示
+上記のルールに基づき、以下の予定リストから期限切れのインデックスを抽出してください。
+結果は {"expiredIndices": [index1, index2, ...]} というJSON形式の文字列のみで出力してください。他の説明や前置きは一切不要です。
+
+予定リスト:
+${JSON.stringify(formattedSchedules, null, 2)}
+`;
 
     const result = await tryModelsForTask(prompt, (json) => JSON.parse(json), 'ExpiredAI');
     const expiredIndices = result?.expiredIndices;
+
+    // --- デバッグ用ログ ---
+    if (expiredIndices && expiredIndices.length > 0) {
+        console.log('[DEBUG] AIが期限切れと判断したインデックス:', expiredIndices);
+        expiredIndices.forEach(index => {
+            if (currentSchedules[index]) {
+                console.log(`[DEBUG] 削除対象の予定 (${index}):`, currentSchedules[index].join(' | '));
+            }
+        });
+    }
+    // --------------------
 
     if (!expiredIndices || expiredIndices.length === 0) return 0;
 
@@ -183,9 +197,8 @@ async function cleanupExpiredSchedules(sheets) {
     }
 }
 
-
 // =================================================================================
-// Discord UI 関連
+// Discord UI 関連 (以下、変更なし)
 // =================================================================================
 
 function createScheduleEmbed(scheduleItem, currentIndex, totalSchedules) {
@@ -340,12 +353,12 @@ module.exports = {
         });
 
         collector.on('end', () => {
-            const finalRow = updateScheduleButtons(currentIndex, totalSchedules, schedulesExist);
+            const finalRow = updateScheduleButtons(currentIndex, schedules.length, schedulesExist);
             finalRow.components.forEach(button => button.setDisabled(true));
             if (message?.editable) message.edit({ components: [finalRow] }).catch(() => {});
         });
     },
-
+    
     // =================================================================================
     // モーダル処理
     // =================================================================================
