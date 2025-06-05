@@ -40,7 +40,7 @@ async function extractScheduleInfoWithAI(userInput) {
   const prompt = `
 以下のユーザー入力を分析し、含まれる全ての予定について「種別」「内容」「期限」を抽出してください。
 ユーザーが複数の予定を記述している場合（例：改行区切り、箇条書き、「と」「や」での接続など）、それぞれを個別の予定として認識してください。
-種別の記述がない場合は「課題」「テスト」「その他」の中から考えて選んでください。
+種別の記述がない場合は「課題」「テスト」「その他」の中から考えて選んでください(その他はどの分類にも当てはまらない場合)。
 漢数字はすべて半角算用数字に書き換えること。内容は冗長にならないように気をつけること。
 「明日」「明後日」は今日 (${new Date().toLocaleDateString('ja-JP', { year: 'numeric', month: '2-digit', day: '2-digit'})}) からの日付で期限をYYYY-MM-DD形式で考えること。
 例：「明日」なら ${new Date(Date.now() + 24 * 60 * 60 * 1000).toLocaleDateString('ja-JP', {year: 'numeric', month: '2-digit', day: '2-digit'}).replace(/\//g, '-')}
