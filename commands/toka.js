@@ -166,7 +166,7 @@ module.exports = {
               const newHistory = [...currentHistory];
               newHistory.push({ role: 'user', content: content });
               newHistory.push({ role: 'model', content: responseText });
-              while (newHistory.length > 20) newHistory.shift();
+              while (newHistory.length > 30) newHistory.shift();
               conversationHistory.set(currentChannelId, newHistory);
               try {
                 if (responseText && responseText.trim() !== "") {
