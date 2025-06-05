@@ -180,18 +180,17 @@ client.once(Events.ClientReady, async c => {
 });
 
 client.on(Events.InteractionCreate, async interaction => {
-  const timestamp = () => `[${new Date().toISOString()}]`;
+  // ... (ChatInputCommand と ModalSubmit の判別ロジックは変更なし) ...
 
   if (interaction.isChatInputCommand()) {
+    const timestamp = () => `[${new Date().toISOString()}]`;
     console.log(`${timestamp()} ChatInputCommand received: ${interaction.commandName}, user: ${interaction.user.tag}, guild: ${interaction.guild?.name || 'DM'}`);
     const command = client.commands.get(interaction.commandName);
 
     if (!command) {
       console.error(`${timestamp()} コマンド ${interaction.commandName} が見つかりません。`);
-      await interaction.reply({
-        content: '不明なコマンドです。',
-        ephemeral: true
-      });
+      // この時点ではインタラクションは有効なはずなので、そのまま返信
+      await interaction.reply({ content: '不明なコマンドです。', ephemeral: true }).catch(console.error);
       return;
     }
 
@@ -199,11 +198,20 @@ client.on(Events.InteractionCreate, async interaction => {
       await command.execute(interaction);
     } catch (error) {
       console.error(`${timestamp()} コマンド実行エラー (${interaction.commandName}):`, error);
-      if (interaction.replied || interaction.deferred) {
-        await interaction.followUp({ content: 'コマンド実行中にエラーが発生しました。', ephemeral: true });
-      } else {
-        await interaction.reply({ content: 'コマンド実行中にエラーが発生しました。', ephemeral: true });
+
+      // ★★★ ここからが修正箇所 ★★★
+      // エラー応答を試みるが、それ自体が失敗してもクラッシュしないようにする
+      try {
+        if (interaction.replied || interaction.deferred) {
+          await interaction.followUp({ content: 'コマンド実行中にエラーが発生しました。', ephemeral: true });
+        } else {
+          // ephemeralの指定方法をflagsに変更 (Discord.js v14の推奨)
+          await interaction.reply({ content: 'コマンド実行中にエラーが発生しました。', flags: [64] }); // 64はephemeralを意味する
+        }
+      } catch (replyError) {
+        console.error(`${timestamp()} フォールバック応答の送信に失敗しました:`, replyError);
       }
+      // ★★★ ここまでが修正箇所 ★★★
     }
   } else if (interaction.isModalSubmit()) {
     console.log(`${timestamp()} ModalSubmit detected: customId=${interaction.customId}, user=${interaction.user.tag}, guild: ${interaction.guild?.name || 'DM'}`);
