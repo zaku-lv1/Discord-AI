@@ -5,6 +5,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { Client, GatewayIntentBits, Collection, Events } = require('discord.js');
 const dotenv = require('dotenv');
+const cron = require('node-cron'); // ★ cronライブラリをインポート
 
 // .envファイルから環境変数を読み込む
 dotenv.config();
@@ -16,6 +17,7 @@ dotenv.config();
 const client = new Client({
     intents: [
         GatewayIntentBits.Guilds,           // サーバー関連のイベント
+        GatewayIntentBits.GuildMembers,     // ★ リマインダーのためにメンバー情報を取得する権限を追加
         GatewayIntentBits.GuildMessages,    // サーバーでのメッセージ関連
         GatewayIntentBits.DirectMessages,   // ダイレクトメッセージ関連
         GatewayIntentBits.MessageContent,   // メッセージの内容を読み取る権限
@@ -90,6 +92,24 @@ client.once(Events.ClientReady, async c => {
         console.error('[致命的エラー] スラッシュコマンドの登録中にエラーが発生しました:', error);
     }
     console.log('--------------------------');
+    
+    // ★★★ ここからリマインダーのスケジュール設定 ★★★
+    const scheduleCommand = client.commands.get('schedule');
+    if (scheduleCommand && typeof scheduleCommand.scheduleDailyReminder === 'function') {
+        // 毎日日本時間の20:00に実行するタスクをスケジュール
+        cron.schedule('0 20 * * *', () => {
+            console.log('\n[定時タスク] 毎日の宿題リマインダーを実行します...');
+            // 'schedule.js' からインポートしたリマインダー関数を実行
+            scheduleCommand.scheduleDailyReminder(c); // clientオブジェクトを渡す
+        }, {
+            scheduled: true,
+            timezone: "Asia/Tokyo"
+        });
+        console.log('[情報] 毎日の宿題リマインダーが日本時間20時に設定されました。');
+    } else {
+        console.error('[致命的エラー] schedule.js または scheduleDailyReminder 関数が見つからないため、リマインダーを設定できません。');
+    }
+    console.log('--------------------------');
 });
 
 /**
@@ -139,17 +159,9 @@ client.on(Events.InteractionCreate, async interaction => {
         try {
             // モーダルの customId に応じて、scheduleコマンド内の適切な関数を呼び出す
             if (interaction.customId === 'schedule_add_text_modal') {
-                if (typeof scheduleCommand.handleScheduleModalSubmit === 'function') {
-                    await scheduleCommand.handleScheduleModalSubmit(interaction);
-                } else {
-                    console.error(`${timestamp()} [Error] handleScheduleModalSubmit が 'schedule' コマンドに見つかりません。`);
-                }
+                await scheduleCommand.handleScheduleModalSubmit?.(interaction);
             } else if (interaction.customId === 'schedule_delete_text_modal') {
-                if (typeof scheduleCommand.handleScheduleDeleteModal === 'function') {
-                    await scheduleCommand.handleScheduleDeleteModal(interaction);
-                } else {
-                    console.error(`${timestamp()} [Error] handleScheduleDeleteModal が 'schedule' コマンドに見つかりません。`);
-                }
+                await scheduleCommand.handleScheduleDeleteModal?.(interaction);
             } else if (interaction.customId.startsWith('schedule_edit_modal_submit_')) {
                 const targetIndexString = interaction.customId.split('_').pop();
                 const targetIndex = parseInt(targetIndexString, 10);
@@ -160,11 +172,7 @@ client.on(Events.InteractionCreate, async interaction => {
                     return;
                 }
                 
-                if (typeof scheduleCommand.handleScheduleEditModal === 'function') {
-                    await scheduleCommand.handleScheduleEditModal(interaction, targetIndex);
-                } else {
-                    console.error(`${timestamp()} [Error] handleScheduleEditModal が 'schedule' コマンドに見つかりません。`);
-                }
+                await scheduleCommand.handleScheduleEditModal?.(interaction, targetIndex);
             }
         } catch (modalError) {
             console.error(`${timestamp()} [Error] モーダル処理中の予期せぬエラー (ID: ${interaction.customId}):`, modalError);

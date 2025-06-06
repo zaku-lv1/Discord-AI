@@ -258,6 +258,115 @@ function updateScheduleButtons(currentIndex, totalSchedules, schedulesExist) {
 }
 
 // =================================================================================
+// ★★★ 新しく追加した機能: 毎日の宿題リマインダー ★★★
+// =================================================================================
+async function scheduleDailyReminder(client) {
+    const guildId = process.env.GUILD_ID;
+    const roleId = process.env.SCHEDULE_ROLE_ID;
+
+    if (!guildId || !roleId) {
+        console.error('GUILD_ID または SCHEDULE_ROLE_ID が .env ファイルに設定されていません。リマインダーをスキップします。');
+        return;
+    }
+
+    // タイムゾーン設定に基づき、明日の日付を YYYY-MM-DD 形式で取得
+    const getTomorrowDateString = () => {
+        const tomorrow = new Date();
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        const year = tomorrow.getFullYear();
+        const month = String(tomorrow.getMonth() + 1).padStart(2, '0');
+        const day = String(tomorrow.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    };
+    const tomorrowStr = getTomorrowDateString();
+    
+    console.log(`[リマインダー] 明日 (${tomorrowStr}) の宿題をチェックしています...`);
+
+    let sheets;
+    try {
+        sheets = await getSheetsClient();
+    } catch (authError) {
+        console.error('[リマインダー] Google API認証エラー:', authError);
+        return;
+    }
+
+    let allSchedules;
+    try {
+        const response = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: LIST_RANGE });
+        allSchedules = response.data.values || [];
+    } catch (error) {
+        console.error('[リマインダー] スプレッドシート読み込みエラー:', error);
+        return;
+    }
+
+    // 期限が明日で、種別が「課題」のものを抽出
+    const homeworkDueTomorrow = allSchedules.filter(schedule => {
+        const [type, , due] = schedule;
+        return due === tomorrowStr && type === '課題';
+    });
+
+    if (homeworkDueTomorrow.length === 0) {
+        console.log(`[リマインダー] 明日 (${tomorrowStr}) 提出の宿題はありませんでした。`);
+        return;
+    }
+    
+    console.log(`[リマインダー] ${homeworkDueTomorrow.length}件の宿題が見つかりました。通知を送信します...`);
+
+    // DMで送信する埋め込みメッセージを作成
+    const reminderEmbed = new EmbedBuilder()
+        .setTitle(`📢 明日提出の宿題リマインダー (${tomorrowStr})`)
+        .setColor(0xFFB700)
+        .setDescription('以下の宿題が明日提出です。忘れずに取り組みましょう！✨')
+        .setTimestamp();
+    
+    const fields = homeworkDueTomorrow.map(([type, task]) => ({
+        name: `📝 ${task}`,
+        value: `種別: ${type}`,
+        inline: false
+    }));
+    reminderEmbed.addFields(fields);
+
+    try {
+        const guild = await client.guilds.fetch(guildId);
+        const role = await guild.roles.fetch(roleId);
+
+        if (!role) {
+            console.error(`[リマインダー] ロールID (${roleId}) が見つかりませんでした。`);
+            return;
+        }
+
+        // サーバーの全メンバー情報を取得してキャッシュを最新に保つ
+        await guild.members.fetch();
+        const membersWithRole = role.members;
+
+        if (membersWithRole.size === 0) {
+            console.log('[リマインダー] 通知対象のロールを持つメンバーがいません。');
+            return;
+        }
+
+        let successCount = 0;
+        let failureCount = 0;
+        for (const member of membersWithRole.values()) {
+            if (member.user.bot) continue; // ボットは除外
+
+            try {
+                await member.send({ embeds: [reminderEmbed] });
+                console.log(`✅ ${member.user.tag} にDMを送信しました。`);
+                successCount++;
+            } catch (dmError) {
+                console.warn(`⚠️ ${member.user.tag} へのDM送信に失敗しました。(DMブロックの可能性)`);
+                failureCount++;
+            }
+        }
+        console.log(`[リマインダー] 送信完了: 成功 ${successCount}件, 失敗 ${failureCount}件`);
+
+    } catch (error) {
+        console.error('[リマインダー] 送信処理中にエラーが発生しました:', error);
+    }
+}
+
+
+// =================================================================================
 // メインコマンド
 // =================================================================================
 module.exports = {
@@ -472,5 +581,8 @@ module.exports = {
             console.error('スプレッドシートの予定更新エラー:', error);
             await interaction.editReply({ content: '❌ スプレッドシートの予定更新中にエラーが発生しました。' });
         }
-    }
+    },
+    
+    // 新しい関数をエクスポートに追加
+    scheduleDailyReminder
 };
