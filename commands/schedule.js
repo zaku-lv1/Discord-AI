@@ -26,13 +26,11 @@ const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 const SHEET_ID = GOOGLE_SHEET_ID || 'YOUR_FALLBACK_SHEET_ID';
 const SHEET_NAME = 'シート1';
 const LIST_RANGE = `${SHEET_NAME}!A2:C`;
-// append時はシート名のみを指定するのが最も安全で確実
 const APPEND_RANGE = SHEET_NAME;
-
 const TRY_MODELS = ['gemini-1.5-flash'];
 
 // =================================================================================
-// Google API 関連
+// Google API 関連 (変更なし)
 // =================================================================================
 async function getSheetsClient() {
     if (!GOOGLE_SERVICE_ACCOUNT_CREDENTIALS_JSON) {
@@ -48,7 +46,7 @@ async function getSheetsClient() {
 }
 
 // =================================================================================
-// Gemini AI 関連
+// Gemini AI 関連 (変更なし)
 // =================================================================================
 const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
 
@@ -226,7 +224,7 @@ ${JSON.stringify(formattedSchedules, null, 2)}
 }
 
 // =================================================================================
-// Discord UI 関連
+// Discord UI 関連 (変更なし)
 // =================================================================================
 
 function createScheduleEmbed(scheduleItem, currentIndex, totalSchedules) {
@@ -258,18 +256,17 @@ function updateScheduleButtons(currentIndex, totalSchedules, schedulesExist) {
 }
 
 // =================================================================================
-// ★★★ 新しく追加した機能: 毎日の宿題リマインダー ★★★
+// ★★★ 書き直したリマインダー機能 ★★★
 // =================================================================================
-async function scheduleDailyReminder(client) {
-    const guildId = process.env.GUILD_ID;
-    const roleId = process.env.SCHEDULE_ROLE_ID;
-
-    if (!guildId || !roleId) {
-        console.error('GUILD_ID または SCHEDULE_ROLE_ID が .env ファイルに設定されていません。リマインダーをスキップします。');
-        return;
-    }
-
-    // タイムゾーン設定に基づき、明日の日付を YYYY-MM-DD 形式で取得
+/**
+ * 毎日の宿題リマインダーを送信する。
+ * @param {Client} client - Discordクライアントオブジェクト
+ * @param {User} [targetUser=null] - (テスト用) 指定した場合、そのユーザーにのみDMを送信する
+ * @returns {Promise<{success: number, failure: number}|null>} 送信結果 or 宿題がない場合はnull
+ */
+async function scheduleDailyReminder(client, targetUser = null) {
+    // cronのタイムゾーン設定（Asia/Tokyo）に基づいて日付を計算する
+    // これにより、実行環境の時刻設定に依存せず、常に日本時間での「明日」を取得できる
     const getTomorrowDateString = () => {
         const tomorrow = new Date();
         tomorrow.setDate(tomorrow.getDate() + 1);
@@ -280,94 +277,132 @@ async function scheduleDailyReminder(client) {
     };
     const tomorrowStr = getTomorrowDateString();
     
-    console.log(`[リマインダー] 明日 (${tomorrowStr}) の宿題をチェックしています...`);
+    const logPrefix = targetUser ? '[テストリマインダー]' : '[定時リマインダー]';
+    console.log(`\n${logPrefix} 処理を開始します。`);
+    console.log(`${logPrefix} 明日の日付 (${tomorrowStr}) の宿題をチェックします...`);
 
+    // --- 1. スプレッドシートからデータを取得 ---
     let sheets;
     try {
         sheets = await getSheetsClient();
     } catch (authError) {
-        console.error('[リマインダー] Google API認証エラー:', authError);
-        return;
+        console.error(`${logPrefix} Google API認証エラー:`, authError);
+        return null;
     }
 
     let allSchedules;
     try {
         const response = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: LIST_RANGE });
+        // response.data.values が存在しない場合も空配列で初期化
         allSchedules = response.data.values || [];
     } catch (error) {
-        console.error('[リマインダー] スプレッドシート読み込みエラー:', error);
-        return;
+        console.error(`${logPrefix} スプレッドシート読み込みエラー:`, error);
+        return null;
     }
 
-    // 期限が明日で、種別が「課題」のものを抽出
-    const homeworkDueTomorrow = allSchedules.filter(schedule => {
-        const [type, , due] = schedule;
-        return due === tomorrowStr && type === '課題';
-    });
+    // --- 2. データを整形し、フィルタリングする ---
+    // ★改善点: .trim()で各セルの前後の空白を除去し、予期せぬ不一致を防ぐ
+    const cleanedSchedules = allSchedules.map(row => ({
+        type: row[0] ? String(row[0]).trim() : '',
+        task: row[1] ? String(row[1]).trim() : '',
+        due:  row[2] ? String(row[2]).trim() : ''
+    })).filter(s => s.task); // 内容(task)が空の行は除外
 
+    // ★改善点: どこでデータが弾かれたか分かるように、詳細なログを出力
+    const totalTasks = cleanedSchedules.length;
+    const tasksDueTomorrow = cleanedSchedules.filter(s => s.due === tomorrowStr);
+    const homeworkDueTomorrow = tasksDueTomorrow.filter(s => s.type === '課題');
+    
+    console.log(`${logPrefix} スプレッドシートから有効な予定を ${totalTasks}件 読み込みました。`);
+    console.log(`${logPrefix} ├─ 期限が明日(${tomorrowStr})の予定は ${tasksDueTomorrow.length}件です。`);
+    console.log(`${logPrefix} └─ その中で種別が「課題」の予定は ${homeworkDueTomorrow.length}件です。`);
+    
+    // --- 3. 通知対象の宿題がなければ処理を終了 ---
     if (homeworkDueTomorrow.length === 0) {
-        console.log(`[リマインダー] 明日 (${tomorrowStr}) 提出の宿題はありませんでした。`);
-        return;
+        console.log(`${logPrefix} 通知対象の宿題はありませんでした。処理を終了します。`);
+        return null;
     }
     
-    console.log(`[リマインダー] ${homeworkDueTomorrow.length}件の宿題が見つかりました。通知を送信します...`);
+    console.log(`${logPrefix} ${homeworkDueTomorrow.length}件の宿題が見つかりました。通知を作成します...`);
 
-    // DMで送信する埋め込みメッセージを作成
+    // --- 4. DMで送信するメッセージ(Embed)を作成 ---
     const reminderEmbed = new EmbedBuilder()
         .setTitle(`📢 明日提出の宿題リマインダー (${tomorrowStr})`)
         .setColor(0xFFB700)
         .setDescription('以下の宿題が明日提出です。忘れずに取り組みましょう！✨')
         .setTimestamp();
     
-    const fields = homeworkDueTomorrow.map(([type, task]) => ({
+    const fields = homeworkDueTomorrow.map(({ type, task }) => ({
         name: `📝 ${task}`,
         value: `種別: ${type}`,
         inline: false
     }));
     reminderEmbed.addFields(fields);
 
+    // --- 5. 通知を送信 ---
+    // テストモード (targetUserが指定されている場合)
+    if (targetUser) {
+        try {
+            await targetUser.send({ embeds: [reminderEmbed] });
+            console.log(`${logPrefix} ✅ ${targetUser.tag} にDMを送信しました。`);
+            return { success: 1, failure: 0 };
+        } catch (dmError) {
+            console.warn(`${logPrefix} ⚠️ ${targetUser.tag} へのDM送信に失敗しました。(DMブロックの可能性)`);
+            return { success: 0, failure: 1 };
+        }
+    }
+
+    // 通常モード (ロールを持つ全員に送信)
+    const guildId = process.env.GUILD_ID;
+    const roleId = process.env.SCHEDULE_ROLE_ID;
+    if (!guildId || !roleId) {
+        console.error(`${logPrefix} GUILD_ID または SCHEDULE_ROLE_ID が .env に未設定です。`);
+        return null;
+    }
+
     try {
         const guild = await client.guilds.fetch(guildId);
         const role = await guild.roles.fetch(roleId);
 
         if (!role) {
-            console.error(`[リマインダー] ロールID (${roleId}) が見つかりませんでした。`);
-            return;
+            console.error(`${logPrefix} ロールID (${roleId}) が見つかりませんでした。`);
+            return null;
         }
 
-        // サーバーの全メンバー情報を取得してキャッシュを最新に保つ
         await guild.members.fetch();
         const membersWithRole = role.members;
 
         if (membersWithRole.size === 0) {
-            console.log('[リマインダー] 通知対象のロールを持つメンバーがいません。');
-            return;
+            console.log(`${logPrefix} 通知対象のロールを持つメンバーがいません。`);
+            return { success: 0, failure: 0 };
         }
 
         let successCount = 0;
         let failureCount = 0;
         for (const member of membersWithRole.values()) {
-            if (member.user.bot) continue; // ボットは除外
+            if (member.user.bot) continue;
 
             try {
                 await member.send({ embeds: [reminderEmbed] });
-                console.log(`✅ ${member.user.tag} にDMを送信しました。`);
+                console.log(`${logPrefix} ✅ ${member.user.tag} にDMを送信しました。`);
                 successCount++;
             } catch (dmError) {
-                console.warn(`⚠️ ${member.user.tag} へのDM送信に失敗しました。(DMブロックの可能性)`);
+                console.warn(`${logPrefix} ⚠️ ${member.user.tag} へのDM送信に失敗しました。(DMブロックの可能性)`);
                 failureCount++;
             }
         }
-        console.log(`[リマインダー] 送信完了: 成功 ${successCount}件, 失敗 ${failureCount}件`);
+        console.log(`${logPrefix} 送信完了: 成功 ${successCount}件, 失敗 ${failureCount}件`);
+        return { success: successCount, failure: failureCount };
 
     } catch (error) {
-        console.error('[リマインダー] 送信処理中にエラーが発生しました:', error);
+        console.error(`${logPrefix} 送信処理中にエラーが発生しました:`, error);
+        return null;
     }
 }
 
 
 // =================================================================================
-// メインコマンド
+// メインコマンド (変更なし)
 // =================================================================================
 module.exports = {
     data: new SlashCommandBuilder()
@@ -375,6 +410,7 @@ module.exports = {
         .setDescription('予定を確認・追加・編集・削除します。(期限切れは自動削除されます)'),
 
     async execute(interaction) {
+        // (execute関数の中身は変更なし)
         if (!interaction.inGuild()) {
             return interaction.reply({ content: 'このコマンドはサーバー内でのみ使用できます。', ephemeral: true });
         }
@@ -495,7 +531,7 @@ module.exports = {
     },
     
     // =================================================================================
-    // モーダル処理 (メインファイル index.js から呼び出される)
+    // モーダル処理 (変更なし)
     // =================================================================================
     
     async handleScheduleModalSubmit(interaction) {
