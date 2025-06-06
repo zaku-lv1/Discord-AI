@@ -26,7 +26,8 @@ const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 const SHEET_ID = GOOGLE_SHEET_ID || 'YOUR_FALLBACK_SHEET_ID';
 const SHEET_NAME = 'シート1';
 const LIST_RANGE = `${SHEET_NAME}!A2:C`;
-const APPEND_RANGE = `${SHEET_NAME}!A:A`;
+// append時はシート名のみを指定するのが最も安全で確実
+const APPEND_RANGE = SHEET_NAME;
 
 const TRY_MODELS = ['gemini-1.5-flash'];
 
@@ -84,33 +85,79 @@ async function tryModelsForTask(prompt, responseParser, taskName) {
 
 async function extractScheduleInfoWithAI(userInput) {
     const today = new Date();
-    today.setHours(today.getHours() + 9);
+    today.setHours(today.getHours() + 9); // JST
     const todayStr = today.toISOString().slice(0, 10);
     const tomorrow = new Date(today.getTime() + 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
     
-    const prompt = `ユーザー入力を分析し、全予定の「種別」「内容」「期限」を抽出してください。複数予定も個別に認識します。種別がない場合は「課題」「テスト」「その他」から選んでください。漢数字は半角に直し、内容は簡潔に。「今日」は${todayStr}、「明日」は${tomorrow}とし、期限はYYYY-MM-DD形式に正規化してください。結果はJSON配列形式で出力し、他説明は不要です。該当なしは空配列 [] を返します。\nユーザー入力: "${userInput}"`;
+    const prompt = `
+あなたは優秀なスケジュールアシスタントです。ユーザーからの自然な文章を分析し、含まれている全ての予定をJSON形式の配列で抽出してください。
+
+# 厳守するべきルール
+1.  **出力形式**: 結果は必ずJSON配列 \`[{"type": "種別", "task": "内容", "due": "期限"}, ...]\` の形式で出力してください。説明や前置きは一切不要です。
+2.  **「内容(task)」の抽出**: 「内容(task)」は最も重要な項目です。ユーザー入力から、**何をするのか**を具体的に抜き出してください。もし内容が抽出できなければ、その予定は無効とみなし、結果に含めないでください。
+3.  **「種別(type)」の割り当て**: ユーザー入力に「宿題」「課題」「レポート」「提出」などの言葉があれば「課題」に、 「テスト」「試験」があれば「テスト」に分類してください。それ以外で明確な種別がなければ「その他」としてください。
+4.  **「期限(due)」の正規化**:
+    - 期限は必ず「YYYY-MM-DD」形式に変換してください。
+    - 「今日」は \`${todayStr}\` になります。
+    - 「明日」は \`${tomorrow}\` になります。
+    - 「来週の月曜日」のような表現も具体的な日付に変換してください。
+    - 期限が不明または指定されていない場合は \`"未定"\` としてください。
+5.  **複数予定の認識**: 複数の予定（例：「AとB」）が含まれている場合は、それぞれを個別のJSONオブジェクトとして認識してください。
+6.  **該当なしの場合**: 予定として認識できる情報が何もなければ、空の配列 \`[]\` のみを出力してください。
+
+# 例
+ユーザー入力: "明日の数学の宿題と、来週の金曜までにレポート提出"
+期待する出力 (日付は例):
+[
+  {
+    "type": "課題",
+    "task": "数学の宿題",
+    "due": "${tomorrow}"
+  },
+  {
+    "type": "課題",
+    "task": "レポート提出",
+    "due": "2025-06-13" 
+  }
+]
+
+# ユーザー入力
+"${userInput}"
+`;
 
     const parsedResult = await tryModelsForTask(prompt, (json) => JSON.parse(json), 'ScheduleAI');
     return Array.isArray(parsedResult) ? parsedResult : [];
 }
 
+
 async function extractDeletionTargetWithAI(userInput, currentSchedules) {
     const today = new Date();
-    today.setHours(today.getHours() + 9);
+    today.setHours(today.getHours() + 9); // JST
     const todayStr = today.toISOString().slice(0, 10);
     const formattedSchedules = currentSchedules.map((item, index) => ({ index, type: item[0], task: item[1], due: item[2] }));
 
-    const prompt = `予定リストからユーザーが削除したい予定のインデックスを抽出してください。日付は今日(${todayStr})を基準に解釈してください。結果は {"indicesToDelete": [index1,...], "reason": "理由"} のJSON形式で出力してください。特定できない場合はreasonに記述し、indicesToDeleteは空にします。他の説明は不要です。\n予定リスト: ${JSON.stringify(formattedSchedules)}\nユーザーの削除リクエスト: "${userInput}"`;
+    const prompt = `
+あなたはタスク管理アシスタントです。以下の予定リストとユーザーの削除リクエストを照合し、削除対象となる予定のインデックス番号を特定してください。
+
+# ルール
+1.  ユーザーの入力（例：「数学の宿題」）に最も一致する予定をリストから見つけます。
+2.  複数の予定が該当する可能性も考慮してください。
+3.  結果は \`{"indicesToDelete": [index1, index2, ...], "reason": "AIの判断理由"}\` というJSON形式の文字列のみで出力してください。
+4.  削除対象が特定できない場合は、 \`indicesToDelete\` は空の配列 \`[]\` とし、 \`reason\` にその理由（例：「該当する予定が見つかりませんでした。」）を記述してください。
+5.  他の説明や前置きは一切不要です。
+6.  日付の解釈には今日が \`${todayStr}\` であることを考慮してください。
+
+# 予定リスト
+${JSON.stringify(formattedSchedules, null, 2)}
+
+# ユーザーの削除リクエスト
+"${userInput}"
+`;
     
     const parsedResult = await tryModelsForTask(prompt, (json) => JSON.parse(json), 'DeletionAI');
     return parsedResult || { indicesToDelete: [], reason: "AIモデルでの処理中にエラーが発生しました。" };
 }
 
-/**
- * 【自動クリーンアップ用】期限切れの予定を削除する。
- * @param {import('googleapis').sheets_v4.Sheets} sheets - Google Sheets APIクライアント。
- * @returns {Promise<number>} 削除した予定の件数。
- */
 async function cleanupExpiredSchedules(sheets) {
     let currentSchedules;
     try {
@@ -132,7 +179,6 @@ async function cleanupExpiredSchedules(sheets) {
         due: item[2] || 'N/A',
     }));
 
-    // 【重要】AIへの指示をより厳密に修正
     const prompt = `
 あなたはタスク管理システムの有能なアシスタントです。
 今日の日付は「${todayStr}」です。
@@ -145,13 +191,6 @@ async function cleanupExpiredSchedules(sheets) {
 3.  **日付でない期限は除外**: 期限が「未定」「いつでも」「不明」のような、特定の日付として解釈できない文字列の場合は、絶対に「期限切れ」に含めないでください。
 4.  **安全第一**: 少しでも期限切れかどうかの判断に迷う場合は、その予定を「期限切れ」に含めないでください。間違って未来の予定を削除しないことが最優先です。
 
-# 例 (今日が ${todayStr} の場合)
-- \`{"task": "レポート提出", "due": "${todayStr}"}\` -> 期限切れ (OK)
-- \`{"task": "古い宿題", "due": "2025-06-01"}\` -> 期限切れ (OK)
-- \`{"task": "明日の準備", "due": "${tomorrow}"}\` -> 期限切れではない (NG)
-- \`{"task": "来週のテスト", "due": "来週の月曜"}\` -> 期限切れではない (NG)
-- \`{"task": "買い物", "due": "未定"}\` -> 期限切れではない (NG)
-
 # 指示
 上記のルールに基づき、以下の予定リストから期限切れのインデックスを抽出してください。
 結果は {"expiredIndices": [index1, index2, ...]} というJSON形式の文字列のみで出力してください。他の説明や前置きは一切不要です。
@@ -162,17 +201,6 @@ ${JSON.stringify(formattedSchedules, null, 2)}
 
     const result = await tryModelsForTask(prompt, (json) => JSON.parse(json), 'ExpiredAI');
     const expiredIndices = result?.expiredIndices;
-
-    // --- デバッグ用ログ ---
-    if (expiredIndices && expiredIndices.length > 0) {
-        console.log('[DEBUG] AIが期限切れと判断したインデックス:', expiredIndices);
-        expiredIndices.forEach(index => {
-            if (currentSchedules[index]) {
-                console.log(`[DEBUG] 削除対象の予定 (${index}):`, currentSchedules[index].join(' | '));
-            }
-        });
-    }
-    // --------------------
 
     if (!expiredIndices || expiredIndices.length === 0) return 0;
 
@@ -198,7 +226,7 @@ ${JSON.stringify(formattedSchedules, null, 2)}
 }
 
 // =================================================================================
-// Discord UI 関連 (以下、変更なし)
+// Discord UI 関連
 // =================================================================================
 
 function createScheduleEmbed(scheduleItem, currentIndex, totalSchedules) {
@@ -251,13 +279,11 @@ module.exports = {
             return interaction.editReply({ content: '❌ Google APIへの認証に失敗しました。設定を確認してください。' });
         }
 
-        // --- 自動クリーンアップを実行 ---
         const deletedCount = await cleanupExpiredSchedules(sheets);
         if (deletedCount > 0) {
             await interaction.followUp({ content: `🧹 自動クリーンアップを実行し、期限切れの予定を**${deletedCount}件**削除しました。`, ephemeral: true });
         }
 
-        // --- 最新の予定リストを取得して表示 ---
         let schedules;
         try {
             const response = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: LIST_RANGE });
@@ -360,7 +386,7 @@ module.exports = {
     },
     
     // =================================================================================
-    // モーダル処理
+    // モーダル処理 (メインファイル index.js から呼び出される)
     // =================================================================================
     
     async handleScheduleModalSubmit(interaction) {
@@ -372,7 +398,7 @@ module.exports = {
             return interaction.editReply({ content: '❌ AIが予定情報を抽出できませんでした。より具体的に入力してください。\n例: 「明日の国語の音読」と「金曜日までの数学ドリルP5」' });
         }
 
-        const valuesToAppend = extractedSchedules.map(({ type, task, due }) => task ? [type || 'その他', task, due || '不明'] : null).filter(Boolean);
+        const valuesToAppend = extractedSchedules.map(({ type, task, due }) => task ? [type || 'その他', task, due || '未定'] : null).filter(Boolean);
         if (valuesToAppend.length === 0) {
             return interaction.editReply({ content: '❌ 有効な予定を作成できませんでした。「内容」は必須です。' });
         }
@@ -429,7 +455,7 @@ module.exports = {
         await interaction.deferReply({ ephemeral: true });
         const newType = interaction.fields.getTextInputValue('edit_type_input').trim() || 'その他';
         const newTask = interaction.fields.getTextInputValue('edit_task_input').trim();
-        const newDueRaw = interaction.fields.getTextInputValue('edit_due_input').trim() || '不明';
+        const newDueRaw = interaction.fields.getTextInputValue('edit_due_input').trim() || '未定';
 
         if (!newTask) return interaction.editReply({ content: '❌ 「内容」は必須です。' });
         
