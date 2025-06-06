@@ -1,5 +1,4 @@
 const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
-// rss-parser をインポート
 const Parser = require('rss-parser');
 const parser = new Parser();
 
@@ -12,12 +11,10 @@ function createEmbed(article) {
   const embed = new EmbedBuilder()
     .setTitle(article.title || 'タイトルなし')
     .setURL(article.link)
-    // pubDateをより読みやすい形式にフォーマット（必要に応じて）
     .setDescription(`**公開日時: ${new Date(article.pubDate).toLocaleString('ja-JP')}**\n\n${article.contentSnippet || '内容の要約なし'}`)
-    .setColor(0x4285F4) // Googleっぽい色に変更
-    .setFooter({ text: article.creator || 'Google News' }); // 配信元を表示
+    .setColor(0x4285F4)
+    .setFooter({ text: article.creator || 'Google News' });
 
-  // 記事のコンテンツ（HTML）から画像URLを正規表現で抽出
   const imageMatch = article.content ? article.content.match(/<img src="([^"]+)"/) : null;
   if (imageMatch && imageMatch[1]) {
     embed.setImage(imageMatch[1]);
@@ -29,13 +26,11 @@ function createEmbed(article) {
 module.exports = {
   data: new SlashCommandBuilder()
     .setName('news')
-    // 説明文をGoogle Newsに合わせる
     .setDescription('Google Newsの最新ニュースを表示します。'),
   async execute(interaction) {
     await interaction.deferReply();
 
     try {
-      // Google News (日本) のRSSフィードを取得
       const feed = await parser.parseURL('https://news.google.com/rss?hl=ja&gl=JP&ceid=JP:ja');
       const articles = feed.items;
 
@@ -45,7 +40,6 @@ module.exports = {
       }
 
       let currentIndex = 0;
-
       const embed = createEmbed(articles[currentIndex]);
 
       const updateButtons = (index, total) => {
@@ -67,8 +61,11 @@ module.exports = {
       const row = updateButtons(currentIndex, articles.length);
       const message = await interaction.editReply({ embeds: [embed], components: [row] });
 
+      // ★★★ ここを修正しました ★★★
       const filter = (i) => {
-        if (!i.isButtonComponent()) return false;
+        // i.isButtonComponent() は存在しないため、i.isButton() に修正します。
+        if (!i.isButton()) return false;
+        
         if (i.user.id !== interaction.user.id) {
           i.reply({ content: 'このボタンはコマンドの実行者のみ操作できます。', ephemeral: true });
           return false;
@@ -85,10 +82,8 @@ module.exports = {
           currentIndex++;
         }
 
-        // インデックスの境界チェックは元のままでOK
         if (currentIndex < 0) currentIndex = 0;
         if (currentIndex >= articles.length) currentIndex = articles.length - 1;
-
 
         const newEmbed = createEmbed(articles[currentIndex]);
         const newRow = updateButtons(currentIndex, articles.length);
