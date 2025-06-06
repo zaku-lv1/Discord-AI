@@ -12,11 +12,11 @@ module.exports = {
     // コマンドが実行されたときの処理
 	async execute(interaction) {
         // --- ★★★ 管理者IDによる実行者チェック ★★★ ---
-        const adminId = process.env.ADMIN_ID;
+        const adminId = process.env.ADMIN;
 
-        // .envにADMIN_IDが設定されていない場合のエラーハンドリング
+        // .envにADMINが設定されていない場合のエラーハンドリング
         if (!adminId) {
-            console.error('[テストリマインダー] ADMIN_IDが.envファイルに設定されていません。');
+            console.error('[テストリマインダー] ADMINが.envファイルに設定されていません。');
             return interaction.reply({
                 content: 'コマンドの設定エラーです。ボット管理者に連絡してください。',
                 ephemeral: true,

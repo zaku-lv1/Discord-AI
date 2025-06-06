@@ -97,7 +97,7 @@ client.once(Events.ClientReady, async c => {
     const scheduleCommand = client.commands.get('schedule');
     if (scheduleCommand && typeof scheduleCommand.scheduleDailyReminder === 'function') {
         // 毎日日本時間の20:00に実行するタスクをスケジュール
-        cron.schedule('0 20 * * *', () => {
+        cron.schedule('0 7 * * *', () => {
             console.log('\n[定時タスク] 毎日の宿題リマインダーを実行します...');
             // 'schedule.js' からインポートしたリマインダー関数を実行
             scheduleCommand.scheduleDailyReminder(c); // clientオブジェクトを渡す
