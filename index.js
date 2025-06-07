@@ -76,7 +76,7 @@ if (fs.existsSync(commandsPath)) {
 
 
 // =================================================================================
-// Expressサーバーの設定
+// Expressサーバーの設定 (「Not Found」エラー修正済み)
 // =================================================================================
 const app = express();
 const port = process.env.PORT || 3000;
@@ -85,9 +85,9 @@ const port = process.env.PORT || 3000;
 app.get('/:code', async (req, res) => {
     const { code } = req.params;
 
-    // パラメータが意図しないリクエスト(例: favicon.ico)の場合は無視する
-    if (code.length < 10) { // コードは32文字なので、短いものは弾く
-        return res.status(404).send('Not Found');
+    // ブラウザが自動的にリクエストする favicon.ico を無視する簡単なチェック
+    if (code === 'favicon.ico') {
+        return res.status(204).send(); // 204 No Content を返して処理を終える
     }
 
     try {
@@ -102,6 +102,7 @@ app.get('/:code', async (req, res) => {
             res.set('Content-Type', imageData.contentType);
             res.send(imageResponse.data);
         } else {
+            // Firestoreにコードが見つからない場合
             res.status(404).send('画像が見つかりません。');
         }
     } catch (error) {
