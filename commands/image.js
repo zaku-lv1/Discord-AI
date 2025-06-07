@@ -1,5 +1,6 @@
 const { SlashCommandBuilder } = require('discord.js');
-const crypto = require('node:crypto');
+// ★ cryptoの代わりにnanoidをインポート
+const { nanoid } = require('nanoid');
 const { FieldValue } = require('firebase-admin/firestore');
 
 module.exports = {
@@ -17,12 +18,20 @@ module.exports = {
      */
     async execute(interaction) {
         const db = interaction.client.db;
-        const baseUrl = process.env.BASE_URL;
-
-        if (!baseUrl) {
+        
+        // ★ ベースURLの正規化処理を追加
+        let fullBaseUrl = process.env.BASE_URL;
+        if (!fullBaseUrl) {
             console.error('[エラー] 環境変数 BASE_URL が設定されていません。');
             return interaction.reply({ content: '設定エラーにより、URLを生成できませんでした。管理者に連絡してください。', ephemeral: true });
         }
+        if (!fullBaseUrl.startsWith('http')) {
+            fullBaseUrl = `https://${fullBaseUrl}`;
+        }
+        if (fullBaseUrl.endsWith('/')) {
+            fullBaseUrl = fullBaseUrl.slice(0, -1);
+        }
+
 
         await interaction.deferReply({ ephemeral: true });
 
@@ -31,8 +40,9 @@ module.exports = {
         if (!attachment.contentType?.startsWith('image/')) {
             return interaction.editReply({ content: '画像ファイルのみアップロードできます。' });
         }
-
-        const randomCode = crypto.randomBytes(16).toString('hex');
+        
+        // ★ nanoidを使って8文字のIDを生成
+        const randomCode = nanoid(8);
 
         try {
             const docRef = db.collection('images').doc(randomCode);
@@ -49,7 +59,9 @@ module.exports = {
             return interaction.editReply({ content: 'データベースエラーによりURLを生成できませんでした。' });
         }
 
-        const generatedUrl = `${baseUrl.endsWith('/') ? baseUrl : baseUrl + '/'}${randomCode}`;
+        // ★ 正規化されたベースURLを使って最終的なURLを組み立てる
+        const generatedUrl = `${fullBaseUrl}/${randomCode}`;
+        
         await interaction.editReply({
             content: `✅ 画像のURLを生成しました！\n\n**URL:** ${generatedUrl}`
         });

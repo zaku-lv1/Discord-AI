@@ -18,6 +18,7 @@
     "express": "^4.19.2",
     "firebase-admin": "^12.1.1",
     "googleapis": "^140.0.0",
+    "nanoid": "^3.3.7",
     "node-cron": "^3.0.3",
     "node-fetch": "^3.3.2",
     "rss-parser": "^3.13.0"
