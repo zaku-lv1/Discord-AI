@@ -6,8 +6,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <script>const firebaseConfig = <%- JSON.stringify(firebaseConfig) %>;</script>
     <link rel="stylesheet" href="/admin/style.css">
-    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js" defer></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-auth-compat.js" defer></script>
+    <script src="/admin/app.js" defer></script>
 </head>
 <body>
     <div class="container">
@@ -26,6 +27,5 @@
             <p id="status-message"></p>
         </div>
     </div>
-    <script src="/admin/app.js"></script>
 </body>
 </html>

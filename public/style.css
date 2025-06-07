@@ -20,21 +20,9 @@ body {
     max-width: 800px;
 }
 
-h1 {
-    text-align: center;
-    color: #4a4a4a;
-    margin-top: 0;
-}
-
-p {
-    line-height: 1.6;
-}
-
-hr {
-    border: none;
-    border-top: 1px solid #e0e0e0;
-    margin: 1.5rem 0;
-}
+h1 { text-align: center; color: #4a4a4a; margin-top: 0; }
+p { line-height: 1.6; }
+hr { border: none; border-top: 1px solid #e0e0e0; margin: 1.5rem 0; }
 
 textarea {
     width: 100%;
@@ -72,38 +60,12 @@ button {
     cursor: pointer;
     transition: background-color 0.2s, transform 0.1s;
 }
+button:disabled { background-color: #ccc; cursor: not-allowed; }
+button:active { transform: scale(0.98); }
 
-button:disabled {
-    background-color: #ccc;
-    cursor: not-allowed;
-}
+#login-btn, #save-btn { background-color: #007bff; color: white; }
+#login-btn:hover, #save-btn:hover:not(:disabled) { background-color: #0056b3; }
+#logout-btn { background-color: #6c757d; color: white; padding: 8px 15px; }
+#logout-btn:hover { background-color: #5a6268; }
 
-button:active {
-    transform: scale(0.98);
-}
-
-#login-btn, #save-btn {
-    background-color: #007bff;
-    color: white;
-}
-
-#login-btn:hover, #save-btn:hover:not(:disabled) {
-    background-color: #0056b3;
-}
-
-#logout-btn {
-    background-color: #6c757d;
-    color: white;
-    padding: 8px 15px;
-}
-
-#logout-btn:hover {
-    background-color: #5a6268;
-}
-
-#status-message {
-    margin-top: 1rem;
-    text-align: center;
-    font-weight: bold;
-    height: 1.2em;
-}
+#status-message { margin-top: 1rem; text-align: center; font-weight: bold; height: 1.2em; }
