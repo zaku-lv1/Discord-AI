@@ -2,43 +2,30 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>とーか 設定カスタマイザー</title>
-    
-    <script>
-        const firebaseConfig = <%- JSON.stringify(firebaseConfig) %>;
-    </script>
-    
-    <link rel="stylesheet" href="/style.css">
-    
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script>const firebaseConfig = <%- JSON.stringify(firebaseConfig) %>;</script>
+    <link rel="stylesheet" href="/admin/style.css">
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-auth-compat.js"></script>
 </head>
 <body>
     <div class="container">
         <h1>とーか 設定カスタマイザー</h1>
-
         <div id="login-screen">
             <p>Googleアカウントでログインして、とーかの設定を編集します。</p>
             <button id="login-btn">Googleでログイン</button>
         </div>
-
         <div id="main-content" style="display: none;">
-            <div class="user-info">
-                <p>ようこそ, <span id="user-email"></span> さん</p>
-                <button id="logout-btn">ログアウト</button>
-            </div>
+            <div class="user-info"><p>ようこそ, <span id="user-email"></span> さん</p><button id="logout-btn">ログアウト</button></div>
             <hr>
             <h2>システムプロンプト設定</h2>
             <p>ここで「とーか」の性格や口調、設定などを自由に記述してください。</p>
             <textarea id="prompt-textarea" rows="20" placeholder="ここにシステムプロンプトを入力..."></textarea>
-            <div class="button-group">
-                <button id="save-btn">設定を保存</button>
-            </div>
+            <div class="button-group"><button id="save-btn">設定を保存</button></div>
             <p id="status-message"></p>
         </div>
     </div>
-
-    <script src="/app.js"></script>
+    <script src="/admin/app.js"></script>
 </body>
 </html>
