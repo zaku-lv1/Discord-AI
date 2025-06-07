@@ -1,5 +1,4 @@
 const { SlashCommandBuilder } = require('discord.js');
-// ★ cryptoの代わりにnanoidをインポート
 const { nanoid } = require('nanoid');
 const { FieldValue } = require('firebase-admin/firestore');
 
@@ -10,43 +9,27 @@ module.exports = {
         .addAttachmentOption(option =>
             option.setName('image')
                 .setDescription('URLを生成したい画像ファイル')
-                .setRequired(true)
-        ),
-
-    /**
-     * @param {import('discord.js').ChatInputCommandInteraction} interaction
-     */
+                .setRequired(true)),
     async execute(interaction) {
         const db = interaction.client.db;
         
-        // ★ ベースURLの正規化処理を追加
         let fullBaseUrl = process.env.BASE_URL;
         if (!fullBaseUrl) {
-            console.error('[エラー] 環境変数 BASE_URL が設定されていません。');
-            return interaction.reply({ content: '設定エラーにより、URLを生成できませんでした。管理者に連絡してください。', ephemeral: true });
+            return interaction.reply({ content: '設定エラー: BASE_URLが未設定です。', ephemeral: true });
         }
-        if (!fullBaseUrl.startsWith('http')) {
-            fullBaseUrl = `https://${fullBaseUrl}`;
-        }
-        if (fullBaseUrl.endsWith('/')) {
-            fullBaseUrl = fullBaseUrl.slice(0, -1);
-        }
-
+        fullBaseUrl = fullBaseUrl.replace(/\/+$/, '');
 
         await interaction.deferReply({ ephemeral: true });
 
         const attachment = interaction.options.getAttachment('image');
-
         if (!attachment.contentType?.startsWith('image/')) {
             return interaction.editReply({ content: '画像ファイルのみアップロードできます。' });
         }
         
-        // ★ nanoidを使って8文字のIDを生成
         const randomCode = nanoid(8);
 
         try {
-            const docRef = db.collection('images').doc(randomCode);
-            await docRef.set({
+            await db.collection('images').doc(randomCode).set({
                 url: attachment.url,
                 contentType: attachment.contentType,
                 uploaderId: interaction.user.id,
@@ -59,13 +42,10 @@ module.exports = {
             return interaction.editReply({ content: 'データベースエラーによりURLを生成できませんでした。' });
         }
 
-        // ★ 正規化されたベースURLを使って最終的なURLを組み立てる
         const generatedUrl = `${fullBaseUrl}/${randomCode}`;
         
         await interaction.editReply({
             content: `✅ 画像のURLを生成しました！\n\n**URL:** ${generatedUrl}`
         });
-
-        console.log(`[情報] 画像URL生成 (Firestore保存): ${generatedUrl}`);
     },
 };

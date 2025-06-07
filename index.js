@@ -10,7 +10,6 @@ const axios = require('axios');
 const admin = require('firebase-admin');
 const ejs = require('ejs');
 
-// .envファイルから環境変数を読み込む
 dotenv.config();
 
 // =================================================================================
@@ -59,17 +58,11 @@ const port = process.env.PORT || 80;
 
 // --- 管理ページ用のルーターを定義 ---
 const adminRouter = express.Router();
-
-// EJSをテンプレートエンジンとして設定
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
-
-// 管理ページ用の静的ファイル（CSS, JS）を提供
 adminRouter.use(express.static(path.join(__dirname, 'public')));
-// APIがJSONボディを読めるようにする
 adminRouter.use(express.json());
 
-// Firebaseトークンを検証するミドルウェア
 const verifyFirebaseToken = async (req, res, next) => {
     const authHeader = req.headers.authorization;
     if (!authHeader || !authHeader.startsWith('Bearer ')) return res.status(403).send('Unauthorized');
@@ -77,14 +70,10 @@ const verifyFirebaseToken = async (req, res, next) => {
     try {
         req.user = await admin.auth().verifyIdToken(idToken);
         next();
-    } catch (error) {
-        res.status(403).send('Unauthorized');
-    }
+    } catch (error) { res.status(403).send('Unauthorized'); }
 };
 
-// [管理ページ] ルートURLへのアクセス
 adminRouter.get('/', (req, res) => {
-    // .envからWebアプリ用のFirebase設定を読み込んでHTMLに渡す
     const firebaseConfig = {
         apiKey: process.env.FIREBASE_API_KEY,
         authDomain: process.env.FIREBASE_AUTH_DOMAIN,
@@ -96,7 +85,6 @@ adminRouter.get('/', (req, res) => {
     res.render('index', { firebaseConfig });
 });
 
-// [管理ページAPI] 設定を取得
 adminRouter.get('/api/settings/toka', verifyFirebaseToken, async (req, res) => {
     try {
         const doc = await db.collection('bot_settings').doc('toka_profile').get();
@@ -105,7 +93,6 @@ adminRouter.get('/api/settings/toka', verifyFirebaseToken, async (req, res) => {
     } catch (error) { res.status(500).json({ message: 'サーバーエラー' }); }
 });
 
-// [管理ページAPI] 設定を保存
 adminRouter.post('/api/settings/toka', verifyFirebaseToken, async (req, res) => {
     try {
         const { systemPrompt, baseUserId } = req.body;
@@ -121,14 +108,11 @@ adminRouter.post('/api/settings/toka', verifyFirebaseToken, async (req, res) => 
 });
 
 
-// ★★★ ドメイン名(ホスト名)によって処理を振り分けるミドルウェア ★★★
+// --- ドメイン名(ホスト名)によって処理を振り分けるミドルウェア ---
 app.use((req, res, next) => {
-    // アクセスされたホスト名が、.envで設定したADMIN_DOMAINと一致する場合
     if (req.hostname === process.env.ADMIN_DOMAIN) {
-        // 管理ページ用ルーターに処理をすべて渡す
         adminRouter(req, res, next);
     } else {
-        // それ以外のドメインの場合は、次の処理（画像表示ルート）へ進む
         next();
     }
 });
@@ -145,9 +129,7 @@ app.get('/:code', async (req, res) => {
             const imageResponse = await axios.get(url, { responseType: 'arraybuffer' });
             res.set('Content-Type', contentType);
             res.send(imageResponse.data);
-        } else {
-            res.status(404).send('画像が見つかりません。');
-        }
+        } else { res.status(404).send('画像が見つかりません。'); }
     } catch (error) {
         console.error(`[エラー] 画像取得失敗 (Code: ${code}):`, error);
         res.status(500).send('エラーが発生しました。');
@@ -158,7 +140,7 @@ app.get('/:code', async (req, res) => {
 // Expressサーバーを起動
 app.listen(port, () => {
     console.log(`[情報] Webサーバーがポート ${port} で起動しました。`);
-    console.log(`[情報] - 画像アクセス: ${process.env.BASE_URL || 'http://localhost:' + port}/{code}`);
+    console.log(`[情報] - 画像アクセス: ${process.env.BASE_URL || 'http://localhost:'+port}/{code}`);
     console.log(`[情報] - 管理ページ: https://${process.env.ADMIN_DOMAIN}`);
 });
 
@@ -175,9 +157,8 @@ client.on(Events.InteractionCreate, async interaction => {
     if (!interaction.isChatInputCommand()) return;
     const command = client.commands.get(interaction.commandName);
     if (!command) return;
-    try {
-        await command.execute(interaction);
-    } catch (error) {
+    try { await command.execute(interaction); }
+    catch (error) {
         console.error(`コマンドエラー (${interaction.commandName}):`, error);
         const reply = { content: 'コマンド実行中にエラーが発生しました。', ephemeral: true };
         if (interaction.replied || interaction.deferred) await interaction.followUp(reply);

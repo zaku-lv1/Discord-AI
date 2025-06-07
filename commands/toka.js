@@ -3,22 +3,11 @@ const { GoogleGenerativeAI } = require('@google/generative-ai');
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
-// ★ ボットのメモリに会話履歴を持たせるのをやめ、すべてFirestoreで管理します。
-// const conversationHistory = new Map(); // ← この行は不要になるため削除
-
 const defaultSystemPrompt = `
 あなたは今から「とーか」という名前の18歳の女の子として、ずっとその人格を維持してDiscord風チャットをします。
 **絶対に「AI」や「私はAIだから」などの表現を使ってはいけません。**
-(以下、デフォルトプロンプト)
 `;
 
-/**
- * AIからの応答を取得する関数
- * @param {string} userMessage ユーザーからのメッセージ
- * @param {Array} history これまでの会話履歴
- * @param {string} systemPrompt AIに与えるシステムプロンプト
- * @returns {Promise<string>} AIからの応答テキスト
- */
 async function getTamaResponse(userMessage, history, systemPrompt) {
     const tryModels = ['gemini-1.5-pro', 'gemini-1.5-flash'];
     const defaultOopsMessage = "うーん、なんだか今日は言葉がうまく出てこないみたいで……ごめんね、ちーくん。(；；)";
@@ -31,7 +20,6 @@ async function getTamaResponse(userMessage, history, systemPrompt) {
             const chat = model.startChat({ history: history });
             const result = await chat.sendMessage(userMessage);
             return await result.response.text();
-
         } catch (error) {
             lastError = error;
             if (error.status === 429 && tryModels.indexOf(modelName) < tryModels.length - 1) {
@@ -44,7 +32,6 @@ async function getTamaResponse(userMessage, history, systemPrompt) {
             }
         }
     }
-
     console.error("[致命的エラー] 全てのAIモデルでの応答生成に失敗しました。", lastError);
     return defaultOopsMessage;
 }
@@ -60,20 +47,16 @@ module.exports = {
         const channel = interaction.channel;
         const db = interaction.client.db;
         
-        // ★ FirestoreからシステムプロンプトとベースユーザーIDを読み込む
         let systemPrompt = defaultSystemPrompt;
-        let baseUserId = '1155356934292127844'; // デフォルトのフォールバックID
+        let baseUserId = '1155356934292127844'; // フォールバックID
         try {
             const settingsDoc = await db.collection('bot_settings').doc('toka_profile').get();
             if (settingsDoc.exists) {
                 const settings = settingsDoc.data();
                 if (settings.systemPrompt) systemPrompt = settings.systemPrompt;
                 if (settings.baseUserId) baseUserId = settings.baseUserId;
-                console.log('[情報] Firestoreから各種設定を読み込みました。');
             }
-        } catch (dbError) {
-            console.error("Firestoreからの設定読み込みに失敗:", dbError);
-        }
+        } catch (dbError) { console.error("Firestoreからの設定読み込みに失敗:", dbError); }
 
         try {
             const baseUser = await interaction.client.users.fetch(baseUserId);
@@ -81,9 +64,7 @@ module.exports = {
             const webhookName = baseUser.displayName;
             const existingWebhook = webhooks.find(wh => wh.name === webhookName && wh.owner?.id === interaction.client.user.id);
 
-            if (!interaction.client.activeCollectors) {
-                interaction.client.activeCollectors = new Map();
-            }
+            if (!interaction.client.activeCollectors) interaction.client.activeCollectors = new Map();
             const collectorKey = `${channel.id}_toka`;
 
             if (existingWebhook) {
@@ -94,9 +75,6 @@ module.exports = {
                 const embed = new EmbedBuilder().setColor(0xFF0000).setDescription(`${webhookName} を退出させました。`);
                 await interaction.editReply({ embeds: [embed] });
             } else {
-                // 新しいセッションの開始時に、DB上の会話履歴をクリアする（お好みで）
-                // await db.collection('toka_conversations').doc(channel.id).delete();
-
                 const webhook = await channel.createWebhook({ name: webhookName, avatar: baseUser.displayAvatarURL() });
                 const collector = channel.createMessageCollector({ filter: msg => !msg.author.bot });
                 interaction.client.activeCollectors.set(collectorKey, collector);
@@ -104,22 +82,15 @@ module.exports = {
                 collector.on('collect', async message => {
                     if (!message.content) return;
                     
-                    // ★ Firestoreから現在の会話履歴を取得
                     const historyDocRef = db.collection('toka_conversations').doc(message.channel.id);
                     const historyDoc = await historyDocRef.get();
                     const currentHistory = historyDoc.exists ? historyDoc.data().history : [];
-
                     const content = message.content;
                     
-                    // ★ 取得したシステムプロンプトと会話履歴を渡す
                     const responseText = await getTamaResponse(content, currentHistory, systemPrompt);
                     
-                    // ★ 新しい履歴を作成し、DBに保存
                     const newHistory = [...currentHistory, { role: 'user', parts: [{ text: content }] }, { role: 'model', parts: [{ text: responseText }] }];
-                    // 履歴が長くなりすぎないように制御 (30往復=60件)
-                    while (newHistory.length > 60) {
-                        newHistory.shift(); 
-                    }
+                    while (newHistory.length > 60) { newHistory.shift(); }
                     await historyDocRef.set({ history: newHistory });
 
                     if (responseText) await webhook.send(responseText);
@@ -132,7 +103,7 @@ module.exports = {
             }
         } catch (error) {
             console.error("[TOKA_CMD_ERROR]", error);
-            if (error.code === 10013) { // Unknown User
+            if (error.code === 10013) {
                 await interaction.editReply({ content: 'エラー: 設定されたベースユーザーIDが見つかりませんでした。', ephemeral: true });
             } else {
                 await interaction.editReply({ content: 'コマンドの実行中に内部エラーが発生しました。', ephemeral: true });

@@ -2,7 +2,6 @@ document.addEventListener('DOMContentLoaded', () => {
     firebase.initializeApp(firebaseConfig);
     const auth = firebase.auth();
 
-    // DOM要素の取得
     const authContainer = document.getElementById('auth-container');
     const mainContent = document.getElementById('main-content');
     const userEmailEl = document.getElementById('user-email');
@@ -15,7 +14,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const baseUserIdInput = document.getElementById('base-user-id-input');
     const promptTextarea = document.getElementById('prompt-textarea');
 
-    // 認証状態の監視
     auth.onAuthStateChanged(user => {
         if (user) {
             authContainer.style.display = 'none';
@@ -28,27 +26,23 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // ログイン処理
     loginBtn.addEventListener('click', () => {
         const email = document.getElementById('login-email').value;
         const password = document.getElementById('login-password').value;
-        statusMessage.textContent = ""; // エラーメッセージをリセット
+        statusMessage.textContent = "";
         auth.signInWithEmailAndPassword(email, password)
             .catch(err => {
-                console.error("Login Error:", err);
                 statusMessage.textContent = `ログインエラー: IDまたはパスワードが違います。`;
             });
     });
 
-    // ログアウト処理
     logoutBtn.addEventListener('click', () => auth.signOut());
 
-    // 設定の読み書き
     async function fetchSettings(user) {
         statusMessage.textContent = '読込中...';
         try {
             const token = await user.getIdToken();
-            const res = await fetch('/admin/api/settings/toka', { headers: { 'Authorization': `Bearer ${token}` } });
+            const res = await fetch('/api/settings/toka', { headers: { 'Authorization': `Bearer ${token}` } });
             if (res.status === 404) {
                 statusMessage.textContent = '設定はまだありません。';
                 baseUserIdInput.value = '';
@@ -74,7 +68,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 baseUserId: baseUserIdInput.value,
                 systemPrompt: promptTextarea.value
             };
-            const res = await fetch('/admin/api/settings/toka', {
+            const res = await fetch('/api/settings/toka', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
                 body: JSON.stringify(settings)
