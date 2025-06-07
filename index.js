@@ -13,26 +13,24 @@ const admin = require('firebase-admin');
 dotenv.config();
 
 // =================================================================================
-// Firebase Admin SDKの初期化
+// Firebase Admin SDKの初期化 (環境変数を使用)
 // =================================================================================
-// 環境変数からFirebaseの認証情報を読み込むか、キーファイルから読み込む
-let serviceAccount;
-if (process.env.FIREBASE_SERVICE_ACCOUNT_JSON) {
-    serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_JSON);
-} else {
-    const keyFilePath = path.join(__dirname, 'firebase-key.json');
-    if (!fs.existsSync(keyFilePath)) {
-        console.error('[致命的エラー] `firebase-key.json` が見つかりません。セットアップ手順を確認してください。');
-        process.exit(1);
+try {
+    const serviceAccountString = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
+    if (!serviceAccountString) {
+        throw new Error('環境変数 `FIREBASE_SERVICE_ACCOUNT_JSON` が設定されていません。');
     }
-    serviceAccount = require(keyFilePath);
+    const serviceAccount = JSON.parse(serviceAccountString);
+
+    admin.initializeApp({
+      credential: admin.credential.cert(serviceAccount)
+    });
+    console.log('[情報] Firebase Admin SDKが正常に初期化されました。');
+} catch (error) {
+    console.error('[致命的エラー] Firebase Admin SDKの初期化に失敗しました:', error.message);
+    process.exit(1);
 }
 
-admin.initializeApp({
-  credential: admin.credential.cert(serviceAccount)
-});
-
-// Firestoreのインスタンスを取得
 const db = admin.firestore();
 console.log('[情報] Firebase Firestoreに正常に接続しました。');
 
@@ -47,7 +45,6 @@ const client = new Client({
     ]
 });
 
-// コマンドやDBインスタンスをclientオブジェクトからアクセスできるようにする
 client.commands = new Collection();
 client.db = db;
 
@@ -55,14 +52,11 @@ client.db = db;
 // コマンドの読み込み
 // =================================================================================
 const commandsPath = path.join(__dirname, 'commands');
-// `commands`ディレクトリが存在するか確認
 if (fs.existsSync(commandsPath)) {
     const commandFiles = fs.readdirSync(commandsPath).filter(file => file.endsWith('.js'));
-
     for (const file of commandFiles) {
         const filePath = path.join(commandsPath, file);
         const command = require(filePath);
-
         if ('data' in command && 'execute' in command) {
             client.commands.set(command.data.name, command);
             console.log(`[情報] コマンドを読み込みました: /${command.data.name}`);
@@ -71,64 +65,79 @@ if (fs.existsSync(commandsPath)) {
         }
     }
 } else {
-    console.log('[警告] `commands` ディレクトリが見つかりません。コマンドは読み込まれません。');
+    console.log('[警告] `commands` ディレクトリが見つかりません。');
 }
 
-
 // =================================================================================
-// Expressサーバーの設定 (「Not Found」エラー修正済み)
+// Expressサーバーの設定
 // =================================================================================
 const app = express();
-const port = process.env.PORT || 3000;
+// ★ ポートをADMIN_PORTから取得するように変更
+const port = process.env.ADMIN_PORT || 3000;
 
-// :code パラメータを含むURLへのGETリクエストを処理する
-app.get('/:code', async (req, res) => {
-    const { code } = req.params;
+app.use(express.json());
+app.use(express.static(path.join(__dirname, 'public')));
 
-    // ブラウザが自動的にリクエストする favicon.ico を無視する簡単なチェック
-    if (code === 'favicon.ico') {
-        return res.status(204).send(); // 204 No Content を返して処理を終える
+// Firebase Authトークンを検証するミドルウェア
+const verifyFirebaseToken = async (req, res, next) => {
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        return res.status(403).send('Unauthorized: No token provided.');
     }
-
+    const idToken = authHeader.split('Bearer ')[1];
     try {
-        const docRef = db.collection('images').doc(code);
-        const doc = await docRef.get();
-
-        if (doc.exists) {
-            const imageData = doc.data();
-            const imageResponse = await axios.get(imageData.url, {
-                responseType: 'arraybuffer'
-            });
-            res.set('Content-Type', imageData.contentType);
-            res.send(imageResponse.data);
-        } else {
-            // Firestoreにコードが見つからない場合
-            res.status(404).send('画像が見つかりません。');
-        }
+        req.user = await admin.auth().verifyIdToken(idToken);
+        next();
     } catch (error) {
-        console.error(`[Firestoreエラー] 画像の取得に失敗 (Code: ${code}):`, error);
-        res.status(500).send('データベースへのアクセス中にエラーが発生しました。');
+        res.status(403).send('Unauthorized: Invalid token.');
+    }
+};
+
+// API: 設定の取得
+app.get('/api/settings/toka', verifyFirebaseToken, async (req, res) => {
+    try {
+        const doc = await db.collection('bot_settings').doc('toka_profile').get();
+        if (!doc.exists) {
+            return res.status(404).json({ message: '設定がまだ保存されていません。' });
+        }
+        res.status(200).json(doc.data());
+    } catch (error) {
+        res.status(500).json({ message: 'サーバーエラーが発生しました。' });
     }
 });
 
-// Expressサーバーを起動
+// API: 設定の保存
+app.post('/api/settings/toka', verifyFirebaseToken, async (req, res) => {
+    try {
+        const { systemPrompt } = req.body;
+        if (!systemPrompt) {
+            return res.status(400).json({ message: 'systemPromptは必須です。' });
+        }
+        await db.collection('bot_settings').doc('toka_profile').set({
+            systemPrompt,
+            updatedBy: req.user.email,
+            updatedAt: admin.firestore.FieldValue.serverTimestamp()
+        }, { merge: true });
+        res.status(200).json({ message: '設定が正常に更新されました。' });
+    } catch (error) {
+        res.status(500).json({ message: 'サーバーエラーが発生しました。' });
+    }
+});
+
 app.listen(port, () => {
-    console.log(`[情報] Webサーバーがポート ${port} で起動しました。`);
+    console.log(`[情報] Webサーバーが http://localhost:${port} で起動しました。`);
 });
 
 
 // =================================================================================
-// Discordイベントハンドラ
+// Discordイベントハンドラ & ログイン
 // =================================================================================
 client.once(Events.ClientReady, async c => {
     console.log('----------------------------------------------------');
     console.log(`✅ ボットが起動しました。ログインユーザー: ${c.user.tag}`);
     console.log('----------------------------------------------------');
-
-    // スラッシュコマンドをDiscordに登録
-    const data = client.commands.map(command => command.data.toJSON());
     try {
-        await c.application.commands.set(data);
+        await c.application.commands.set(client.commands.map(cmd => cmd.data.toJSON()));
         console.log('[情報] スラッシュコマンドが正常にDiscordに登録されました。');
     } catch (error) {
         console.error('[致命的エラー] スラッシュコマンドの登録中にエラーが発生しました:', error);
@@ -137,29 +146,18 @@ client.once(Events.ClientReady, async c => {
 
 client.on(Events.InteractionCreate, async interaction => {
     if (!interaction.isChatInputCommand()) return;
-
     const command = client.commands.get(interaction.commandName);
-
-    if (!command) {
-        console.error(`コマンド "${interaction.commandName}" が見つかりません。`);
-        return;
-    }
-
+    if (!command) return;
     try {
         await command.execute(interaction);
     } catch (error) {
         console.error(`コマンド実行エラー (${interaction.commandName}):`, error);
-        if (interaction.replied || interaction.deferred) {
-            await interaction.followUp({ content: 'コマンド実行中にエラーが発生しました。', ephemeral: true });
-        } else {
-            await interaction.reply({ content: 'コマンド実行中にエラーが発生しました。', ephemeral: true });
-        }
+        const reply = { content: 'コマンド実行中にエラーが発生しました。', ephemeral: true };
+        if (interaction.replied || interaction.deferred) await interaction.followUp(reply);
+        else await interaction.reply(reply);
     }
 });
 
-// =================================================================================
-// Discordへのログイン
-// =================================================================================
 if (!process.env.DISCORD_TOKEN) {
     console.error('[致命的エラー] 環境変数 `DISCORD_TOKEN` が設定されていません。');
     process.exit(1);
