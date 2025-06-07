@@ -1,6 +1,3 @@
-// =================================================================================
-// モジュールのインポート
-// =================================================================================
 const fs = require('node:fs');
 const path = require('node:path');
 const { Client, GatewayIntentBits, Collection, Events } = require('discord.js');
@@ -10,12 +7,8 @@ const axios = require('axios');
 const admin = require('firebase-admin');
 const ejs = require('ejs');
 
-// .envファイルから環境変数を読み込む
 dotenv.config();
 
-// =================================================================================
-// Firebase Admin SDKの初期化
-// =================================================================================
 try {
     const serviceAccountString = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
     if (!serviceAccountString) throw new Error('環境変数 `FIREBASE_SERVICE_ACCOUNT_JSON` が設定されていません。');
@@ -28,18 +21,12 @@ try {
 }
 const db = admin.firestore();
 
-// =================================================================================
-// Discordクライアントの初期化
-// =================================================================================
 const client = new Client({
     intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent]
 });
 client.commands = new Collection();
 client.db = db;
 
-// =================================================================================
-// コマンドの読み込み
-// =================================================================================
 const commandsPath = path.join(__dirname, 'commands');
 const commandFiles = fs.readdirSync(commandsPath).filter(file => file.endsWith('.js'));
 for (const file of commandFiles) {
@@ -51,13 +38,9 @@ for (const file of commandFiles) {
     }
 }
 
-// =================================================================================
-// Expressサーバーの設定
-// =================================================================================
 const app = express();
 const port = process.env.PORT || 80;
 
-// --- 管理ページ用のルーターを作成 ---
 const adminRouter = express.Router();
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
@@ -71,9 +54,7 @@ const verifyFirebaseToken = async (req, res, next) => {
     try {
         req.user = await admin.auth().verifyIdToken(idToken);
         next();
-    } catch (error) {
-        res.status(403).send('Unauthorized');
-    }
+    } catch (error) { res.status(403).send('Unauthorized'); }
 };
 
 adminRouter.get('/', (req, res) => {
@@ -98,10 +79,11 @@ adminRouter.get('/api/settings/toka', verifyFirebaseToken, async (req, res) => {
 
 adminRouter.post('/api/settings/toka', verifyFirebaseToken, async (req, res) => {
     try {
-        const { systemPrompt } = req.body;
-        if (!systemPrompt) return res.status(400).json({ message: 'systemPromptは必須です。' });
+        const { systemPrompt, baseUserId } = req.body;
+        if (typeof systemPrompt === 'undefined') return res.status(400).json({ message: 'systemPromptは必須です。' });
         await db.collection('bot_settings').doc('toka_profile').set({
             systemPrompt,
+            baseUserId: baseUserId || null,
             updatedBy: req.user.email,
             updatedAt: admin.firestore.FieldValue.serverTimestamp()
         }, { merge: true });
@@ -109,10 +91,8 @@ adminRouter.post('/api/settings/toka', verifyFirebaseToken, async (req, res) => 
     } catch (error) { res.status(500).json({ message: 'サーバーエラー' }); }
 });
 
-// '/admin' パスに管理ページ用ルーターをマウント
 app.use('/admin', adminRouter);
 
-// --- 画像表示用のルート ---
 app.get('/:code', async (req, res) => {
     const { code } = req.params;
     if (code === 'favicon.ico') return res.status(204).send();
@@ -123,27 +103,18 @@ app.get('/:code', async (req, res) => {
             const imageResponse = await axios.get(url, { responseType: 'arraybuffer' });
             res.set('Content-Type', contentType);
             res.send(imageResponse.data);
-        } else {
-            res.status(404).send('画像が見つかりません。');
-        }
+        } else { res.status(404).send('画像が見つかりません。'); }
     } catch (error) {
         console.error(`[エラー] 画像取得失敗 (Code: ${code}):`, error);
         res.status(500).send('エラーが発生しました。');
     }
 });
 
-// Expressサーバーを起動
 app.listen(port, () => {
     console.log(`[情報] Webサーバーがポート ${port} で起動しました。`);
-    console.log(`[情報] - 画像アクセス: ${process.env.BASE_URL}/{code}`);
-    console.log(`[情報] - 管理ページ: ${process.env.BASE_URL}/admin`);
 });
 
-// =================================================================================
-// Discordイベントハンドラ & ログイン
-// =================================================================================
 client.once(Events.ClientReady, c => {
-    console.log('----------------------------------------------------');
     console.log(`✅ ボット起動: ${c.user.tag}`);
     c.application.commands.set(client.commands.map(cmd => cmd.data.toJSON()));
 });
@@ -152,9 +123,8 @@ client.on(Events.InteractionCreate, async interaction => {
     if (!interaction.isChatInputCommand()) return;
     const command = client.commands.get(interaction.commandName);
     if (!command) return;
-    try {
-        await command.execute(interaction);
-    } catch (error) {
+    try { await command.execute(interaction); }
+    catch (error) {
         console.error(`コマンドエラー (${interaction.commandName}):`, error);
         const reply = { content: 'コマンド実行中にエラーが発生しました。', ephemeral: true };
         if (interaction.replied || interaction.deferred) await interaction.followUp(reply);

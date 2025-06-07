@@ -21,35 +21,28 @@ body {
 }
 
 h1 { text-align: center; color: #4a4a4a; margin-top: 0; }
+h2 { color: #333; border-bottom: 2px solid #eee; padding-bottom: 8px; margin-top: 2rem; }
 p { line-height: 1.6; }
 hr { border: none; border-top: 1px solid #e0e0e0; margin: 1.5rem 0; }
 
+#auth-container input[type="email"],
+#auth-container input[type="password"],
+#main-content input[type="text"],
 textarea {
     width: 100%;
-    padding: 10px;
+    padding: 12px;
+    margin-bottom: 1rem;
     border: 1px solid #ccc;
     border-radius: 4px;
     font-size: 1rem;
-    line-height: 1.5;
     box-sizing: border-box;
-    margin-top: 0.5rem;
-    resize: vertical;
 }
+textarea { resize: vertical; }
 
-.user-info {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 1rem;
-}
-
-.button-group {
-    display: flex;
-    justify-content: flex-end;
-    align-items: center;
-    margin-top: 1.5rem;
-}
+.form-group { margin-bottom: 1.5rem; }
+.form-group label { display: block; margin-bottom: 0.5rem; font-weight: bold; color: #555; }
+.user-info { display: flex; justify-content: space-between; align-items: center; }
+.button-group { display: flex; justify-content: flex-end; align-items: center; margin-top: 1.5rem; }
 
 button {
     padding: 12px 20px;
@@ -58,14 +51,12 @@ button {
     font-size: 1rem;
     font-weight: bold;
     cursor: pointer;
-    transition: background-color 0.2s, transform 0.1s;
+    transition: background-color 0.2s;
 }
 button:disabled { background-color: #ccc; cursor: not-allowed; }
-button:active { transform: scale(0.98); }
-
-#login-btn, #save-btn { background-color: #007bff; color: white; }
+#login-btn, #save-btn { background-color: #007bff; color: white; width: 100%; margin-top: 0.5rem; }
 #login-btn:hover, #save-btn:hover:not(:disabled) { background-color: #0056b3; }
-#logout-btn { background-color: #6c757d; color: white; padding: 8px 15px; }
+#logout-btn { background-color: #6c757d; color: white; padding: 8px 15px; font-size: 0.9rem; }
 #logout-btn:hover { background-color: #5a6268; }
 
-#status-message { margin-top: 1rem; text-align: center; font-weight: bold; height: 1.2em; }
+#status-message { margin-top: 1rem; text-align: center; font-weight: bold; height: 1.2em; color: red; }

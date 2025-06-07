@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>とーか 設定カスタマイザー</title>
+    <title>ボット設定管理パネル</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <script>const firebaseConfig = <%- JSON.stringify(firebaseConfig) %>;</script>
     <link rel="stylesheet" href="/admin/style.css">
@@ -12,18 +12,37 @@
 </head>
 <body>
     <div class="container">
-        <h1>とーか 設定カスタマイザー</h1>
-        <div id="login-screen">
-            <p>Googleアカウントでログインして、とーかの設定を編集します。</p>
-            <button id="login-btn">Googleでログイン</button>
+        <h1>ボット設定管理パネル</h1>
+        
+        <div id="auth-container">
+            <h2>ログイン</h2>
+            <p>管理者のメールアドレスとパスワードでログインしてください。</p>
+            <input type="email" id="login-email" placeholder="メールアドレス" required>
+            <input type="password" id="login-password" placeholder="パスワード" required>
+            <button id="login-btn">ログイン</button>
         </div>
+
         <div id="main-content" style="display: none;">
-            <div class="user-info"><p>ようこそ, <span id="user-email"></span> さん</p><button id="logout-btn">ログアウト</button></div>
+            <div class="user-info">
+                <p>ようこそ, <span id="user-email"></span> さん</p>
+                <button id="logout-btn">ログアウト</button>
+            </div>
             <hr>
-            <h2>システムプロンプト設定</h2>
-            <p>ここで「とーか」の性格や口調、設定などを自由に記述してください。</p>
-            <textarea id="prompt-textarea" rows="20" placeholder="ここにシステムプロンプトを入力..."></textarea>
-            <div class="button-group"><button id="save-btn">設定を保存</button></div>
+            
+            <h2>とーか 設定</h2>
+            <div class="form-group">
+                <label for="base-user-id-input">ベースユーザーID</label>
+                <input type="text" id="base-user-id-input" placeholder="とーかの見た目と名前の元になるDiscordユーザーID">
+            </div>
+
+            <div class="form-group">
+                <label for="prompt-textarea">システムプロンプト</label>
+                <textarea id="prompt-textarea" rows="15" placeholder="ここにシステムプロンプトを入力..."></textarea>
+            </div>
+
+            <div class="button-group">
+                <button id="save-btn">設定を保存</button>
+            </div>
             <p id="status-message"></p>
         </div>
     </div>
