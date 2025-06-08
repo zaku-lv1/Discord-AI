@@ -4,6 +4,9 @@
     <meta charset="UTF-8">
     <title>ボット設定管理パネル</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
     <script>const firebaseConfig = <%- JSON.stringify(firebaseConfig) %>;</script>
     <link rel="stylesheet" href="/style.css">
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js" defer></script>
@@ -19,7 +22,10 @@
             <p>管理者のメールアドレスとパスワードでログインしてください。</p>
             <input type="email" id="login-email" placeholder="メールアドレス" required>
             <input type="password" id="login-password" placeholder="パスワード" required>
-            <button id="login-btn">ログイン</button>
+            <div class="login-actions">
+                <button id="login-btn">ログイン</button>
+                <a href="#" id="forgot-password-link">パスワードを忘れた場合</a>
+            </div>
         </div>
 
         <div id="main-content" style="display: none;">
@@ -43,8 +49,8 @@
             <div class="button-group">
                 <button id="save-btn">設定を保存</button>
             </div>
-            <p id="status-message"></p>
         </div>
+        <p id="status-message"></p>
     </div>
 </body>
 </html>

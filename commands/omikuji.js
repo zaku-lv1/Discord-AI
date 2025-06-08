@@ -12,7 +12,7 @@ const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
 module.exports = {
   data: new SlashCommandBuilder()
     .setName('omikuji')
-    .setDescription('おみくじを引いて、AIからの一言アドバイスをもらいます。'),
+    .setDescription('おみくじを引いて、神様からの一言アドバイスをもらいます。'),
 
   async execute(interaction) {
     // 応答を保留（defer）します。AIの応答に時間がかかる場合があるためです。
