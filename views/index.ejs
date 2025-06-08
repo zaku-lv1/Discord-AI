@@ -6,7 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
     <script>const firebaseConfig = <%- JSON.stringify(firebaseConfig) %>;</script>
     <link rel="stylesheet" href="/style.css">
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js" defer></script>
@@ -39,6 +39,17 @@
             <div class="form-group">
                 <label for="base-user-id-input">ベースユーザーID</label>
                 <input type="text" id="base-user-id-input" placeholder="とーかの見た目と名前の元になるDiscordユーザーID">
+            </div>
+
+            <div class="form-group">
+                <div class="toggle-container">
+                    <label for="name-recognition-checkbox" class="toggle-label">個別の名前認識を有効にする</label>
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="name-recognition-checkbox">
+                        <span class="slider"></span>
+                    </label>
+                </div>
+                <small>（オンの場合、AIは「〇〇さん『こんにちは』」のように誰が話しているか認識します）</small>
             </div>
 
             <div class="form-group">

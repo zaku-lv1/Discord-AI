@@ -12,7 +12,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const loginPasswordInput = document.getElementById('login-password');
     const baseUserIdInput = document.getElementById('base-user-id-input');
     const promptTextarea = document.getElementById('prompt-textarea');
-    
+    const nameRecognitionCheckbox = document.getElementById('name-recognition-checkbox');
+
     // Buttons
     const loginBtn = document.getElementById('login-btn');
     const logoutBtn = document.getElementById('logout-btn');
@@ -47,7 +48,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Logout event
     logoutBtn.addEventListener('click', () => auth.signOut());
 
-    // **NEW**: Forgot password event
+    // Forgot password event
     forgotPasswordLink.addEventListener('click', (e) => {
         e.preventDefault();
         const email = loginEmailInput.value;
@@ -77,12 +78,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 statusMessage.textContent = '設定はまだありません。';
                 baseUserIdInput.value = '';
                 promptTextarea.value = '';
+                nameRecognitionCheckbox.checked = true; // デフォルトはオン
                 return;
             }
             if (!res.ok) throw new Error('設定の読み込みに失敗しました');
             const data = await res.json();
             baseUserIdInput.value = data.baseUserId || '';
             promptTextarea.value = data.systemPrompt || '';
+            nameRecognitionCheckbox.checked = data.enableNameRecognition ?? true; 
             statusMessage.textContent = '設定を読み込みました';
         } catch (err) { statusMessage.textContent = `エラー: ${err.message}`; }
     }
@@ -99,7 +102,8 @@ document.addEventListener('DOMContentLoaded', () => {
             const token = await user.getIdToken();
             const settings = {
                 baseUserId: baseUserIdInput.value,
-                systemPrompt: promptTextarea.value
+                systemPrompt: promptTextarea.value,
+                enableNameRecognition: nameRecognitionCheckbox.checked
             };
             const res = await fetch('/api/settings/toka', {
                 method: 'POST',
