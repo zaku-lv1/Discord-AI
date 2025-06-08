@@ -2,6 +2,7 @@ document.addEventListener('DOMContentLoaded', () => {
     firebase.initializeApp(firebaseConfig);
     const auth = firebase.auth();
 
+    // DOM Elements
     const nicknamesListContainer = document.getElementById('nicknames-list-container');
     const addNicknameBtn = document.getElementById('add-nickname-btn');
     const authContainer = document.getElementById('auth-container');
@@ -54,7 +55,6 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // --- ニックネームUI関連の関数 ---
-
     function createNicknameEntry(id = '', name = '') {
         const entryDiv = document.createElement('div');
         entryDiv.className = 'nickname-entry';
@@ -75,27 +75,21 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // --- 設定の読み込みと保存 ---
-
     async function fetchSettings(user) {
         statusMessage.textContent = '読込中...';
         try {
             const token = await user.getIdToken();
             const res = await fetch('/api/settings/toka', { headers: { 'Authorization': `Bearer ${token}` } });
             
-            // 先にニックネームリストを空にしておく
             nicknamesListContainer.innerHTML = ''; 
 
-            // ▼▼▼ ここからが重要な修正 ▼▼▼
             if (res.status === 404) {
                 statusMessage.textContent = '設定はまだありません。';
-                // 設定がない場合でも、各項目を初期状態にリセットする
                 baseUserIdInput.value = '';
                 promptTextarea.value = '';
-                nameRecognitionCheckbox.checked = true; // デフォルトはON
-                // ニックネーム欄は空のまま
-                return; // ここで処理を終了
+                nameRecognitionCheckbox.checked = true;
+                return;
             }
-            // ▲▲▲ ここまで ▲▲▲
 
             if (!res.ok) throw new Error('設定の読み込みに失敗しました');
 
@@ -113,6 +107,7 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch (err) { statusMessage.textContent = `エラー: ${err.message}`; }
     }
 
+    // ▼▼▼ 特に、この保存処理が重要です ▼▼▼
     saveBtn.addEventListener('click', async () => {
         const user = auth.currentUser;
         if (!user) return;
@@ -122,6 +117,7 @@ document.addEventListener('DOMContentLoaded', () => {
         
         try {
             const token = await user.getIdToken();
+            
             const nicknamesObject = {};
             const entries = document.querySelectorAll('.nickname-entry');
             entries.forEach(entry => {
@@ -132,6 +128,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             });
 
+            // 送信するデータに enableNameRecognition と userNicknames が含まれていることを確認
             const settings = {
                 baseUserId: baseUserIdInput.value,
                 systemPrompt: promptTextarea.value,
@@ -144,7 +141,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
                 body: JSON.stringify(settings)
             });
+
             if (!res.ok) throw new Error('保存に失敗しました');
+
             const result = await res.json();
             statusMessage.textContent = result.message || '保存しました！';
         } catch (err) { 
