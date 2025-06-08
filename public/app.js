@@ -78,53 +78,91 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // --- 管理者UI関連の関数 ---
-    function renderAdminList(emails = [], isSuperAdmin) {
-        adminsListContainer.innerHTML = '';
-        emails.forEach((email, index) => {
-            const entryDiv = document.createElement('div');
-            entryDiv.className = 'admin-entry';
-            
-            let html = `<input type="email" class="admin-email" placeholder="管理者メールアドレス" value="${email}" ${!isSuperAdmin ? 'disabled' : ''}>`;
-            
-            if (index === 0) {
-                entryDiv.classList.add('super-admin');
-                html += `<span class="super-admin-label">👑 最高管理者</span>`;
-            }
-            
-            html += `<button type="button" class="delete-admin-btn" ${!isSuperAdmin ? 'disabled' : ''}>削除</button>`;
-            
-            entryDiv.innerHTML = html;
-            adminsListContainer.appendChild(entryDiv);
-        });
-        // 「管理者を追加」ボタンも権限に応じて無効化
-        addAdminBtn.disabled = !isSuperAdmin;
-    }
-    
-    addAdminBtn.addEventListener('click', () => {
-         // この関数は renderAdminList に統合されたため、ここでは空の行を追加するだけ
+    function createAdminEntry(email = '') {
         const entryDiv = document.createElement('div');
         entryDiv.className = 'admin-entry';
+        entryDiv.setAttribute('draggable', true);
+        
         entryDiv.innerHTML = `
-            <input type="email" class="admin-email" placeholder="管理者メールアドレス" value="">
+            <input type="email" class="admin-email" placeholder="管理者メールアドレス" value="${email}">
             <button type="button" class="delete-admin-btn">削除</button>
         `;
         adminsListContainer.appendChild(entryDiv);
-    });
+    }
+    
+    addAdminBtn.addEventListener('click', () => createAdminEntry());
     
     adminsListContainer.addEventListener('click', (e) => {
         if (e.target.classList.contains('delete-admin-btn')) {
             e.target.closest('.admin-entry').remove();
-            // 削除後にリストを再描画して、最高管理者の表示を更新
+            // 削除後にUIを再描画して最高管理者表示を更新
             const currentEmails = Array.from(adminsListContainer.querySelectorAll('.admin-email')).map(input => input.value);
-            const isSuperAdmin = !addAdminBtn.disabled; // 現在の権限状態を維持
-            renderAdminList(currentEmails, isSuperAdmin);
+            renderAdminList(currentEmails);
         }
     });
 
-    // (ドラッグ＆ドロップ関連の処理は変更なし)
-    let draggedItem = null;
-    // ...
+    function renderAdminList(emails = []) {
+        adminsListContainer.innerHTML = '';
+        emails.forEach((email, index) => {
+            const entryDiv = document.createElement('div');
+            entryDiv.className = 'admin-entry';
+            entryDiv.setAttribute('draggable', true);
 
+            if (index === 0) {
+                entryDiv.classList.add('super-admin');
+                entryDiv.innerHTML = `
+                    <input type="email" class="admin-email" placeholder="管理者メールアドレス" value="${email}">
+                    <span class="super-admin-label">👑 最高管理者</span>
+                    <button type="button" class="delete-admin-btn">削除</button>
+                `;
+            } else {
+                entryDiv.innerHTML = `
+                    <input type="email" class="admin-email" placeholder="管理者メールアドレス" value="${email}">
+                    <button type="button" class="delete-admin-btn">削除</button>
+                `;
+            }
+            adminsListContainer.appendChild(entryDiv);
+        });
+    }
+
+    // --- ドラッグ＆ドロップ関連の処理 ---
+    let draggedItem = null;
+
+    adminsListContainer.addEventListener('dragstart', (e) => {
+        draggedItem = e.target;
+        setTimeout(() => e.target.classList.add('dragging'), 0);
+    });
+
+    adminsListContainer.addEventListener('dragend', (e) => {
+        e.target.classList.remove('dragging');
+        const currentEmails = Array.from(adminsListContainer.querySelectorAll('.admin-email')).map(input => input.value);
+        renderAdminList(currentEmails);
+    });
+
+    adminsListContainer.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        const afterElement = getDragAfterElement(adminsListContainer, e.clientY);
+        const dragging = document.querySelector('.dragging');
+        if (afterElement == null) {
+            adminsListContainer.appendChild(dragging);
+        } else {
+            adminsListContainer.insertBefore(dragging, afterElement);
+        }
+    });
+
+    function getDragAfterElement(container, y) {
+        const draggableElements = [...container.querySelectorAll('.admin-entry:not(.dragging)')];
+        return draggableElements.reduce((closest, child) => {
+            const box = child.getBoundingClientRect();
+            const offset = y - box.top - box.height / 2;
+            if (offset < 0 && offset > closest.offset) {
+                return { offset: offset, element: child };
+            } else {
+                return closest;
+            }
+        }, { offset: Number.NEGATIVE_INFINITY }).element;
+    }
+    
     // --- 設定の読み込みと保存 ---
     async function fetchSettings(user) {
         statusMessage.textContent = '読込中...';
@@ -140,7 +178,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 baseUserIdInput.value = '';
                 promptTextarea.value = '';
                 nameRecognitionCheckbox.checked = true;
-                renderAdminList([user.email], true); // 初回は自分自身を最高管理者として表示
+                adminSettingsSection.style.display = 'block'; // 初回は表示
+                renderAdminList([user.email]);
                 return;
             }
 
@@ -161,14 +200,74 @@ document.addEventListener('DOMContentLoaded', () => {
                     createNicknameEntry(id, name);
                 }
             }
-            
-            const isSuperAdmin = data.currentUser && data.currentUser.isSuperAdmin;
-            renderAdminList(data.admins || [], isSuperAdmin);
+
+            // ▼▼▼ ここを「非表示」のロジックに戻します ▼▼▼
+            if (data.currentUser && data.currentUser.isSuperAdmin) {
+                // 最高管理者なら、管理者設定セクションを表示する
+                adminSettingsSection.style.display = 'block';
+                renderAdminList(data.admins || []);
+            } else {
+                // 一般管理者なら、管理者設定セクションを非表示にする
+                adminSettingsSection.style.display = 'none';
+            }
 
             statusMessage.textContent = '設定を読み込みました';
         } catch (err) { statusMessage.textContent = `エラー: ${err.message}`; }
     }
 
-    // (saveBtnの処理は変更なし)
-    saveBtn.addEventListener('click', async () => { /* ... */ });
+    // (saveBtnの処理は変更ありません)
+    saveBtn.addEventListener('click', async () => {
+        const user = auth.currentUser;
+        if (!user) return;
+        
+        statusMessage.textContent = '保存中...';
+        saveBtn.disabled = true;
+        
+        try {
+            const token = await user.getIdToken();
+            
+            const nicknamesObject = {};
+            const nicknameEntries = document.querySelectorAll('.nickname-entry');
+            nicknameEntries.forEach(entry => {
+                const id = entry.querySelector('.nickname-id').value.trim();
+                const name = entry.querySelector('.nickname-name').value.trim();
+                if (id && name) {
+                    nicknamesObject[id] = name;
+                }
+            });
+
+            const adminsArray = Array.from(adminsListContainer.querySelectorAll('.admin-email'))
+                                    .map(input => input.value.trim())
+                                    .filter(email => email);
+
+            const settings = {
+                baseUserId: baseUserIdInput.value,
+                systemPrompt: promptTextarea.value,
+                enableNameRecognition: nameRecognitionCheckbox.checked,
+                userNicknames: nicknamesObject,
+                admins: adminsArray
+            };
+
+            const res = await fetch('/api/settings/toka', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                body: JSON.stringify(settings)
+            });
+
+            if (!res.ok) {
+                const errorData = await res.json();
+                throw new Error(errorData.message || '保存に失敗しました');
+            }
+
+            const result = await res.json();
+            statusMessage.textContent = result.message || '保存しました！';
+            
+            await fetchSettings(user);
+
+        } catch (err) { 
+            statusMessage.textContent = `エラー: ${err.message}`; 
+        } finally { 
+            saveBtn.disabled = false; 
+        }
+    });
 });
