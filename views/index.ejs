@@ -38,6 +38,7 @@
                 <label for="base-user-id-input">ベースユーザーID</label>
                 <input type="text" id="base-user-id-input" placeholder="とーかの見た目と名前の元になるDiscordユーザーID">
             </div>
+
             <div class="form-group">
                 <div class="toggle-container">
                     <label for="name-recognition-checkbox" class="toggle-label">個別の名前認識を有効にする</label>
@@ -52,6 +53,13 @@
             <div class="form-group">
                 <label for="prompt-textarea">システムプロンプト (キャラクター設定)</label>
                 <textarea id="prompt-textarea" rows="10" placeholder="ここにキャラクター設定を入力... (例: あなたは「とーか」です。元気で明るい性格です。)"></textarea>
+            </div>
+
+            <div class="form-group">
+                <label>ニックネーム設定</label>
+                <div id="nicknames-list-container">
+                    </div>
+                <button type="button" id="add-nickname-btn" class="secondary-btn">＋ ニックネームを追加</button>
             </div>
 
             <div class="button-group">
