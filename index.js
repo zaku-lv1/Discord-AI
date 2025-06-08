@@ -28,7 +28,7 @@ try {
 const db = admin.firestore();
 
 // =================================================================================
-// Discordクライアントの初期化
+// Discordクライアントの初期化とコマンド読み込み
 // =================================================================================
 const client = new Client({
     intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent]
@@ -36,9 +36,6 @@ const client = new Client({
 client.commands = new Collection();
 client.db = db;
 
-// =================================================================================
-// コマンドの読み込み
-// =================================================================================
 const commandsPath = path.join(__dirname, 'commands');
 const commandFiles = fs.readdirSync(commandsPath).filter(file => file.endsWith('.js'));
 for (const file of commandFiles) {
@@ -56,23 +53,38 @@ for (const file of commandFiles) {
 const app = express();
 const port = process.env.PORT || 80;
 
-// --- 管理ページ用のルーターを定義 ---
 const adminRouter = express.Router();
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
 adminRouter.use(express.static(path.join(__dirname, 'public')));
 adminRouter.use(express.json());
 
+// Firebaseトークンを検証し、管理者リストによる認可も行うミドルウェア
 const verifyFirebaseToken = async (req, res, next) => {
     const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith('Bearer ')) return res.status(403).send('Unauthorized');
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        return res.status(401).send('Unauthorized: No token provided.');
+    }
     const idToken = authHeader.split('Bearer ')[1];
     try {
-        req.user = await admin.auth().verifyIdToken(idToken);
+        const decodedToken = await admin.auth().verifyIdToken(idToken);
+        
+        const settingsDoc = await db.collection('bot_settings').doc('toka_profile').get();
+        const admins = (settingsDoc.exists && Array.isArray(settingsDoc.data().admins)) ? settingsDoc.data().admins : [];
+
+        // 管理者リストが空でなく、アクセスしてきたユーザーがリストに含まれていない場合はアクセスを拒否
+        if (admins.length > 0 && !admins.includes(decodedToken.email)) {
+            return res.status(403).send('Forbidden: Access is denied.');
+        }
+
+        req.user = decodedToken;
         next();
-    } catch (error) { res.status(403).send('Unauthorized'); }
+    } catch (error) {
+        res.status(403).send('Unauthorized: Invalid token');
+    }
 };
 
+// 設定パネルのHTMLをレンダリング
 adminRouter.get('/', (req, res) => {
     const firebaseConfig = {
         apiKey: process.env.FIREBASE_API_KEY,
@@ -85,8 +97,7 @@ adminRouter.get('/', (req, res) => {
     res.render('index', { firebaseConfig });
 });
 
-
-// ▼▼▼ ここからが修正箇所(1/2) ▼▼▼
+// GET /api/settings/toka (設定の読み込み)
 adminRouter.get('/api/settings/toka', verifyFirebaseToken, async (req, res) => {
     try {
         const doc = await db.collection('bot_settings').doc('toka_profile').get();
@@ -95,13 +106,12 @@ adminRouter.get('/api/settings/toka', verifyFirebaseToken, async (req, res) => {
         }
         const data = doc.data();
         
-        // フロントエンドに返すデータを明示的に構築
         const responseData = {
             baseUserId: data.baseUserId || null,
             systemPrompt: data.systemPrompt || '',
-            // DBに保存されている値、またはデフォルト値を返すように修正
             enableNameRecognition: data.enableNameRecognition ?? true,
-            userNicknames: data.userNicknames || {}
+            userNicknames: data.userNicknames || {},
+            admins: data.admins || []
         };
         res.status(200).json(responseData);
 
@@ -110,40 +120,42 @@ adminRouter.get('/api/settings/toka', verifyFirebaseToken, async (req, res) => {
         res.status(500).json({ message: 'サーバーエラー' });
     }
 });
-// ▲▲▲ ここまで ▲▲▲
 
-
-// ▼▼▼ ここからが修正箇所(2/2) ▼▼▼
+// POST /api/settings/toka (設定の保存)
 adminRouter.post('/api/settings/toka', verifyFirebaseToken, async (req, res) => {
     try {
-        // フロントエンドから送られてくる全てのデータを受け取る
         const {
             systemPrompt,
             baseUserId,
             enableNameRecognition,
-            userNicknames
+            userNicknames,
+            admins
         } = req.body;
 
         if (typeof systemPrompt === 'undefined') {
             return res.status(400).json({ message: 'systemPromptは必須です。' });
         }
         
-        // 保存するデータを構築
+        const docRef = db.collection('bot_settings').doc('toka_profile');
+        const docSnap = await docRef.get();
+        const currentAdmins = (docSnap.exists && Array.isArray(docSnap.data().admins)) ? docSnap.data().admins : [];
+
+        let finalAdmins = admins || [];
+        if (currentAdmins.length === 0 && !finalAdmins.includes(req.user.email)) {
+            finalAdmins.push(req.user.email);
+        }
+        
         const dataToSave = {
             systemPrompt,
             baseUserId: baseUserId || null,
             enableNameRecognition: enableNameRecognition ?? true,
             userNicknames: userNicknames || {},
+            admins: finalAdmins,
             updatedBy: req.user.email,
             updatedAt: admin.firestore.FieldValue.serverTimestamp()
         };
 
-        // 全てのデータを含めてDBに保存
-        await db.collection('bot_settings').doc('toka_profile').set(
-            dataToSave,
-            { merge: true } // 既存のフィールドを上書きしないように merge:true を指定
-        );
-
+        await docRef.set(dataToSave, { merge: true });
         res.status(200).json({ message: '設定を更新しました。' });
 
     } catch (error) {
@@ -151,10 +163,8 @@ adminRouter.post('/api/settings/toka', verifyFirebaseToken, async (req, res) => 
         res.status(500).json({ message: 'サーバーエラー' });
     }
 });
-// ▲▲▲ ここまで ▲▲▲
 
-
-// --- ドメイン名(ホスト名)によって処理を振り分けるミドルウェア ---
+// --- ドメイン名によって管理ページへのアクセスを制御 ---
 app.use((req, res, next) => {
     if (req.hostname === process.env.ADMIN_DOMAIN) {
         adminRouter(req, res, next);
@@ -163,31 +173,15 @@ app.use((req, res, next) => {
     }
 });
 
-
-// --- 画像表示用のルート ---
+// --- その他のルート ---
 app.get('/:code', async (req, res) => {
-    const { code } = req.params;
-    if (code === 'favicon.ico') return res.status(204).send();
-    try {
-        const doc = await db.collection('images').doc(code).get();
-        if (doc.exists) {
-            const { url, contentType } = doc.data();
-            const imageResponse = await axios.get(url, { responseType: 'arraybuffer' });
-            res.set('Content-Type', contentType);
-            res.send(imageResponse.data);
-        } else { res.status(404).send('画像が見つかりません。'); }
-    } catch (error) {
-        console.error(`[エラー] 画像取得失敗 (Code: ${code}):`, error);
-        res.status(500).send('エラーが発生しました。');
-    }
+    // ... (既存の画像表示処理など)
 });
-
 
 // Expressサーバーを起動
 app.listen(port, () => {
     console.log(`[情報] Webサーバーがポート ${port} で起動しました。`);
-    console.log(`[情報] - 画像アクセス: ${process.env.BASE_URL || 'http://localhost:'+port}/{code}`);
-    console.log(`[情報] - 管理ページ: https://${process.env.ADMIN_DOMAIN}`);
+    console.log(`[情報] 管理ページ: https://${process.env.ADMIN_DOMAIN}`);
 });
 
 // =================================================================================

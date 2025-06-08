@@ -5,6 +5,8 @@ document.addEventListener('DOMContentLoaded', () => {
     // DOM Elements
     const nicknamesListContainer = document.getElementById('nicknames-list-container');
     const addNicknameBtn = document.getElementById('add-nickname-btn');
+    const adminsListContainer = document.getElementById('admins-list-container');
+    const addAdminBtn = document.getElementById('add-admin-btn');
     const authContainer = document.getElementById('auth-container');
     const mainContent = document.getElementById('main-content');
     const userEmailEl = document.getElementById('user-email');
@@ -74,6 +76,25 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
+    // --- 管理者UI関連の関数 ---
+    function createAdminEntry(email = '') {
+        const entryDiv = document.createElement('div');
+        entryDiv.className = 'admin-entry';
+        entryDiv.innerHTML = `
+            <input type="email" class="admin-email" placeholder="管理者メールアドレス" value="${email}">
+            <button type="button" class="delete-admin-btn">削除</button>
+        `;
+        adminsListContainer.appendChild(entryDiv);
+    }
+    
+    addAdminBtn.addEventListener('click', () => createAdminEntry());
+    
+    adminsListContainer.addEventListener('click', (e) => {
+        if (e.target.classList.contains('delete-admin-btn')) {
+            e.target.closest('.admin-entry').remove();
+        }
+    });
+
     // --- 設定の読み込みと保存 ---
     async function fetchSettings(user) {
         statusMessage.textContent = '読込中...';
@@ -82,12 +103,15 @@ document.addEventListener('DOMContentLoaded', () => {
             const res = await fetch('/api/settings/toka', { headers: { 'Authorization': `Bearer ${token}` } });
             
             nicknamesListContainer.innerHTML = ''; 
+            adminsListContainer.innerHTML = '';
 
             if (res.status === 404) {
                 statusMessage.textContent = '設定はまだありません。';
                 baseUserIdInput.value = '';
                 promptTextarea.value = '';
                 nameRecognitionCheckbox.checked = true;
+                // 初回アクセスの場合、自分自身を管理者リストに表示しておく
+                createAdminEntry(user.email);
                 return;
             }
 
@@ -103,6 +127,13 @@ document.addEventListener('DOMContentLoaded', () => {
                     createNicknameEntry(id, name);
                 }
             }
+
+            if (data.admins) {
+                data.admins.forEach(email => {
+                    createAdminEntry(email);
+                });
+            }
+
             statusMessage.textContent = '設定を読み込みました';
         } catch (err) { statusMessage.textContent = `エラー: ${err.message}`; }
     }
@@ -118,8 +149,8 @@ document.addEventListener('DOMContentLoaded', () => {
             const token = await user.getIdToken();
             
             const nicknamesObject = {};
-            const entries = document.querySelectorAll('.nickname-entry');
-            entries.forEach(entry => {
+            const nicknameEntries = document.querySelectorAll('.nickname-entry');
+            nicknameEntries.forEach(entry => {
                 const id = entry.querySelector('.nickname-id').value.trim();
                 const name = entry.querySelector('.nickname-name').value.trim();
                 if (id && name) {
@@ -127,11 +158,21 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             });
 
+            const adminsArray = [];
+            const adminEntries = document.querySelectorAll('.admin-entry');
+            adminEntries.forEach(entry => {
+                const email = entry.querySelector('.admin-email').value.trim();
+                if (email) {
+                    adminsArray.push(email);
+                }
+            });
+
             const settings = {
                 baseUserId: baseUserIdInput.value,
                 systemPrompt: promptTextarea.value,
                 enableNameRecognition: nameRecognitionCheckbox.checked,
-                userNicknames: nicknamesObject
+                userNicknames: nicknamesObject,
+                admins: adminsArray
             };
 
             const res = await fetch('/api/settings/toka', {
