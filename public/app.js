@@ -33,6 +33,7 @@ document.addEventListener('DOMContentLoaded', () => {
     loginBtn.addEventListener('click', () => {
         const email = loginEmailInput.value;
         const password = loginPasswordInput.value;
+        statusMessage.textContent = "";
         auth.signInWithEmailAndPassword(email, password)
             .catch(err => { statusMessage.textContent = `ログインエラー: IDまたはパスワードが違います。`; });
     });
@@ -81,12 +82,21 @@ document.addEventListener('DOMContentLoaded', () => {
             const token = await user.getIdToken();
             const res = await fetch('/api/settings/toka', { headers: { 'Authorization': `Bearer ${token}` } });
             
+            // 先にニックネームリストを空にしておく
             nicknamesListContainer.innerHTML = ''; 
 
+            // ▼▼▼ ここからが重要な修正 ▼▼▼
             if (res.status === 404) {
                 statusMessage.textContent = '設定はまだありません。';
-                return;
+                // 設定がない場合でも、各項目を初期状態にリセットする
+                baseUserIdInput.value = '';
+                promptTextarea.value = '';
+                nameRecognitionCheckbox.checked = true; // デフォルトはON
+                // ニックネーム欄は空のまま
+                return; // ここで処理を終了
             }
+            // ▲▲▲ ここまで ▲▲▲
+
             if (!res.ok) throw new Error('設定の読み込みに失敗しました');
 
             const data = await res.json();
