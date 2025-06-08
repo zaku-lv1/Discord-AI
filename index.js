@@ -85,27 +85,73 @@ adminRouter.get('/', (req, res) => {
     res.render('index', { firebaseConfig });
 });
 
+
+// ▼▼▼ ここからが修正箇所(1/2) ▼▼▼
 adminRouter.get('/api/settings/toka', verifyFirebaseToken, async (req, res) => {
     try {
         const doc = await db.collection('bot_settings').doc('toka_profile').get();
-        if (!doc.exists) return res.status(404).json({ message: '設定がまだありません。' });
-        res.status(200).json(doc.data());
-    } catch (error) { res.status(500).json({ message: 'サーバーエラー' }); }
-});
+        if (!doc.exists) {
+            return res.status(404).json({ message: '設定がまだありません。' });
+        }
+        const data = doc.data();
+        
+        // フロントエンドに返すデータを明示的に構築
+        const responseData = {
+            baseUserId: data.baseUserId || null,
+            systemPrompt: data.systemPrompt || '',
+            // DBに保存されている値、またはデフォルト値を返すように修正
+            enableNameRecognition: data.enableNameRecognition ?? true,
+            userNicknames: data.userNicknames || {}
+        };
+        res.status(200).json(responseData);
 
+    } catch (error) {
+        console.error('GET /api/settings/toka エラー:', error);
+        res.status(500).json({ message: 'サーバーエラー' });
+    }
+});
+// ▲▲▲ ここまで ▲▲▲
+
+
+// ▼▼▼ ここからが修正箇所(2/2) ▼▼▼
 adminRouter.post('/api/settings/toka', verifyFirebaseToken, async (req, res) => {
     try {
-        const { systemPrompt, baseUserId } = req.body;
-        if (typeof systemPrompt === 'undefined') return res.status(400).json({ message: 'systemPromptは必須です。' });
-        await db.collection('bot_settings').doc('toka_profile').set({
+        // フロントエンドから送られてくる全てのデータを受け取る
+        const {
+            systemPrompt,
+            baseUserId,
+            enableNameRecognition,
+            userNicknames
+        } = req.body;
+
+        if (typeof systemPrompt === 'undefined') {
+            return res.status(400).json({ message: 'systemPromptは必須です。' });
+        }
+        
+        // 保存するデータを構築
+        const dataToSave = {
             systemPrompt,
             baseUserId: baseUserId || null,
+            enableNameRecognition: enableNameRecognition ?? true,
+            userNicknames: userNicknames || {},
             updatedBy: req.user.email,
             updatedAt: admin.firestore.FieldValue.serverTimestamp()
-        }, { merge: true });
+        };
+
+        // 全てのデータを含めてDBに保存
+        await db.collection('bot_settings').doc('toka_profile').set(
+            dataToSave,
+            { merge: true } // 既存のフィールドを上書きしないように merge:true を指定
+        );
+
         res.status(200).json({ message: '設定を更新しました。' });
-    } catch (error) { res.status(500).json({ message: 'サーバーエラー' }); }
+
+    } catch (error) {
+        console.error('POST /api/settings/toka エラー:', error);
+        res.status(500).json({ message: 'サーバーエラー' });
+    }
 });
+// ▲▲▲ ここまで ▲▲▲
 
 
 // --- ドメイン名(ホスト名)によって処理を振り分けるミドルウェア ---

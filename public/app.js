@@ -107,7 +107,6 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch (err) { statusMessage.textContent = `エラー: ${err.message}`; }
     }
 
-    // ▼▼▼ 特に、この保存処理が重要です ▼▼▼
     saveBtn.addEventListener('click', async () => {
         const user = auth.currentUser;
         if (!user) return;
@@ -128,7 +127,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             });
 
-            // 送信するデータに enableNameRecognition と userNicknames が含まれていることを確認
             const settings = {
                 baseUserId: baseUserIdInput.value,
                 systemPrompt: promptTextarea.value,

@@ -77,6 +77,12 @@ textarea { resize: vertical; }
     color: #4b4f56; 
     font-size: 0.95em; 
 }
+.form-group small {
+    font-size: 0.85rem;
+    color: #555;
+    display: block;
+    margin-top: 8px;
+}
 
 .user-info { 
     display: flex; 
