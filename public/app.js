@@ -115,6 +115,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
 
+            if (res.status === 403) {
+                statusMessage.textContent = 'エラー: このページへのアクセス権がありません。管理者に連絡してください。';
+                mainContent.innerHTML = '<h2>アクセスが拒否されました</h2>';
+                return;
+            }
             if (!res.ok) throw new Error('設定の読み込みに失敗しました');
 
             const data = await res.json();
@@ -181,10 +186,17 @@ document.addEventListener('DOMContentLoaded', () => {
                 body: JSON.stringify(settings)
             });
 
-            if (!res.ok) throw new Error('保存に失敗しました');
+            if (!res.ok) {
+                const errorData = await res.json();
+                throw new Error(errorData.message || '保存に失敗しました');
+            }
 
             const result = await res.json();
             statusMessage.textContent = result.message || '保存しました！';
+            
+            // 保存後、設定を再読み込みしてUIを最新の状態に保つ
+            await fetchSettings(user);
+
         } catch (err) { 
             statusMessage.textContent = `エラー: ${err.message}`; 
         } finally { 

@@ -121,7 +121,7 @@ adminRouter.get('/api/settings/toka', verifyFirebaseToken, async (req, res) => {
     }
 });
 
-// POST /api/settings/toka (設定の保存)
+// POST /api/settings/toka (設定の保存と管理者アカウントの自動作成)
 adminRouter.post('/api/settings/toka', verifyFirebaseToken, async (req, res) => {
     try {
         const {
@@ -129,7 +129,7 @@ adminRouter.post('/api/settings/toka', verifyFirebaseToken, async (req, res) => 
             baseUserId,
             enableNameRecognition,
             userNicknames,
-            admins
+            admins: newAdminsList
         } = req.body;
 
         if (typeof systemPrompt === 'undefined') {
@@ -140,11 +140,31 @@ adminRouter.post('/api/settings/toka', verifyFirebaseToken, async (req, res) => 
         const docSnap = await docRef.get();
         const currentAdmins = (docSnap.exists && Array.isArray(docSnap.data().admins)) ? docSnap.data().admins : [];
 
-        let finalAdmins = admins || [];
-        if (currentAdmins.length === 0 && !finalAdmins.includes(req.user.email)) {
+        // 新しく追加された管理者を特定し、アカウントを自動作成
+        const newlyAddedAdmins = newAdminsList.filter(email => !currentAdmins.includes(email));
+        const creationPromises = newlyAddedAdmins.map(async (email) => {
+            try {
+                await admin.auth().getUserByEmail(email);
+                console.log(`[情報] 管理者 ${email} は既に存在します。`);
+            } catch (error) {
+                if (error.code === 'auth/user-not-found') {
+                    console.log(`[情報] 新規管理者 ${email} のアカウントを作成します...`);
+                    await admin.auth().createUser({ email: email });
+                    return email;
+                }
+                throw error;
+            }
+        });
+        
+        const createdUsers = (await Promise.all(creationPromises)).filter(Boolean);
+
+        // 最終的な管理者リストを決定
+        let finalAdmins = newAdminsList || [];
+        if (currentAdmins.length === 0 && createdUsers.length === 0 && !finalAdmins.includes(req.user.email)) {
             finalAdmins.push(req.user.email);
         }
         
+        // Firestoreに全設定を保存
         const dataToSave = {
             systemPrompt,
             baseUserId: baseUserId || null,
@@ -156,11 +176,17 @@ adminRouter.post('/api/settings/toka', verifyFirebaseToken, async (req, res) => 
         };
 
         await docRef.set(dataToSave, { merge: true });
-        res.status(200).json({ message: '設定を更新しました。' });
+        
+        let message = '設定を更新しました。';
+        if (createdUsers.length > 0) {
+            message += `\n新規管理者 (${createdUsers.join(', ')}) のアカウントが作成されました。対象者は「パスワードを忘れた場合」のリンクから初期パスワードを設定してください。`;
+        }
+
+        res.status(200).json({ message: message });
 
     } catch (error) {
         console.error('POST /api/settings/toka エラー:', error);
-        res.status(500).json({ message: 'サーバーエラー' });
+        res.status(500).json({ message: 'サーバーエラーが発生しました。' });
     }
 });
 
@@ -175,7 +201,7 @@ app.use((req, res, next) => {
 
 // --- その他のルート ---
 app.get('/:code', async (req, res) => {
-    // ... (既存の画像表示処理など)
+    // (画像表示などの処理があればここに)
 });
 
 // Expressサーバーを起動
