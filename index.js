@@ -9,6 +9,7 @@ const express = require('express');
 const axios = require('axios');
 const admin = require('firebase-admin');
 const ejs = require('ejs');
+const { v4: uuidv4 } = require('uuid'); // 招待コード生成用にuuidをインポート
 
 dotenv.config();
 
@@ -70,7 +71,6 @@ const verifyFirebaseToken = async (req, res, next) => {
         const settingsDoc = await db.collection('bot_settings').doc('toka_profile').get();
         const admins = (settingsDoc.exists && Array.isArray(settingsDoc.data().admins)) ? settingsDoc.data().admins : [];
 
-        // admins配列に、オブジェクトのemailプロパティとしてユーザーが含まれているかチェック
         if (admins.length > 0 && !admins.some(admin => admin.email === decodedToken.email)) {
             return res.status(403).send('Forbidden: Access is denied.');
         }
@@ -106,7 +106,6 @@ adminRouter.get('/api/settings/toka', verifyFirebaseToken, async (req, res) => {
         const admins = data.admins || [];
         
         let isSuperAdmin = false;
-        // 最高管理者は、リストの最初の管理者オブジェクトのemailと比較
         if (admins.length > 0) {
             const superAdminEmail = admins[0].email;
             isSuperAdmin = (req.user.email === superAdminEmail);
@@ -134,18 +133,7 @@ adminRouter.get('/api/settings/toka', verifyFirebaseToken, async (req, res) => {
 // POST /api/settings/toka (設定の保存)
 adminRouter.post('/api/settings/toka', verifyFirebaseToken, async (req, res) => {
     try {
-        const {
-            systemPrompt,
-            baseUserId,
-            enableNameRecognition,
-            userNicknames,
-            admins: newAdminsList
-        } = req.body;
-
-        if (typeof systemPrompt === 'undefined') {
-            return res.status(400).json({ message: 'systemPromptは必須です。' });
-        }
-        
+        const { admins: newAdminsList } = req.body;
         const docRef = db.collection('bot_settings').doc('toka_profile');
         const docSnap = await docRef.get();
         const currentSettings = docSnap.exists ? docSnap.data() : {};
@@ -160,37 +148,13 @@ adminRouter.post('/api/settings/toka', verifyFirebaseToken, async (req, res) => 
             return res.status(403).json({ message: 'エラー: 管理者リストの変更は最高管理者のみ許可されています。' });
         }
 
-        const newlyAddedAdmins = (newAdminsList || []).filter(newAdmin => !currentAdmins.some(currentAdmin => currentAdmin.email === newAdmin.email));
-        const creationPromises = newlyAddedAdmins.map(async (admin) => {
-            if (!admin.email) return;
-            try {
-                await admin.auth().getUserByEmail(admin.email);
-            } catch (error) {
-                if (error.code === 'auth/user-not-found') {
-                    await admin.auth().createUser({ email: admin.email });
-                    return admin.email;
-                }
-                throw error;
-            }
-        });
-        
-        const createdUsers = (await Promise.all(creationPromises)).filter(Boolean);
-
-        let finalAdmins = newAdminsList || [];
-        if (finalAdmins.length === 0) {
-            finalAdmins.push({ name: '（自動登録された最高管理者）', email: req.user.email });
-        }
-        
         const dataToSave = {
-            systemPrompt,
-            baseUserId: baseUserId || null,
-            enableNameRecognition: enableNameRecognition ?? true,
-            userNicknames: userNicknames || {},
-            admins: finalAdmins,
+            ...req.body,
             updatedBy: req.user.email,
             updatedAt: admin.firestore.FieldValue.serverTimestamp()
         };
-        
+
+        await docRef.set(dataToSave, { merge: true });
         await db.collection('settings_history').add({
             timestamp: admin.firestore.FieldValue.serverTimestamp(),
             changedBy: req.user.email,
@@ -199,22 +163,88 @@ adminRouter.post('/api/settings/toka', verifyFirebaseToken, async (req, res) => 
                 after: dataToSave
             }
         });
-        
-        await docRef.set(dataToSave, { merge: true });
 
-        let message = '設定を更新しました。';
-        if (createdUsers.length > 0) {
-            message += `\n新規管理者 (${createdUsers.join(', ')}) のアカウントが作成されました。対象者は「パスワードを忘れた場合」のリンクから初期パスワードを設定してください。`;
-        }
-
-        res.status(200).json({ 
-            message: message,
-            createdUsers: createdUsers
-        });
-
+        res.status(200).json({ message: '設定を更新しました。' });
     } catch (error) {
         console.error('POST /api/settings/toka エラー:', error);
         res.status(500).json({ message: 'サーバーエラーが発生しました。' });
+    }
+});
+
+// POST /api/generate-invite-code (招待コードの生成)
+adminRouter.post('/api/generate-invite-code', verifyFirebaseToken, async (req, res) => {
+    try {
+        const settingsDoc = await db.collection('bot_settings').doc('toka_profile').get();
+        const admins = (settingsDoc.exists && Array.isArray(settingsDoc.data().admins)) ? settingsDoc.data().admins : [];
+        const superAdminEmail = admins.length > 0 ? admins[0].email : null;
+
+        if (!superAdminEmail || req.user.email !== superAdminEmail) {
+            return res.status(403).json({ message: '招待コードの発行は最高管理者のみ許可されています。' });
+        }
+
+        const newCode = uuidv4().split('-')[0].toUpperCase();
+        const inviteCodeRef = db.collection('invitation_codes').doc(newCode);
+
+        await inviteCodeRef.set({
+            code: newCode,
+            createdAt: admin.firestore.FieldValue.serverTimestamp(),
+            createdBy: req.user.email,
+            used: false,
+            usedBy: null,
+            usedAt: null
+        });
+
+        res.status(201).json({ code: newCode });
+    } catch (error) {
+        console.error('POST /api/generate-invite-code エラー:', error);
+        res.status(500).json({ message: '招待コードの生成に失敗しました。' });
+    }
+});
+
+// POST /api/register-with-invite (招待コードでのアカウント登録)
+adminRouter.post('/api/register-with-invite', async (req, res) => {
+    try {
+        const { inviteCode, displayName, email, password } = req.body;
+        if (!inviteCode || !displayName || !email || !password) {
+            return res.status(400).json({ message: 'すべての項目を入力してください。' });
+        }
+
+        const inviteCodeRef = db.collection('invitation_codes').doc(inviteCode);
+        const codeDoc = await inviteCodeRef.get();
+
+        if (!codeDoc.exists || codeDoc.data().used) {
+            return res.status(400).json({ message: 'この招待コードは無効か、既に使用されています。' });
+        }
+
+        const userRecord = await admin.auth().createUser({
+            email: email,
+            password: password,
+            displayName: displayName
+        });
+        console.log(`[情報] 新規ユーザーを作成しました: ${userRecord.uid} (${email})`);
+
+        const settingsRef = db.collection('bot_settings').doc('toka_profile');
+        await db.runTransaction(async (transaction) => {
+            const settingsDoc = await transaction.get(settingsRef);
+            const admins = (settingsDoc.exists && Array.isArray(settingsDoc.data().admins)) ? settingsDoc.data().admins : [];
+            admins.push({ name: displayName, email: email });
+            transaction.set(settingsRef, { admins: admins }, { merge: true });
+        });
+
+        await inviteCodeRef.update({
+            used: true,
+            usedBy: email,
+            usedAt: admin.firestore.FieldValue.serverTimestamp()
+        });
+
+        res.status(201).json({ message: `ようこそ、${displayName}さん！アカウントが正常に作成されました。ログインしてください。` });
+
+    } catch (error) {
+        console.error('POST /api/register-with-invite エラー:', error);
+        if (error.code === 'auth/email-already-exists') {
+            return res.status(400).json({ message: 'このメールアドレスは既に使用されています。' });
+        }
+        res.status(500).json({ message: 'アカウントの作成に失敗しました。' });
     }
 });
 
@@ -232,7 +262,6 @@ app.use((req, res, next) => {
 app.get('/:code', async (req, res) => {
     const { code } = req.params;
     if (code === 'favicon.ico') return res.status(204).send();
-    // (画像表示などの処理があればここに)
 });
 
 // Expressサーバーを起動

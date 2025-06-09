@@ -3,6 +3,16 @@ document.addEventListener('DOMContentLoaded', () => {
     const auth = firebase.auth();
 
     // DOM Elements
+    const loginForm = document.getElementById('login-form');
+    const registerForm = document.getElementById('register-form');
+    const showRegisterFormLink = document.getElementById('show-register-form-link');
+    const showLoginFormLink = document.getElementById('show-login-form-link');
+    const registerBtn = document.getElementById('register-btn');
+    const generateInviteCodeBtn = document.getElementById('generate-invite-code-btn');
+    const inviteCodeGeneratorSection = document.getElementById('invite-code-generator-section');
+    const inviteCodeDisplay = document.getElementById('invite-code-display');
+    const newInviteCodeInput = document.getElementById('new-invite-code');
+    const copyInviteCodeBtn = document.getElementById('copy-invite-code-btn');
     const nicknamesListContainer = document.getElementById('nicknames-list-container');
     const addNicknameBtn = document.getElementById('add-nickname-btn');
     const adminsListContainer = document.getElementById('admins-list-container');
@@ -24,20 +34,63 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // UIの状態を管理するための変数
     let state = {
-        admins: [], // {name: string, email: string} の配列
+        admins: [],
         isSuperAdmin: false
     };
+    
+    // --- ログイン/登録フォームの切り替え ---
+    showRegisterFormLink.addEventListener('click', (e) => {
+        e.preventDefault();
+        loginForm.style.display = 'none';
+        registerForm.style.display = 'block';
+        statusMessage.textContent = '';
+    });
+    showLoginFormLink.addEventListener('click', (e) => {
+        e.preventDefault();
+        registerForm.style.display = 'none';
+        loginForm.style.display = 'block';
+        statusMessage.textContent = '';
+    });
+
+    // --- 新規登録処理 ---
+    registerBtn.addEventListener('click', async () => {
+        const inviteCode = document.getElementById('register-invite-code').value.trim();
+        const displayName = document.getElementById('register-display-name').value.trim();
+        const email = document.getElementById('register-email').value.trim();
+        const password = document.getElementById('register-password').value;
+        
+        statusMessage.textContent = '登録中...';
+        registerBtn.disabled = true;
+        try {
+            const res = await fetch('/api/register-with-invite', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ inviteCode, displayName, email, password })
+            });
+            const result = await res.json();
+            if (!res.ok) throw new Error(result.message || '登録に失敗しました。');
+            
+            statusMessage.textContent = result.message;
+            document.getElementById('register-form').reset();
+            showLoginFormLink.click();
+
+        } catch (err) {
+            statusMessage.textContent = `エラー: ${err.message}`;
+        } finally {
+            registerBtn.disabled = false;
+        }
+    });
 
     auth.onAuthStateChanged(user => {
         if (user) {
             authContainer.style.display = 'none';
             mainContent.style.display = 'block';
-            // ▼▼▼ ログイン直後のメールアドレス表示を削除し、fetchSettingsに処理を移譲 ▼▼▼
-            // userEmailEl.textContent = user.email; 
             fetchSettings(user);
         } else {
             authContainer.style.display = 'block';
             mainContent.style.display = 'none';
+            loginForm.style.display = 'block';
+            registerForm.style.display = 'none';
         }
     });
 
@@ -63,6 +116,36 @@ document.addEventListener('DOMContentLoaded', () => {
             .then(() => { statusMessage.textContent = `${email} にパスワード再設定用のメールを送信しました。`; })
             .catch(err => { statusMessage.textContent = `エラー: ${err.message}`; });
     });
+
+    // --- 招待コード生成 ---
+    generateInviteCodeBtn.addEventListener('click', async () => {
+        const user = auth.currentUser;
+        if (!user) return;
+        generateInviteCodeBtn.disabled = true;
+        statusMessage.textContent = '招待コードを生成中...';
+        try {
+            const token = await user.getIdToken();
+            const res = await fetch('/api/generate-invite-code', {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            const result = await res.json();
+            if (!res.ok) throw new Error(result.message || 'コードの生成に失敗しました。');
+            newInviteCodeInput.value = result.code;
+            inviteCodeDisplay.style.display = 'flex';
+            statusMessage.textContent = '新しい招待コードを生成しました。';
+        } catch (err) {
+            statusMessage.textContent = `エラー: ${err.message}`;
+        } finally {
+            generateInviteCodeBtn.disabled = false;
+        }
+    });
+    copyInviteCodeBtn.addEventListener('click', () => {
+        newInviteCodeInput.select();
+        document.execCommand('copy');
+        statusMessage.textContent = '招待コードをコピーしました！';
+    });
+
 
     // --- ニックネームUI関連の関数 ---
     function createNicknameEntry(id = '', name = '') {
@@ -90,42 +173,18 @@ document.addEventListener('DOMContentLoaded', () => {
             entryDiv.className = 'admin-entry';
             entryDiv.setAttribute('draggable', state.isSuperAdmin);
             entryDiv.dataset.index = index;
-
             let html = `
                 <input type="text" class="admin-name" data-field="name" placeholder="表示名" value="${admin.name || ''}">
                 <input type="email" class="admin-email" data-field="email" placeholder="管理者メールアドレス" value="${admin.email || ''}">
             `;
-            
             if (index === 0) {
                 entryDiv.classList.add('super-admin');
-                const label = document.createElement('span');
-                label.className = 'super-admin-label';
-                label.innerHTML = '👑';
-                html += label.outerHTML;
+                html += `<span class="super-admin-label">👑</span>`;
             }
-            
-            const deleteBtn = document.createElement('button');
-            deleteBtn.type = 'button';
-            deleteBtn.className = 'delete-admin-btn';
-            deleteBtn.textContent = '削除';
-
-            entryDiv.innerHTML = html + deleteBtn.outerHTML;
+            html += `<button type="button" class="delete-admin-btn">削除</button>`;
+            entryDiv.innerHTML = html;
             adminsListContainer.appendChild(entryDiv);
         });
-
-        if (state.isSuperAdmin) {
-            adminSettingsSection.style.display = 'block';
-        } else {
-            // 一般管理者の場合も、セクション自体は表示しておく（中身で権限を制御）
-            adminSettingsSection.style.display = 'block';
-            // ただし、全てのコントロールを無効化
-            const adminControls = adminSettingsSection.querySelectorAll('input, button');
-            adminControls.forEach(control => {
-                control.disabled = true;
-            });
-            // ドラッグも無効化
-            adminsListContainer.querySelectorAll('.admin-entry').forEach(entry => entry.draggable = false);
-        }
     }
 
     addAdminBtn.addEventListener('click', () => {
@@ -166,6 +225,10 @@ document.addEventListener('DOMContentLoaded', () => {
     adminsListContainer.addEventListener('dragend', (e) => {
         if (!e.target.classList.contains('admin-entry')) return;
         e.target.classList.remove('dragging');
+        const currentEmails = Array.from(adminsListContainer.querySelectorAll('.admin-email')).map(input => input.value);
+        if (draggedIndex !== null) {
+            renderAdminList();
+        }
         draggedIndex = null;
     });
     adminsListContainer.addEventListener('drop', (e) => {
@@ -194,20 +257,20 @@ document.addEventListener('DOMContentLoaded', () => {
             
             nicknamesListContainer.innerHTML = ''; 
             adminsListContainer.innerHTML = '';
+            inviteCodeDisplay.style.display = 'none';
 
             if (res.status === 404) {
-                statusMessage.textContent = '設定はまだありません。';
+                statusMessage.textContent = '設定はまだありません。保存すると最初の管理者として登録されます。';
                 baseUserIdInput.value = '';
                 promptTextarea.value = '';
                 nameRecognitionCheckbox.checked = true;
-                
                 state.admins = [{ name: '（自動登録）', email: user.email }];
                 state.isSuperAdmin = true;
-                userEmailEl.textContent = '（自動登録）'; // 表示名をセット
+                userEmailEl.textContent = '（自動登録）';
                 renderAdminList();
                 return;
             }
-            if (res.status === 403) {
+            if (res.status === 403 || res.status === 401) {
                 statusMessage.textContent = 'エラー: このページへのアクセス権がありません。';
                 mainContent.innerHTML = `<h2>アクセスが拒否されました</h2><p>あなたのアカウント(${user.email})には、この設定パネルを閲覧・編集する権限がありません。最高管理者に連絡してください。</p><button id="logout-btn-fallback">ログアウト</button>`;
                 document.getElementById('logout-btn-fallback').addEventListener('click', () => auth.signOut());
@@ -225,17 +288,26 @@ document.addEventListener('DOMContentLoaded', () => {
                     createNicknameEntry(id, name);
                 }
             }
-
-            // ▼▼▼ ここからが修正箇所 ▼▼▼
-            // ログインユーザーの表示名を決定する
+            
             const currentUserAdminInfo = (data.admins || []).find(admin => admin.email === user.email);
             const displayName = currentUserAdminInfo && currentUserAdminInfo.name ? currentUserAdminInfo.name : user.email;
             userEmailEl.textContent = displayName;
-            // ▲▲▲ ここまで ▲▲▲
             
             state.admins = data.admins || [];
             state.isSuperAdmin = data.currentUser && data.currentUser.isSuperAdmin;
+            
             renderAdminList();
+
+            const inviteGenerator = document.getElementById('invite-code-generator-section');
+            const adminControls = adminSettingsSection.querySelectorAll('input, button');
+            if(state.isSuperAdmin){
+                inviteGenerator.style.display = 'block';
+                adminControls.forEach(el => el.disabled = false);
+            } else {
+                inviteGenerator.style.display = 'none';
+                adminControls.forEach(el => el.disabled = true);
+                adminsListContainer.querySelectorAll('.admin-entry').forEach(entry => entry.draggable = false);
+            }
 
             statusMessage.textContent = '設定を読み込みました';
         } catch (err) { statusMessage.textContent = `エラー: ${err.message}`; }
@@ -283,11 +355,9 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             const result = await res.json();
-            statusMessage.textContent = result.message || '保存しました！';
             
             if (result.createdUsers && result.createdUsers.length > 0) {
-                statusMessage.textContent += '\n新規管理者にパスワード設定メールを送信中...';
-                
+                statusMessage.textContent = result.message;
                 const emailPromises = result.createdUsers.map(email => {
                     return auth.sendPasswordResetEmail(email)
                         .then(() => {
@@ -299,10 +369,9 @@ document.addEventListener('DOMContentLoaded', () => {
                             return null;
                         });
                 });
-                const sentEmails = (await Promise.all(emailPromises)).filter(Boolean);
-                if (sentEmails.length > 0) {
-                    statusMessage.textContent = result.message + `\n${sentEmails.join(', ')} にパスワード設定メールを送信しました。`;
-                }
+                await Promise.all(emailPromises);
+            } else {
+                statusMessage.textContent = result.message || '保存しました！';
             }
             
             await fetchSettings(user);

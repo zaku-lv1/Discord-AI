@@ -357,3 +357,57 @@ input:checked + .slider:before {
     margin-left: 10px;
     white-space: nowrap;
 }
+
+/* ========== 登録フォーム切り替えリンク ========== */
+.switch-form-link {
+    text-align: center;
+    margin-top: 1rem;
+}
+.switch-form-link a {
+    font-size: 0.9em;
+    color: #555;
+    text-decoration: none;
+    transition: color 0.2s;
+}
+.switch-form-link a:hover {
+    color: #0056b3;
+    text-decoration: underline;
+}
+
+/* ========== 招待コード生成セクション ========== */
+#invite-code-generator-section {
+    padding: 15px;
+    background-color: rgba(102, 166, 255, 0.1);
+    border-radius: 8px;
+    border: 1px solid rgba(102, 166, 255, 0.2);
+}
+#invite-code-display {
+    margin-top: 15px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+}
+#invite-code-display p {
+    width: 100%;
+    margin: 0 0 5px 0;
+    font-size: 0.9em;
+}
+#new-invite-code {
+    flex-grow: 1;
+    font-weight: bold;
+    font-size: 1.2em;
+    text-align: center;
+    letter-spacing: 2px;
+    background-color: #fff;
+    margin-bottom: 0;
+}
+#copy-invite-code-btn {
+    width: auto;
+    font-size: 0.9em;
+    padding: 12px;
+    background-color: #28a745;
+}
+#copy-invite-code-btn:hover {
+    background-color: #218838;
+}
