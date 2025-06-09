@@ -144,7 +144,7 @@ adminRouter.get('/api/settings/toka', verifyFirebaseToken, async (req, res) => {
     }
 });
 
-// POST /api/settings/toka (設定の保存)
+// POST /api/settings/toka (設定の保存と管理者アカウントの自動作成)
 adminRouter.post('/api/settings/toka', verifyFirebaseToken, async (req, res) => {
     try {
         const {
