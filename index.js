@@ -9,7 +9,7 @@ const express = require('express');
 const axios = require('axios');
 const admin = require('firebase-admin');
 const ejs = require('ejs');
-const { v4: uuidv4 } = require('uuid');
+const { v4: uuidv4 } = require('uuid'); // 招待コード生成用にuuidをインポート
 
 dotenv.config();
 
@@ -70,6 +70,7 @@ const verifyFirebaseToken = async (req, res, next) => {
         const decodedToken = await admin.auth().verifyIdToken(idToken);
         const settingsDoc = await db.collection('bot_settings').doc('toka_profile').get();
         const admins = (settingsDoc.exists && Array.isArray(settingsDoc.data().admins)) ? settingsDoc.data().admins : [];
+
         if (admins.length > 0 && !admins.some(admin => admin.email === decodedToken.email)) {
             return res.status(403).send('Forbidden: Access is denied.');
         }
@@ -141,18 +142,19 @@ adminRouter.post('/api/settings/toka', verifyFirebaseToken, async (req, res) => 
 
         const newAdminEmails = (newAdminsList || []).map(a => a.email);
         const currentAdminEmails = currentAdmins.map(a => a.email);
-        const adminsChanged = JSON.stringify([...currentAdminEmails].sort()) !== JSON.stringify([...newAdminEmails].sort());
+        const adminsChanged = JSON.stringify(currentAdminEmails.sort()) !== JSON.stringify(newAdminEmails.sort());
 
         if (adminsChanged && superAdminEmail && req.user.email !== superAdminEmail) {
             return res.status(403).json({ message: 'エラー: 管理者リストの変更は最高管理者のみ許可されています。' });
         }
-        
+
         const dataToSave = {
             ...req.body,
             updatedBy: req.user.email,
             updatedAt: admin.firestore.FieldValue.serverTimestamp()
         };
-        
+
+        await docRef.set(dataToSave, { merge: true });
         await db.collection('settings_history').add({
             timestamp: admin.firestore.FieldValue.serverTimestamp(),
             changedBy: req.user.email,
@@ -161,9 +163,7 @@ adminRouter.post('/api/settings/toka', verifyFirebaseToken, async (req, res) => 
                 after: dataToSave
             }
         });
-        
-        await docRef.set(dataToSave, { merge: true });
-        
+
         res.status(200).json({ message: '設定を更新しました。' });
     } catch (error) {
         console.error('POST /api/settings/toka エラー:', error);

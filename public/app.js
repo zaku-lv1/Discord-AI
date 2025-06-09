@@ -225,6 +225,7 @@ document.addEventListener('DOMContentLoaded', () => {
     adminsListContainer.addEventListener('dragend', (e) => {
         if (!e.target.classList.contains('admin-entry')) return;
         e.target.classList.remove('dragging');
+        const currentEmails = Array.from(adminsListContainer.querySelectorAll('.admin-email')).map(input => input.value);
         if (draggedIndex !== null) {
             renderAdminList();
         }
@@ -265,14 +266,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 nameRecognitionCheckbox.checked = true;
                 state.admins = [{ name: '（自動登録）', email: user.email }];
                 state.isSuperAdmin = true;
-                userEmailEl.textContent = user.displayName || user.email;
+                userEmailEl.textContent = '（自動登録）';
                 renderAdminList();
-                inviteCodeGeneratorSection.style.display = 'block';
                 return;
             }
             if (res.status === 403 || res.status === 401) {
                 statusMessage.textContent = 'エラー: このページへのアクセス権がありません。';
-                mainContent.innerHTML = `<h2>アクセスが拒否されました</h2><p>あなたのアカウント(${user.email})には、この設定パネルを閲覧・編集する権限がありません。</p><button id="logout-btn-fallback">ログアウト</button>`;
+                mainContent.innerHTML = `<h2>アクセスが拒否されました</h2><p>あなたのアカウント(${user.email})には、この設定パネルを閲覧・編集する権限がありません。最高管理者に連絡してください。</p><button id="logout-btn-fallback">ログアウト</button>`;
                 document.getElementById('logout-btn-fallback').addEventListener('click', () => auth.signOut());
                 return;
             }
@@ -298,12 +298,14 @@ document.addEventListener('DOMContentLoaded', () => {
             
             renderAdminList();
 
+            const inviteGenerator = document.getElementById('invite-code-generator-section');
+            const adminControls = adminSettingsSection.querySelectorAll('input, button');
             if(state.isSuperAdmin){
-                inviteCodeGeneratorSection.style.display = 'block';
-                adminSettingsSection.querySelectorAll('input, button').forEach(el => el.disabled = false);
+                inviteGenerator.style.display = 'block';
+                adminControls.forEach(el => el.disabled = false);
             } else {
-                inviteCodeGeneratorSection.style.display = 'none';
-                adminSettingsSection.querySelectorAll('input, button').forEach(el => el.disabled = true);
+                inviteGenerator.style.display = 'none';
+                adminControls.forEach(el => el.disabled = true);
                 adminsListContainer.querySelectorAll('.admin-entry').forEach(entry => entry.draggable = false);
             }
 
@@ -353,7 +355,24 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             const result = await res.json();
-            statusMessage.textContent = result.message || '保存しました！';
+            
+            if (result.createdUsers && result.createdUsers.length > 0) {
+                statusMessage.textContent = result.message;
+                const emailPromises = result.createdUsers.map(email => {
+                    return auth.sendPasswordResetEmail(email)
+                        .then(() => {
+                            console.log(`[情報] ${email} にパスワード設定メールを送信しました。`);
+                            return email;
+                        })
+                        .catch(err => {
+                            console.error(`[エラー] ${email} へのメール送信に失敗:`, err);
+                            return null;
+                        });
+                });
+                await Promise.all(emailPromises);
+            } else {
+                statusMessage.textContent = result.message || '保存しました！';
+            }
             
             await fetchSettings(user);
 
