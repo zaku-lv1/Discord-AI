@@ -34,10 +34,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // UIの状態を管理するための変数
     let state = {
-        admins: [], // {name: string, email: string} の配列
+        admins: [],
         isSuperAdmin: false
     };
-
+    
     // --- ログイン/登録フォームの切り替え ---
     showRegisterFormLink.addEventListener('click', (e) => {
         e.preventDefault();
@@ -170,8 +170,9 @@ document.addEventListener('DOMContentLoaded', () => {
         state.admins.forEach((admin, index) => {
             const entryDiv = document.createElement('div');
             entryDiv.className = 'admin-entry';
-            entryDiv.setAttribute('draggable', state.isSuperAdmin);
+            entryDiv.setAttribute('draggable', true);
             entryDiv.dataset.index = index;
+
             let html = `
                 <input type="text" class="admin-name" data-field="name" placeholder="表示名" value="${admin.name || ''}">
                 <input type="email" class="admin-email" data-field="email" placeholder="管理者メールアドレス" value="${admin.email || ''}">
@@ -262,6 +263,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 baseUserIdInput.value = '';
                 promptTextarea.value = '';
                 nameRecognitionCheckbox.checked = true;
+                
                 state.admins = [{ name: user.displayName || '管理者', email: user.email }];
                 state.isSuperAdmin = true;
                 userEmailEl.textContent = user.displayName || user.email;
@@ -296,20 +298,16 @@ document.addEventListener('DOMContentLoaded', () => {
             state.admins = data.admins || [];
             state.isSuperAdmin = data.currentUser && data.currentUser.isSuperAdmin;
             
-            renderAdminList();
-
-            if(state.isSuperAdmin){
+            // ▼▼▼ ここを「非表示」ロジックに修正 ▼▼▼
+            if (state.isSuperAdmin) {
+                // 最高管理者の場合、両方のセクションを表示
                 inviteCodeGeneratorSection.style.display = 'block';
                 adminSettingsSection.style.display = 'block';
+                renderAdminList(); // リストの中身を描画
             } else {
-                inviteCodeGenerator-section.style.display = 'none';
-                adminSettingsSection.style.display = 'block'; // 表示はする
-                // 操作を無効化
-                const adminControls = adminSettingsSection.querySelectorAll('input, button, .admin-entry');
-                adminControls.forEach(control => {
-                    control.disabled = true;
-                    if(control.classList.contains('admin-entry')) control.draggable = false;
-                });
+                // 一般管理者の場合、両方のセクションを非表示
+                inviteCodeGeneratorSection.style.display = 'none';
+                adminSettingsSection.style.display = 'none';
             }
 
             statusMessage.textContent = '設定を読み込みました';
@@ -336,6 +334,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             });
 
+            // 状態管理している配列からデータを取得
             const adminsArray = state.admins.filter(admin => admin.email && admin.name);
 
             const settings = {
@@ -359,27 +358,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const result = await res.json();
             
-            if (result.createdUsers && result.createdUsers.length > 0) {
-                let statusMsg = result.message || '保存しました！';
-                statusMsg += '\n新規管理者にパスワード設定メールを送信中...';
-                statusMessage.textContent = statusMsg;
-                
-                const emailPromises = result.createdUsers.map(email => {
-                    return auth.sendPasswordResetEmail(email)
-                        .then(() => {
-                            console.log(`[情報] ${email} にパスワード設定メールを送信しました。`);
-                            return email;
-                        })
-                        .catch(err => {
-                            console.error(`[エラー] ${email} へのメール送信に失敗:`, err);
-                            return null;
-                        });
-                });
-                await Promise.all(emailPromises);
-                statusMessage.textContent = statusMsg.replace('送信中...', '送信しました。');
-            } else {
-                statusMessage.textContent = result.message || '保存しました！';
-            }
+            // メール送信のロジックはここには不要。登録時にしか送らないため。
+            statusMessage.textContent = result.message || '保存しました！';
             
             await fetchSettings(user);
 
