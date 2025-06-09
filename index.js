@@ -75,17 +75,20 @@ async function setupReminderSchedule() {
             const cronExpression = `${minute} ${hour} * * *`;
 
             if (cron.validate(cronExpression)) {
-                const { scheduleDailyReminder } = require('./commands/schedule.js');
-                
-                dailyReminderTask = cron.schedule(cronExpression, () => {
-                    console.log(`[リマインダー] 定刻(${settings.reminderTime})になりました。リマインダー処理を実行します。`);
-                    scheduleDailyReminder(client, db);
-                }, {
-                    scheduled: true,
-                    timezone: "Asia/Tokyo"
-                });
+                const scheduleCommand = client.commands.get('schedule');
+                if (scheduleCommand && typeof scheduleCommand.scheduleDailyReminder === 'function') {
+                    dailyReminderTask = cron.schedule(cronExpression, () => {
+                        console.log(`[リマインダー] 定刻(${settings.reminderTime})になりました。リマインダー処理を実行します。`);
+                        scheduleCommand.scheduleDailyReminder(client, db);
+                    }, {
+                        scheduled: true,
+                        timezone: "Asia/Tokyo"
+                    });
 
-                console.log(`[リマインダー] セットアップ完了。毎日 ${settings.reminderTime} にリマインダーが送信されます。`);
+                    console.log(`[リマインダー] セットアップ完了。毎日 ${settings.reminderTime} にリマインダーが送信されます。`);
+                } else {
+                     console.error(`[リマインダー] エラー: 'schedule'コマンドまたは'scheduleDailyReminder'関数が見つかりません。`);
+                }
             } else {
                 console.error(`[リマインダー] エラー: 保存されている時刻 "${settings.reminderTime}" は無効な形式です。`);
             }
@@ -176,6 +179,25 @@ adminRouter.get('/api/settings/schedule', verifyFirebaseToken, async (req, res) 
     } catch (error) { res.status(500).json({ message: 'サーバーエラー' }); }
 });
 
+adminRouter.get('/api/schedule/items', verifyFirebaseToken, async (req, res) => {
+    try {
+        const settingsDoc = await db.collection('bot_settings').doc('schedule_settings').get();
+        if (!settingsDoc.exists || !settingsDoc.data().googleSheetId) {
+            return res.status(404).json([]);
+        }
+        const { googleSheetId, googleServiceAccountJson } = settingsDoc.data();
+        const sheetsClient = await getSheetsClient(googleServiceAccountJson);
+        const response = await sheetsClient.spreadsheets.values.get({
+            spreadsheetId: googleSheetId,
+            range: 'シート1!A2:C',
+        });
+        res.status(200).json(response.data.values || []);
+    } catch (error) {
+        console.error('GET /api/schedule/items エラー:', error);
+        res.status(500).json({ message: 'スプレッドシートの予定読み込みに失敗しました。' });
+    }
+});
+
 
 // --- 設定保存API ---
 adminRouter.post('/api/settings/toka', verifyFirebaseToken, async (req, res) => {
@@ -199,7 +221,7 @@ adminRouter.post('/api/settings/schedule', verifyFirebaseToken, async (req, res)
         };
         await db.collection('bot_settings').doc('schedule_settings').set(dataToSave, { merge: true });
         
-        await setupReminderSchedule(); // 設定保存後にスケジューラーを再設定
+        await setupReminderSchedule();
         
         res.status(200).json({ message: 'スケジュール設定を更新しました。' });
     } catch (error) { 
@@ -227,6 +249,35 @@ adminRouter.post('/api/settings/admins', verifyFirebaseToken, async (req, res) =
         await docRef.set({ admins: newAdminsList || [] }, { merge: true });
         res.status(200).json({ message: '管理者リストを更新しました。' });
     } catch (error) { res.status(500).json({ message: 'サーバーエラー' }); }
+});
+
+adminRouter.post('/api/schedule/items', verifyFirebaseToken, async (req, res) => {
+    try {
+        const { items } = req.body;
+        if (!Array.isArray(items)) {
+            return res.status(400).json({ message: '無効なデータ形式です。' });
+        }
+        const settingsDoc = await db.collection('bot_settings').doc('schedule_settings').get();
+        if (!settingsDoc.exists || !settingsDoc.data().googleSheetId) {
+            return res.status(400).json({ message: 'スプレッドシートが設定されていません。' });
+        }
+        const { googleSheetId, googleServiceAccountJson } = settingsDoc.data();
+        const sheets = await getSheetsClient(googleServiceAccountJson);
+        const range = 'シート1!A2:C';
+
+        await sheets.spreadsheets.values.clear({ spreadsheetId: googleSheetId, range: range });
+
+        if (items.length > 0) {
+            await sheets.spreadsheets.values.update({
+                spreadsheetId: googleSheetId, range: range, valueInputOption: 'USER_ENTERED',
+                resource: { values: items },
+            });
+        }
+        res.status(200).json({ message: '予定リストをスプレッドシートに保存しました。' });
+    } catch (error) {
+        console.error('POST /api/schedule/items エラー:', error);
+        res.status(500).json({ message: '予定リストの保存に失敗しました。' });
+    }
 });
 
 
@@ -268,7 +319,7 @@ adminRouter.post('/api/register-with-invite', async (req, res) => {
             transaction.set(settingsRef, { admins }, { merge: true });
         });
         await inviteCodeRef.update({ used: true, usedBy: email, usedAt: admin.firestore.FieldValue.serverTimestamp() });
-        res.status(201).json({ message: `ようこそ、${displayName}さん！アカウントが作成されました。ログインしてください。` });
+        res.status(201).json({ message: `ようこそ、${displayName}さん！アカウントが正常に作成されました。ログインしてください。` });
     } catch (error) {
         if (error.code === 'auth/email-already-exists') {
             return res.status(400).json({ message: 'このメールアドレスは既に使用されています。' });
@@ -286,12 +337,10 @@ app.use((req, res, next) => {
         next();
     }
 });
-
 app.get('/:code', async (req, res) => {
     const { code } = req.params;
     if (code === 'favicon.ico') return res.status(204).send();
 });
-
 app.listen(port, () => {
     console.log(`[情報] Webサーバーがポート ${port} で起動しました。`);
     console.log(`[情報] 管理ページ: https://${process.env.ADMIN_DOMAIN}`);
@@ -307,15 +356,11 @@ client.once(Events.ClientReady, c => {
     console.log('[リマインダー] 初期スケジュールをセットアップします...');
     setupReminderSchedule();
 });
-
 client.on(Events.InteractionCreate, async interaction => {
     if (!interaction.isChatInputCommand()) return;
     const command = client.commands.get(interaction.commandName);
     if (!command) return;
     try { await command.execute(interaction); }
-    catch (error) {
-        console.error(`コマンドエラー (${interaction.commandName}):`, error);
-    }
+    catch (error) { console.error(`コマンドエラー (${interaction.commandName}):`, error); }
 });
-
 client.login(process.env.DISCORD_TOKEN);

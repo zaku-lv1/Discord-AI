@@ -1,13 +1,4 @@
-const {
-    SlashCommandBuilder,
-    EmbedBuilder,
-    ActionRowBuilder,
-    ButtonBuilder,
-    ButtonStyle,
-    ModalBuilder,
-    TextInputBuilder,
-    TextInputStyle
-} = require('discord.js');
+const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ModalBuilder, TextInputBuilder, TextInputStyle } = require('discord.js');
 const { google } = require('googleapis');
 const { JWT } = require('google-auth-library');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
@@ -15,7 +6,6 @@ const { GoogleGenerativeAI } = require('@google/generative-ai');
 const SHEET_NAME = 'シート1';
 const TRY_MODELS = ['gemini-1.5-flash'];
 
-// --- ヘルパー関数群 ---
 async function getSheetsClient(credentialsJson) {
     if (!credentialsJson) throw new Error('GoogleサービスアカウントのJSON認証情報が設定されていません。');
     const serviceAccountCreds = JSON.parse(credentialsJson);
@@ -29,20 +19,13 @@ async function getSheetsClient(credentialsJson) {
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
-async function tryModelsForTask(prompt, responseParser, taskName) { /* ... (変更なし) ... */ }
-async function extractScheduleInfoWithAI(userInput) { /* ... (変更なし) ... */ }
-async function extractDeletionTargetWithAI(userInput, currentSchedules) { /* ... (変更なし) ... */ }
+async function tryModelsForTask(prompt, responseParser, taskName) { /* 全文省略 */ }
+async function extractScheduleInfoWithAI(userInput) { /* 全文省略 */ }
+async function extractDeletionTargetWithAI(userInput, currentSchedules) { /* 全文省略 */ }
+async function cleanupExpiredSchedules(sheets, sheetId) { /* 全文省略 */ }
+function createScheduleEmbed(scheduleItem, currentIndex, totalSchedules) { /* 全文省略 */ }
+function updateScheduleButtons(currentIndex, totalSchedules, schedulesExist) { /* 全文省略 */ }
 
-async function cleanupExpiredSchedules(sheets, sheetId) {
-    const LIST_RANGE = `${SHEET_NAME}!A2:C`;
-    // ... (この関数の内部ロジックも変更なし、引数でsheetIdを受け取るだけ)
-}
-
-function createScheduleEmbed(scheduleItem, currentIndex, totalSchedules) { /* ... (変更なし) ... */ }
-function updateScheduleButtons(currentIndex, totalSchedules, schedulesExist) { /* ... (変更なし) ... */ }
-
-
-// --- リマインダー機能 ---
 async function scheduleDailyReminder(client, db) {
     const logPrefix = '[定時リマインダー]';
     console.log(`\n${logPrefix} 処理を開始します。`);
@@ -62,18 +45,14 @@ async function scheduleDailyReminder(client, db) {
 
     const { googleSheetId, googleServiceAccountJson, reminderGuildId, reminderRoleId } = settings;
     if (!googleSheetId || !googleServiceAccountJson || !reminderGuildId || !reminderRoleId) {
-        console.error(`${logPrefix} スケジュール設定に必要な項目（シートID, サービスアカウント, サーバーID, ロールID）が不足しています。`);
+        console.error(`${logPrefix} スケジュール設定に必要な項目が不足しています。`);
         return null;
     }
 
     const getTomorrowDateString = () => {
-        const nowInJST = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Tokyo' }));
-        const tomorrow = new Date(nowInJST);
+        const tomorrow = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Tokyo" }));
         tomorrow.setDate(tomorrow.getDate() + 1);
-        const year = tomorrow.getFullYear();
-        const month = String(tomorrow.getMonth() + 1).padStart(2, '0');
-        const day = String(tomorrow.getDate()).padStart(2, '0');
-        return `${year}-${month}-${day}`;
+        return tomorrow.toISOString().slice(0, 10);
     };
     const tomorrowStr = getTomorrowDateString();
     console.log(`${logPrefix} 明日の日付 (${tomorrowStr}) の宿題をチェックします...`);
@@ -142,9 +121,6 @@ async function scheduleDailyReminder(client, db) {
 }
 
 
-// =================================================================================
-// メインコマンド
-// =================================================================================
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('schedule')
@@ -169,16 +145,21 @@ module.exports = {
         try {
             sheets = await getSheetsClient(googleServiceAccountJson);
         } catch (authError) {
+            console.error('Google API認証エラー:', authError);
             return interaction.editReply({ content: '❌ Google APIへの認証に失敗しました。サービスアカウントのJSON情報を確認してください。' });
         }
-
-        // (以降のexecute関数のロジックは変更なし。googleSheetId変数などを使う)
+        
+        const deletedCount = await cleanupExpiredSchedules(sheets, googleSheetId);
+        if (deletedCount > 0) {
+            await interaction.followUp({ content: `🧹 自動クリーンアップを実行し、期限切れの予定を**${deletedCount}件**削除しました。`, ephemeral: true });
+        }
+        
+        // (以降のexecute関数のロジックはほぼ変更なし)
     },
     
-    // (モーダル処理も同様に、Firestoreから設定を読み込んで動作するように修正)
-    async handleScheduleModalSubmit(interaction) { /* ... */ },
-    async handleScheduleDeleteModal(interaction) { /* ... */ },
-    async handleScheduleEditModal(interaction, targetIndex) { /* ... */ },
+    async handleScheduleModalSubmit(interaction) { /* 全文省略 */ },
+    async handleScheduleDeleteModal(interaction) { /* 全文省略 */ },
+    async handleScheduleEditModal(interaction, targetIndex) { /* 全文省略 */ },
     
     scheduleDailyReminder
 };
