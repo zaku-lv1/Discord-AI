@@ -36,14 +36,17 @@ const client = new Client({
 });
 client.commands = new Collection();
 client.db = db;
+
 const commandsPath = path.join(__dirname, 'commands');
-const commandFiles = fs.readdirSync(commandsPath).filter(file => file.endsWith('.js'));
-for (const file of commandFiles) {
-    const filePath = path.join(commandsPath, file);
-    const command = require(filePath);
-    if ('data' in command && 'execute' in command) {
-        client.commands.set(command.data.name, command);
-        console.log(`[情報] コマンドを読み込みました: /${command.data.name}`);
+if (fs.existsSync(commandsPath)) {
+    const commandFiles = fs.readdirSync(commandsPath).filter(file => file.endsWith('.js'));
+    for (const file of commandFiles) {
+        const filePath = path.join(commandsPath, file);
+        const command = require(filePath);
+        if ('data' in command && 'execute' in command) {
+            client.commands.set(command.data.name, command);
+            console.log(`[情報] コマンドを読み込みました: /${command.data.name}`);
+        }
     }
 }
 
@@ -69,12 +72,15 @@ const verifyFirebaseToken = async (req, res, next) => {
     try {
         const decodedToken = await admin.auth().verifyIdToken(idToken);
         const settingsDoc = await db.collection('bot_settings').doc('toka_profile').get();
+        
+        // 設定ドキュメントが存在しない場合（＝誰も管理者でない）、最初のユーザーは通す
         if (!settingsDoc.exists) {
-            // 設定ドキュメントが存在しない場合（＝誰も管理者でない）、最初のユーザーは通す
             req.user = decodedToken;
             return next();
         }
-        const admins = (settingsDoc.exists && Array.isArray(settingsDoc.data().admins)) ? settingsDoc.data().admins : [];
+        
+        const admins = (Array.isArray(settingsDoc.data().admins)) ? settingsDoc.data().admins : [];
+        
         if (admins.length > 0 && !admins.some(admin => admin.email === decodedToken.email)) {
             return res.status(403).send('Forbidden: Access is denied.');
         }
@@ -161,7 +167,10 @@ adminRouter.post('/api/settings/toka', verifyFirebaseToken, async (req, res) => 
         await db.collection('settings_history').add({
             timestamp: admin.firestore.FieldValue.serverTimestamp(),
             changedBy: req.user.email,
-            changes: { before: currentSettings, after: dataToSave }
+            changes: {
+                before: currentSettings,
+                after: dataToSave
+            }
         });
         
         await docRef.set(dataToSave, { merge: true });
@@ -228,7 +237,10 @@ adminRouter.post('/api/register-with-invite', async (req, res) => {
         const settingsRef = db.collection('bot_settings').doc('toka_profile');
         await db.runTransaction(async (transaction) => {
             const settingsDoc = await transaction.get(settingsRef);
-            const admins = (settingsDoc.exists && Array.isArray(settingsDoc.data().admins)) ? settingsDoc.data().admins : [];
+            let admins = [];
+            if (settingsDoc.exists && Array.isArray(settingsDoc.data().admins)) {
+                admins = settingsDoc.data().admins;
+            }
             admins.push({ name: displayName, email: email });
             transaction.set(settingsRef, { admins: admins }, { merge: true });
         });

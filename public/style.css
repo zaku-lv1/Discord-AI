@@ -61,6 +61,12 @@ input[type="email"], input[type="password"], input[type="text"], textarea {
     font-family: inherit;
 }
 
+input:disabled {
+    background-color: #e9ecef !important;
+    cursor: not-allowed;
+}
+
+
 input[type="email"]:focus, input[type="password"]:focus, input[type="text"]:focus, textarea:focus {
     outline: none;
     border-color: #66a6ff;
@@ -109,21 +115,21 @@ button {
 }
 
 button:disabled { 
-    background-color: #ccc; 
+    background-color: #ccc !important; 
     cursor: not-allowed; 
-    transform: none;
-    box-shadow: none;
-    background-image: none;
+    transform: none !important;
+    box-shadow: none !important;
+    background-image: none !important;
 }
 
-#login-btn, #save-btn { 
+#login-btn, #save-btn, #register-btn { 
     background-image: linear-gradient(to right, #64b5f6, #42a5f5, #2196f3);
     background-size: 200% auto;
     color: white; 
     box-shadow: 0 4px 15px 0 rgba(65, 132, 234, 0.4);
 }
 
-#login-btn:hover:not(:disabled), #save-btn:hover:not(:disabled) { 
+#login-btn:hover:not(:disabled), #save-btn:hover:not(:disabled), #register-btn:hover:not(:disabled) { 
     background-position: right center;
     transform: translateY(-2px);
     box-shadow: 0 6px 20px 0 rgba(65, 132, 234, 0.5);
@@ -169,10 +175,27 @@ button:disabled {
     min-height: 1.2em; 
     transition: color 0.3s ease;
     color: #2c3e50;
+    white-space: pre-wrap;
+}
+
+/* ========== 登録フォーム切り替えリンク ========== */
+.switch-form-link {
+    text-align: center;
+    margin-top: 1.5rem;
+}
+.switch-form-link a {
+    font-size: 0.9em;
+    color: #555;
+    text-decoration: none;
+    transition: color 0.2s;
+    cursor: pointer;
+}
+.switch-form-link a:hover {
+    color: #0056b3;
+    text-decoration: underline;
 }
 
 /* ========== トグルスイッチ スタイル ========== */
-
 .toggle-container {
     display: flex;
     align-items: center;
@@ -183,13 +206,11 @@ button:disabled {
     border-radius: 8px;
     margin-bottom: 5px;
 }
-
 .toggle-label {
     font-weight: 500;
     color: #4b4f56;
     margin-bottom: 0;
 }
-
 .toggle-switch {
     position: relative;
     display: inline-block;
@@ -197,13 +218,7 @@ button:disabled {
     height: 28px;
     flex-shrink: 0;
 }
-
-.toggle-switch input {
-    opacity: 0;
-    width: 0;
-    height: 0;
-}
-
+.toggle-switch input { opacity: 0; width: 0; height: 0; }
 .slider {
     position: absolute;
     cursor: pointer;
@@ -215,7 +230,6 @@ button:disabled {
     border-radius: 28px;
     transition: background-color 0.3s;
 }
-
 .slider:before {
     position: absolute;
     content: "";
@@ -228,158 +242,61 @@ button:disabled {
     transition: transform 0.3s;
     box-shadow: 0 2px 4px rgba(0,0,0,0.2);
 }
+input:checked + .slider { background-color: #42a5f5; }
+input:checked + .slider:before { transform: translateX(24px); }
 
-input:checked + .slider {
-    background-color: #42a5f5;
+/* ========== 動的リスト共通スタイル ========== */
+.delete-nickname-btn, .secondary-btn, .delete-admin-btn {
+    padding: 12px 16px;
+    font-size: 0.9rem;
+    width: auto;
+    font-weight: 500;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
 }
-
-input:checked + .slider:before {
-    transform: translateX(24px);
+.delete-nickname-btn, .delete-admin-btn {
+    background-color: #e74c3c;
+    color: white;
+}
+.delete-nickname-btn:hover:not(:disabled), .delete-admin-btn:hover:not(:disabled) {
+    background-color: #c0392b;
+    transform: translateY(-1px);
+}
+.secondary-btn {
+    background-color: #6c757d;
+    color: white;
+    width: 100%;
+}
+.secondary-btn:hover:not(:disabled) {
+    background-color: #5a6268;
+    transform: translateY(-1px);
 }
 
 /* ========== ニックネーム設定UI スタイル ========== */
-
 #nicknames-list-container {
     display: flex;
     flex-direction: column;
     gap: 10px;
     margin-bottom: 15px;
 }
-
 .nickname-entry {
     display: flex;
     align-items: center;
     gap: 10px;
 }
-
-.nickname-entry .nickname-id {
-    flex: 2;
-}
-
-.nickname-entry .nickname-name {
-    flex: 1;
-}
-
+.nickname-entry .nickname-id { flex: 2; }
+.nickname-entry .nickname-name { flex: 1; }
 .nickname-entry input[type="text"] {
     margin-bottom: 0;
     padding: 12px;
 }
 
-.delete-nickname-btn, .secondary-btn {
-    padding: 12px 16px;
-    font-size: 0.9rem;
-    width: auto;
-    font-weight: 500;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-}
-
-.delete-nickname-btn {
-    background-color: #e74c3c;
-    color: white;
-}
-.delete-nickname-btn:hover {
-    background-color: #c0392b;
-    transform: translateY(-1px);
-}
-
-.secondary-btn {
-    background-color: #6c757d;
-    color: white;
-    width: 100%;
-}
-.secondary-btn:hover {
-    background-color: #5a6268;
-    transform: translateY(-1px);
-}
-
 /* ========== 管理者設定UI スタイル ========== */
-
-#admins-list-container {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-    margin-bottom: 15px;
-}
-
-.admin-entry {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 10px;
-    background-color: rgba(255, 255, 255, 0.7);
-    border: 1px solid #ddd;
-    border-radius: 6px;
-    cursor: grab;
-    transition: background-color 0.2s, box-shadow 0.2s;
-}
-
-.admin-entry.dragging {
-    opacity: 0.5;
-    background-color: #cde7ff;
-}
-
-.admin-entry.super-admin {
-    border-left: 5px solid #ffc107;
-    background-color: #fffbeb;
-}
-
-.admin-entry .admin-name {
-    flex: 1;
-}
-.admin-entry .admin-email {
-    flex: 2;
-}
-
-.admin-entry input[type="text"],
-.admin-entry input[type="email"] {
-    margin-bottom: 0;
-    padding: 12px;
-}
-
-.admin-entry .delete-admin-btn {
-    background-color: #e74c3c;
-    color: white;
-    padding: 12px 16px;
-    font-size: 0.9rem;
-    width: auto;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-    font-weight: 500;
-}
-.admin-entry .delete-admin-btn:hover {
-    background-color: #c0392b;
-    transform: translateY(-1px);
-}
-
-.super-admin-label {
-    font-size: 0.8em;
-    font-weight: bold;
-    color: #ff9800;
-    margin-left: 10px;
-    white-space: nowrap;
-}
-
-/* ========== 登録フォーム切り替えリンク ========== */
-.switch-form-link {
-    text-align: center;
-    margin-top: 1rem;
-}
-.switch-form-link a {
-    font-size: 0.9em;
-    color: #555;
-    text-decoration: none;
-    transition: color 0.2s;
-}
-.switch-form-link a:hover {
-    color: #0056b3;
-    text-decoration: underline;
-}
-
-/* ========== 招待コード生成セクション ========== */
 #invite-code-generator-section {
     padding: 15px;
     background-color: rgba(102, 166, 255, 0.1);
     border-radius: 8px;
     border: 1px solid rgba(102, 166, 255, 0.2);
+    margin-bottom: 1.5rem;
 }
 #invite-code-display {
     margin-top: 15px;
@@ -401,6 +318,7 @@ input:checked + .slider:before {
     letter-spacing: 2px;
     background-color: #fff;
     margin-bottom: 0;
+    cursor: text;
 }
 #copy-invite-code-btn {
     width: auto;
@@ -410,4 +328,40 @@ input:checked + .slider:before {
 }
 #copy-invite-code-btn:hover {
     background-color: #218838;
+}
+#admins-list-container {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 15px;
+}
+.admin-entry {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px;
+    background-color: rgba(255, 255, 255, 0.7);
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    cursor: grab;
+    transition: background-color 0.2s, box-shadow 0.2s;
+}
+.admin-entry.dragging {
+    opacity: 0.5;
+    background-color: #cde7ff;
+}
+.admin-entry.super-admin {
+    border-left: 5px solid #ffc107;
+    background-color: #fffbeb;
+}
+.admin-entry .admin-name { flex: 1; }
+.admin-entry .admin-email { flex: 2; }
+.admin-entry input[type="text"], .admin-entry input[type="email"] {
+    margin-bottom: 0;
+    padding: 12px;
+}
+.super-admin-label {
+    font-size: 1.2rem;
+    margin-left: 5px;
+    margin-right: -5px;
 }
