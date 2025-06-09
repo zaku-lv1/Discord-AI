@@ -37,7 +37,7 @@ document.addEventListener('DOMContentLoaded', () => {
         admins: [],
         isSuperAdmin: false
     };
-    
+
     // --- ログイン/登録フォームの切り替え ---
     showRegisterFormLink.addEventListener('click', (e) => {
         e.preventDefault();
@@ -170,9 +170,8 @@ document.addEventListener('DOMContentLoaded', () => {
         state.admins.forEach((admin, index) => {
             const entryDiv = document.createElement('div');
             entryDiv.className = 'admin-entry';
-            entryDiv.setAttribute('draggable', true);
+            entryDiv.setAttribute('draggable', state.isSuperAdmin);
             entryDiv.dataset.index = index;
-
             let html = `
                 <input type="text" class="admin-name" data-field="name" placeholder="表示名" value="${admin.name || ''}">
                 <input type="email" class="admin-email" data-field="email" placeholder="管理者メールアドレス" value="${admin.email || ''}">
@@ -256,6 +255,8 @@ document.addEventListener('DOMContentLoaded', () => {
             
             nicknamesListContainer.innerHTML = ''; 
             adminsListContainer.innerHTML = '';
+            inviteCodeGeneratorSection.style.display = 'none';
+            adminSettingsSection.style.display = 'none';
             inviteCodeDisplay.style.display = 'none';
 
             if (res.status === 404) {
@@ -263,13 +264,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 baseUserIdInput.value = '';
                 promptTextarea.value = '';
                 nameRecognitionCheckbox.checked = true;
-                
                 state.admins = [{ name: user.displayName || '管理者', email: user.email }];
                 state.isSuperAdmin = true;
                 userEmailEl.textContent = user.displayName || user.email;
                 renderAdminList();
-                inviteCodeGeneratorSection.style.display = 'block';
                 adminSettingsSection.style.display = 'block';
+                inviteCodeGeneratorSection.style.display = 'block';
                 return;
             }
             if (res.status === 403 || res.status === 401) {
@@ -298,16 +298,14 @@ document.addEventListener('DOMContentLoaded', () => {
             state.admins = data.admins || [];
             state.isSuperAdmin = data.currentUser && data.currentUser.isSuperAdmin;
             
-            // ▼▼▼ ここを「非表示」ロジックに修正 ▼▼▼
+            renderAdminList();
+
             if (state.isSuperAdmin) {
-                // 最高管理者の場合、両方のセクションを表示
-                inviteCodeGeneratorSection.style.display = 'block';
                 adminSettingsSection.style.display = 'block';
-                renderAdminList(); // リストの中身を描画
+                inviteCodeGeneratorSection.style.display = 'block';
             } else {
-                // 一般管理者の場合、両方のセクションを非表示
-                inviteCodeGeneratorSection.style.display = 'none';
                 adminSettingsSection.style.display = 'none';
+                inviteCodeGeneratorSection.style.display = 'none';
             }
 
             statusMessage.textContent = '設定を読み込みました';
@@ -334,8 +332,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             });
 
-            // 状態管理している配列からデータを取得
-            const adminsArray = state.admins.filter(admin => admin.email && admin.name);
+            // ▼▼▼ ここを修正しました ▼▼▼
+            // filterをかけずに、UIに表示されているままの不完全なデータも保存対象とする
+            const adminsArray = state.admins;
 
             const settings = {
                 baseUserId: baseUserIdInput.value,
@@ -358,7 +357,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const result = await res.json();
             
-            // メール送信のロジックはここには不要。登録時にしか送らないため。
+            // パスワード設定メールの送信ロジックは、登録(register)時にしか実行されないので、ここでは不要
             statusMessage.textContent = result.message || '保存しました！';
             
             await fetchSettings(user);
