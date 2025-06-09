@@ -1,57 +1,75 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-    </head>
+    <meta charset="UTF-8">
+    <title>ボット設定管理パネル</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
+    <script>const firebaseConfig = <%- JSON.stringify(firebaseConfig) %>;</script>
+    <link rel="stylesheet" href="/style.css">
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js" defer></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-auth-compat.js" defer></script>
+    <script src="/app.js" defer></script>
+</head>
 <body>
     <div class="container">
         <h1>ボット設定管理パネル</h1>
         
         <div id="auth-container">
-            <div id="login-form">
-                <h2>ログイン</h2>
-                <input type="email" id="login-email" placeholder="メールアドレス" required>
-                <input type="password" id="login-password" placeholder="パスワード" required>
-                <div class="login-actions">
-                    <button id="login-btn">ログイン</button>
-                    <a href="#" id="forgot-password-link">パスワードを忘れた場合</a>
-                </div>
-                <div class="switch-form-link">
-                    <a href="#" id="show-register-form-link">招待コードをお持ちですか？ 新規登録はこちら</a>
-                </div>
-            </div>
-
-            <div id="register-form" style="display:none;">
-                <h2>招待コードで新規登録</h2>
-                <input type="text" id="register-invite-code" placeholder="招待コード" required>
-                <input type="text" id="register-display-name" placeholder="表示名" required>
-                <input type="email" id="register-email" placeholder="メールアドレス" required>
-                <input type="password" id="register-password" placeholder="パスワード (6文字以上)" required>
-                <div class="login-actions">
-                    <button id="register-btn">登録</button>
-                </div>
-                <div class="switch-form-link">
-                    <a href="#" id="show-login-form-link">アカウントをお持ちですか？ ログインはこちら</a>
-                </div>
+            <h2>ログイン</h2>
+            <input type="email" id="login-email" placeholder="メールアドレス" required>
+            <input type="password" id="login-password" placeholder="パスワード" required>
+            <div class="login-actions">
+                <button id="login-btn">ログイン</button>
+                <a href="#" id="forgot-password-link">パスワードを忘れた場合</a>
             </div>
         </div>
 
         <div id="main-content" style="display: none;">
+            <div class="user-info">
+                <p>ようこそ, <span id="user-email"></span> さん</p>
+                <button id="logout-btn">ログアウト</button>
+            </div>
+            
+            <h2>とーか 設定</h2>
+            <div class="form-group">
+                <label for="base-user-id-input">ベースユーザーID</label>
+                <input type="text" id="base-user-id-input" placeholder="とーかの見た目と名前の元になるDiscordユーザーID">
+            </div>
+
+            <div class="form-group">
+                <div class="toggle-container">
+                    <label for="name-recognition-checkbox" class="toggle-label">個別の名前認識を有効にする</label>
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="name-recognition-checkbox">
+                        <span class="slider"></span>
+                    </label>
+                </div>
+                <small>（オンの場合、AIは会話の文脈から誰が話しているかを認識しやすくなります）</small>
+            </div>
+
+            <div class="form-group">
+                <label for="prompt-textarea">システムプロンプト (キャラクター設定)</label>
+                <textarea id="prompt-textarea" rows="10" placeholder="ここにキャラクター設定を入力... (例: あなたは「とーか」です。元気で明るい性格です。)"></textarea>
+            </div>
+
+            <div class="form-group">
+                <label>ニックネーム設定</label>
+                <div id="nicknames-list-container">
+                    </div>
+                <button type="button" id="add-nickname-btn" class="secondary-btn">＋ ニックネームを追加</button>
+            </div>
+            
             <hr>
             <div id="admin-settings-section">
                 <h2>管理者設定</h2>
-                <div class="form-group" id="invite-code-generator-section">
-                    <label>新しい管理者を招待</label>
-                    <button type="button" id="generate-invite-code-btn" class="secondary-btn">招待コードを生成</button>
-                    <div id="invite-code-display" style="display:none;">
-                        <p>このコードを新しい管理者に伝えてください。一度しか使えません。</p>
-                        <input type="text" id="new-invite-code" readonly>
-                        <button type="button" id="copy-invite-code-btn">コピー</button>
-                    </div>
-                </div>
                 <div class="form-group">
                     <label>管理者アカウント</label>
-                    <div id="admins-list-container"></div>
-                    <button type="button" id="add-admin-btn" class="secondary-btn">＋ 管理者を手動追加</button>
+                    <div id="admins-list-container">
+                        </div>
+                    <button type="button" id="add-admin-btn" class="secondary-btn">＋ 管理者を追加</button>
                     <small>リストの一番上の管理者が「最高管理者」です。ドラッグ＆ドロップで順番を入れ替えられます。</small>
                 </div>
             </div>
