@@ -70,7 +70,6 @@ const verifyFirebaseToken = async (req, res, next) => {
         const decodedToken = await admin.auth().verifyIdToken(idToken);
         const settingsDoc = await db.collection('bot_settings').doc('toka_profile').get();
         const admins = (settingsDoc.exists && Array.isArray(settingsDoc.data().admins)) ? settingsDoc.data().admins : [];
-
         if (admins.length > 0 && !admins.some(admin => admin.email === decodedToken.email)) {
             return res.status(403).send('Forbidden: Access is denied.');
         }
@@ -142,12 +141,12 @@ adminRouter.post('/api/settings/toka', verifyFirebaseToken, async (req, res) => 
 
         const newAdminEmails = (newAdminsList || []).map(a => a.email);
         const currentAdminEmails = currentAdmins.map(a => a.email);
-        const adminsChanged = JSON.stringify(currentAdminEmails.sort()) !== JSON.stringify(newAdminEmails.sort());
+        const adminsChanged = JSON.stringify([...currentAdminEmails].sort()) !== JSON.stringify([...newAdminEmails].sort());
 
         if (adminsChanged && superAdminEmail && req.user.email !== superAdminEmail) {
             return res.status(403).json({ message: 'エラー: 管理者リストの変更は最高管理者のみ許可されています。' });
         }
-
+        
         const dataToSave = {
             ...req.body,
             updatedBy: req.user.email,
