@@ -13,6 +13,37 @@ function replaceMentionsWithNames(message, guild) {
   });
 }
 
+function splitMessage(text, { maxLength = 2000 } = {}) {
+    if (text.length <= maxLength) {
+        return [text];
+    }
+    const chunks = [];
+    let currentChunk = "";
+    const lines = text.split('\n');
+    for (const line of lines) {
+        if (currentChunk.length + line.length + 1 > maxLength) {
+            if (currentChunk.length > 0) {
+                chunks.push(currentChunk);
+            }
+            currentChunk = line;
+            while (currentChunk.length > maxLength) {
+                chunks.push(currentChunk.slice(0, maxLength));
+                currentChunk = currentChunk.slice(maxLength);
+            }
+        } else {
+            if (currentChunk.length > 0) {
+                currentChunk += '\n' + line;
+            } else {
+                currentChunk = line;
+            }
+        }
+    }
+    if (currentChunk.length > 0) {
+        chunks.push(currentChunk);
+    }
+    return chunks;
+}
+
 const baseSystemPrompt = `
 あなたは今から「とーか」という名前の18歳の女の子として、その人格を維持してDiscord風チャットをします。
 `;
@@ -117,13 +148,22 @@ module.exports = {
                         contentForAI = processedContent;
                     }
                     
-                    console.log(`[情報] AIへの入力:\n---\n${contentForAI}\n---`);
+                    // ▼▼▼ このログ出力を削除しました ▼▼▼
+                    // console.log(`[情報] AIへの入力:\n---\n${contentForAI}\n---`);
+                    
                     const responseText = await getTokaResponse(contentForAI, currentHistory, finalSystemPrompt);
                     
-                    const newHistory = [...currentHistory, { role: 'user', parts: [{ text: contentForAI }] }, { role: 'model', parts: [{ text: responseText }] }];
-                    while (newHistory.length > 60) { newHistory.shift(); }
-                    await historyDocRef.set({ history: newHistory });
-                    if (responseText) await webhook.send(responseText);
+                    if (responseText) {
+                        const newHistory = [...currentHistory, { role: 'user', parts: [{ text: contentForAI }] }, { role: 'model', parts: [{ text: responseText }] }];
+                        while (newHistory.length > 60) { newHistory.shift(); }
+                        await historyDocRef.set({ history: newHistory });
+
+                        const messageChunks = splitMessage(responseText);
+                        
+                        for (const chunk of messageChunks) {
+                            await webhook.send(chunk);
+                        }
+                    }
                 });
 
                 collector.on('end', () => { interaction.client.activeCollectors.delete(collectorKey); });

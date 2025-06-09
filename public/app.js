@@ -32,7 +32,8 @@ document.addEventListener('DOMContentLoaded', () => {
         if (user) {
             authContainer.style.display = 'none';
             mainContent.style.display = 'block';
-            userEmailEl.textContent = user.email;
+            // ▼▼▼ ログイン直後のメールアドレス表示を削除し、fetchSettingsに処理を移譲 ▼▼▼
+            // userEmailEl.textContent = user.email; 
             fetchSettings(user);
         } else {
             authContainer.style.display = 'block';
@@ -112,8 +113,19 @@ document.addEventListener('DOMContentLoaded', () => {
             adminsListContainer.appendChild(entryDiv);
         });
 
-        // 最高管理者でない場合、UIを非表示にする
-        adminSettingsSection.style.display = state.isSuperAdmin ? 'block' : 'none';
+        if (state.isSuperAdmin) {
+            adminSettingsSection.style.display = 'block';
+        } else {
+            // 一般管理者の場合も、セクション自体は表示しておく（中身で権限を制御）
+            adminSettingsSection.style.display = 'block';
+            // ただし、全てのコントロールを無効化
+            const adminControls = adminSettingsSection.querySelectorAll('input, button');
+            adminControls.forEach(control => {
+                control.disabled = true;
+            });
+            // ドラッグも無効化
+            adminsListContainer.querySelectorAll('.admin-entry').forEach(entry => entry.draggable = false);
+        }
     }
 
     addAdminBtn.addEventListener('click', () => {
@@ -162,6 +174,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const dropTarget = e.target.closest('.admin-entry');
         if (dropTarget) {
             const dropIndex = parseInt(dropTarget.dataset.index, 10);
+            if (draggedIndex === dropIndex) return;
             const draggedItem = state.admins.splice(draggedIndex, 1)[0];
             state.admins.splice(dropIndex, 0, draggedItem);
             renderAdminList();
@@ -187,8 +200,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 baseUserIdInput.value = '';
                 promptTextarea.value = '';
                 nameRecognitionCheckbox.checked = true;
+                
                 state.admins = [{ name: '（自動登録）', email: user.email }];
                 state.isSuperAdmin = true;
+                userEmailEl.textContent = '（自動登録）'; // 表示名をセット
                 renderAdminList();
                 return;
             }
@@ -210,6 +225,13 @@ document.addEventListener('DOMContentLoaded', () => {
                     createNicknameEntry(id, name);
                 }
             }
+
+            // ▼▼▼ ここからが修正箇所 ▼▼▼
+            // ログインユーザーの表示名を決定する
+            const currentUserAdminInfo = (data.admins || []).find(admin => admin.email === user.email);
+            const displayName = currentUserAdminInfo && currentUserAdminInfo.name ? currentUserAdminInfo.name : user.email;
+            userEmailEl.textContent = displayName;
+            // ▲▲▲ ここまで ▲▲▲
             
             state.admins = data.admins || [];
             state.isSuperAdmin = data.currentUser && data.currentUser.isSuperAdmin;
