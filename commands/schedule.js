@@ -185,7 +185,7 @@ module.exports = {
         const initialRow = updateScheduleButtons(currentIndex, totalSchedules, schedulesExist);
         const replyOptions = { components: [initialRow] };
         if (initialEmbed) { replyOptions.embeds = [initialEmbed]; }
-        else { replyOptions.content = '✅ 登録されている予定はありません。'; }
+        else { replyOptions.content = '✅ 登録されている予定はありません。「追加」ボタンから新しい予定を登録できます。'; }
         
         const message = await interaction.editReply(replyOptions);
         const filter = i => i.user.id === interaction.user.id;
@@ -197,33 +197,58 @@ module.exports = {
                 schedules = freshResponse.data.values || [];
                 const currentTotal = schedules.length;
                 const currentExist = currentTotal > 0;
-                const actionHandlers = {
-                    'schedule_previous': () => { if (currentExist) currentIndex = Math.max(0, currentIndex - 1); },
-                    'schedule_next': () => { if (currentExist) currentIndex = Math.min(currentTotal - 1, currentIndex + 1); },
-                    'schedule_add_modal_trigger': () => i.showModal(new ModalBuilder().setCustomId('schedule_add_text_modal').setTitle('新しい予定を文章で追加').addComponents(new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId('schedule_text_input').setLabel('予定の詳細を文章で入力').setStyle(TextInputStyle.Paragraph).setRequired(true)))),
-                    'schedule_edit_modal_trigger': () => {
-                        if (!currentExist || !schedules[currentIndex]) return i.reply({ content: '編集対象の予定がありません。', ephemeral: true });
-                        const [type, task, due] = schedules[currentIndex];
-                        return i.showModal(new ModalBuilder().setCustomId(`schedule_edit_modal_submit_${currentIndex}`).setTitle('予定を編集').addComponents(
-                            new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId('edit_type_input').setLabel('種別').setStyle(TextInputStyle.Short).setValue(type || '').setRequired(false)),
-                            new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId('edit_task_input').setLabel('内容').setStyle(TextInputStyle.Paragraph).setValue(task || '').setRequired(true)),
-                            new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId('edit_due_input').setLabel('期限').setStyle(TextInputStyle.Short).setValue(due || '').setRequired(false))
-                        ));
-                    },
-                    'schedule_delete_modal_trigger': () => i.showModal(new ModalBuilder().setCustomId('schedule_delete_text_modal').setTitle('削除する予定の情報を入力').addComponents(new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId('schedule_delete_description_input').setLabel('削除したい予定の特徴を教えてください').setStyle(TextInputStyle.Paragraph).setRequired(true))))
-                };
-                const handler = actionHandlers[i.customId];
-                if (typeof handler === 'function') { if (await handler()) return; }
+
+                // --- ▼▼▼ ここからが修正箇所 ▼▼▼ ---
+
+                // モーダルを表示するボタンの場合、モーダルを表示して処理を即座に終了する
+                if (i.customId === 'schedule_add_modal_trigger') {
+                    const modal = new ModalBuilder().setCustomId('schedule_add_text_modal').setTitle('新しい予定を文章で追加').addComponents(new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId('schedule_text_input').setLabel('予定の詳細を文章で入力').setStyle(TextInputStyle.Paragraph).setPlaceholder('例:\n・明日の数学の宿題\n・国語の音読 来週月曜まで').setRequired(true)));
+                    return await i.showModal(modal);
+                }
+                if (i.customId === 'schedule_edit_modal_trigger') {
+                    if (!currentExist || !schedules[currentIndex]) return await i.reply({ content: '編集対象の予定がありません。', ephemeral: true });
+                    const [type, task, due] = schedules[currentIndex];
+                    const modal = new ModalBuilder().setCustomId(`schedule_edit_modal_submit_${currentIndex}`).setTitle('予定を編集').addComponents(
+                        new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId('edit_type_input').setLabel('種別').setStyle(TextInputStyle.Short).setValue(type || '').setRequired(false)),
+                        new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId('edit_task_input').setLabel('内容').setStyle(TextInputStyle.Paragraph).setValue(task || '').setRequired(true)),
+                        new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId('edit_due_input').setLabel('期限').setStyle(TextInputStyle.Short).setValue(due || '').setRequired(false))
+                    );
+                    return await i.showModal(modal);
+                }
+                if (i.customId === 'schedule_delete_modal_trigger') {
+                    const modal = new ModalBuilder().setCustomId('schedule_delete_text_modal').setTitle('削除する予定の情報を入力').addComponents(new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId('schedule_delete_description_input').setLabel('削除したい予定の特徴を教えてください').setStyle(TextInputStyle.Paragraph).setPlaceholder('例: 「数学の宿題」と「来週のレポート」').setRequired(true)));
+                    return await i.showModal(modal);
+                }
+                
+                // 「前へ」「次へ」ボタンの処理
+                if (i.customId === 'schedule_previous') {
+                    if (currentExist) currentIndex = Math.max(0, currentIndex - 1);
+                }
+                if (i.customId === 'schedule_next') {
+                    if (currentExist) currentIndex = Math.min(currentTotal - 1, currentIndex + 1);
+                }
+
+                // メッセージを更新 (「前へ」「次へ」の場合のみ、ここが実行される)
                 const newEmbed = currentExist ? createScheduleEmbed(schedules[currentIndex], currentIndex, currentTotal) : null;
                 const newRow = updateScheduleButtons(currentIndex, currentTotal, currentExist);
                 const updateOptions = { components: [newRow] };
                 if (newEmbed) { updateOptions.embeds = [newEmbed]; updateOptions.content = null; }
                 else { updateOptions.embeds = []; updateOptions.content = '✅ 登録されている予定はありません。'; }
                 await i.update(updateOptions);
-            } catch (error) { console.error('ボタン操作中のエラー:', error); }
+
+                // --- ▲▲▲ ここまでが修正箇所 ▲▲▲ ---
+
+            } catch (error) {
+                // エラーが InteractionAlreadyReplied の場合、すでに処理されているので無視する
+                if (error.code === 'InteractionAlreadyReplied') {
+                    return;
+                }
+                console.error('ボタン操作中のエラー:', error);
+            }
         });
+
         collector.on('end', () => {
-            const finalRow = updateScheduleButtons(currentIndex, schedules.length, schedulesExist);
+            const finalRow = updateScheduleButtons(currentIndex, schedules.length, schedules.length > 0);
             finalRow.components.forEach(button => button.setDisabled(true));
             if (message?.editable) message.edit({ components: [finalRow] }).catch(() => {});
         });
