@@ -6,6 +6,8 @@ const path = require('node:path');
 const { Client, GatewayIntentBits, Collection, Events } = require('discord.js');
 const dotenv = require('dotenv');
 const express = require('express');
+const { google } = require('googleapis');
+const { JWT } = require('google-auth-library');
 const admin = require('firebase-admin');
 const ejs = require('ejs');
 const { v4: uuidv4 } = require('uuid');
@@ -36,6 +38,7 @@ const client = new Client({
 });
 client.commands = new Collection();
 client.db = db;
+
 const commandsPath = path.join(__dirname, 'commands');
 if (fs.existsSync(commandsPath)) {
     const commandFiles = fs.readdirSync(commandsPath).filter(file => file.endsWith('.js'));
@@ -47,6 +50,21 @@ if (fs.existsSync(commandsPath)) {
         }
     }
 }
+
+// =================================================================================
+// Google Sheets API クライアント取得ヘルパー関数
+// =================================================================================
+async function getSheetsClient(credentialsJson) {
+    if (!credentialsJson) throw new Error('GoogleサービスアカウントのJSON認証情報が設定されていません。');
+    const serviceAccountCreds = JSON.parse(credentialsJson);
+    const jwtClient = new JWT({
+        email: serviceAccountCreds.client_email,
+        key: serviceAccountCreds.private_key,
+        scopes: ['https://www.googleapis.com/auth/spreadsheets'],
+    });
+    return google.sheets({ version: 'v4', auth: jwtClient });
+}
+
 
 // =================================================================================
 // リマインダー スケジューラー
@@ -64,6 +82,7 @@ async function setupReminderSchedule() {
         if (settings.remindersEnabled && settings.reminderTime) {
             const [hour, minute] = settings.reminderTime.split(':');
             const cronExpression = `${minute} ${hour} * * *`;
+
             if (cron.validate(cronExpression)) {
                 const scheduleCommand = client.commands.get('schedule');
                 if (scheduleCommand && typeof scheduleCommand.scheduleDailyReminder === 'function') {
@@ -118,23 +137,83 @@ adminRouter.get('/', (req, res) => {
 });
 
 // --- APIエンドポイント ---
-adminRouter.get('/api/settings/toka', verifyFirebaseToken, async (req, res) => {
+adminRouter.get('/api/settings', verifyFirebaseToken, async (req, res) => {
     try {
-        const doc = await db.collection('bot_settings').doc('toka_profile').get();
-        if (!doc.exists) return res.status(404).json({ message: '設定がまだありません。' });
-        const data = doc.data();
-        const admins = data.admins || [];
+        const tokaPromise = db.collection('bot_settings').doc('toka_profile').get();
+        const schedulePromise = db.collection('bot_settings').doc('schedule_settings').get();
+        const [tokaDoc, scheduleDoc] = await Promise.all([tokaPromise, schedulePromise]);
+
+        const tokaData = tokaDoc.exists ? tokaDoc.data() : {};
+        const scheduleData = scheduleDoc.exists ? scheduleDoc.data() : {};
+        
+        const admins = tokaData.admins || [];
         let isSuperAdmin = admins.length > 0 ? (req.user.email === admins[0].email) : true;
-        res.status(200).json({ baseUserId: data.baseUserId || null, systemPrompt: data.systemPrompt || '', enableNameRecognition: data.enableNameRecognition ?? true, userNicknames: data.userNicknames || {}, admins: admins, currentUser: { isSuperAdmin: isSuperAdmin } });
-    } catch (error) { res.status(500).json({ message: 'サーバーエラー' }); }
+
+        res.status(200).json({
+            toka: {
+                baseUserId: tokaData.baseUserId || null,
+                systemPrompt: tokaData.systemPrompt || '',
+                enableNameRecognition: tokaData.enableNameRecognition ?? true,
+                userNicknames: tokaData.userNicknames || {},
+                admins: admins,
+                currentUser: { isSuperAdmin: isSuperAdmin }
+            },
+            schedule: {
+                remindersEnabled: scheduleData.remindersEnabled ?? false,
+                reminderTime: scheduleData.reminderTime || '',
+                googleSheetId: scheduleData.googleSheetId || '',
+                reminderGuildId: scheduleData.reminderGuildId || '',
+                reminderRoleId: scheduleData.reminderRoleId || '',
+                googleServiceAccountJson: scheduleData.googleServiceAccountJson || ''
+            }
+        });
+    } catch (error) {
+        console.error('GET /api/settings エラー:', error);
+        res.status(500).json({ message: 'サーバーエラー' });
+    }
 });
 
-adminRouter.get('/api/settings/schedule', verifyFirebaseToken, async (req, res) => {
+adminRouter.post('/api/settings', verifyFirebaseToken, async (req, res) => {
     try {
-        const doc = await db.collection('bot_settings').doc('schedule_settings').get();
-        if (!doc.exists) return res.status(404).json({ message: '設定がまだありません。' });
-        res.status(200).json(doc.data());
-    } catch (error) { res.status(500).json({ message: 'サーバーエラー' }); }
+        const { toka, schedule } = req.body;
+        const batch = db.batch();
+        const tokaDocRef = db.collection('bot_settings').doc('toka_profile');
+        const scheduleDocRef = db.collection('bot_settings').doc('schedule_settings');
+        
+        const docSnap = await tokaDocRef.get();
+        const currentSettings = docSnap.exists ? docSnap.data() : {};
+        
+        if (toka) {
+            const currentAdmins = currentSettings.admins || [];
+            const superAdminEmail = currentAdmins.length > 0 ? currentAdmins[0].email : null;
+            const newAdminEmails = (toka.admins || []).map(a => a.email);
+            const currentAdminEmails = currentAdmins.map(a => a.email);
+            const adminsChanged = JSON.stringify([...currentAdminEmails].sort()) !== JSON.stringify([...newAdminEmails].sort());
+            if (adminsChanged && superAdminEmail && req.user.email !== superAdminEmail) {
+                return res.status(403).json({ message: 'エラー: 管理者リストの変更は最高管理者のみ許可されています。' });
+            }
+            let finalAdmins = toka.admins || [];
+            if (!docSnap.exists || finalAdmins.length === 0) {
+                finalAdmins = [{ name: req.user.displayName || '管理者', email: req.user.email }];
+            }
+            const tokaDataToSave = { ...toka, admins: finalAdmins, updatedBy: req.user.email, updatedAt: admin.firestore.FieldValue.serverTimestamp() };
+            batch.set(tokaDocRef, tokaDataToSave, { merge: true });
+        }
+        
+        if (schedule) {
+            try { if(schedule.googleServiceAccountJson) JSON.parse(schedule.googleServiceAccountJson); } catch (e) { return res.status(400).json({ message: 'GoogleサービスアカウントのJSON形式が無効です。' }); }
+            const scheduleDataToSave = { ...schedule, updatedBy: req.user.email, updatedAt: admin.firestore.FieldValue.serverTimestamp() };
+            batch.set(scheduleDocRef, scheduleDataToSave, { merge: true });
+        }
+
+        await batch.commit();
+        if (schedule) await setupReminderSchedule();
+        
+        res.status(200).json({ message: 'すべての設定を保存しました。' });
+    } catch (error) {
+        console.error('POST /api/settings エラー:', error);
+        res.status(500).json({ message: '設定の保存中にサーバーエラーが発生しました。' });
+    }
 });
 
 adminRouter.get('/api/schedule/items', verifyFirebaseToken, async (req, res) => {
@@ -142,53 +221,12 @@ adminRouter.get('/api/schedule/items', verifyFirebaseToken, async (req, res) => 
         const settingsDoc = await db.collection('bot_settings').doc('schedule_settings').get();
         if (!settingsDoc.exists || !settingsDoc.data().googleSheetId) return res.status(404).json([]);
         const { googleSheetId, googleServiceAccountJson } = settingsDoc.data();
-        const scheduleCommand = client.commands.get('schedule');
-        if (!scheduleCommand || typeof scheduleCommand.getSheetsClient !== 'function') throw new Error("scheduleコマンドまたはgetSheetsClient関数が見つかりません。");
-        const sheetsClient = await scheduleCommand.getSheetsClient(googleServiceAccountJson);
+        const sheetsClient = await getSheetsClient(googleServiceAccountJson);
         const response = await sheetsClient.spreadsheets.values.get({ spreadsheetId: googleSheetId, range: 'シート1!A2:C' });
         res.status(200).json(response.data.values || []);
     } catch (error) {
-        console.error('GET /api/schedule/items エラー:', error);
         res.status(500).json({ message: 'スプレッドシートの予定読み込みに失敗しました。' });
     }
-});
-
-adminRouter.post('/api/settings/toka', verifyFirebaseToken, async (req, res) => {
-    try {
-        const { baseUserId, systemPrompt, enableNameRecognition, userNicknames } = req.body;
-        const dataToSave = { baseUserId, systemPrompt, enableNameRecognition, userNicknames, updatedBy: req.user.email, updatedAt: admin.firestore.FieldValue.serverTimestamp() };
-        await db.collection('bot_settings').doc('toka_profile').set(dataToSave, { merge: true });
-        res.status(200).json({ message: 'とーか設定を更新しました。' });
-    } catch (error) { res.status(500).json({ message: 'サーバーエラー' }); }
-});
-
-adminRouter.post('/api/settings/schedule', verifyFirebaseToken, async (req, res) => {
-    try {
-        const { googleSheetId, googleServiceAccountJson, reminderGuildId, reminderRoleId, remindersEnabled, reminderTime } = req.body;
-        try { if(googleServiceAccountJson) JSON.parse(googleServiceAccountJson); } catch (e) { return res.status(400).json({ message: 'GoogleサービスアカウントのJSON形式が無効です。' }); }
-        const dataToSave = { googleSheetId, googleServiceAccountJson, reminderGuildId, reminderRoleId, remindersEnabled, reminderTime, updatedBy: req.user.email, updatedAt: admin.firestore.FieldValue.serverTimestamp() };
-        await db.collection('bot_settings').doc('schedule_settings').set(dataToSave, { merge: true });
-        await setupReminderSchedule();
-        res.status(200).json({ message: 'スケジュール設定を更新しました。' });
-    } catch (error) { res.status(500).json({ message: 'サーバーエラー' }); }
-});
-
-adminRouter.post('/api/settings/admins', verifyFirebaseToken, async (req, res) => {
-    try {
-        const { admins: newAdminsList } = req.body;
-        const docRef = db.collection('bot_settings').doc('toka_profile');
-        const docSnap = await docRef.get();
-        const currentAdmins = (docSnap.exists && Array.isArray(docSnap.data().admins)) ? docSnap.data().admins : [];
-        const superAdminEmail = currentAdmins.length > 0 ? currentAdmins[0].email : null;
-        const newAdminEmails = (newAdminsList || []).map(a => a.email);
-        const currentAdminEmails = currentAdmins.map(a => a.email);
-        const adminsChanged = JSON.stringify([...currentAdminEmails].sort()) !== JSON.stringify([...newAdminEmails].sort());
-        if (adminsChanged && superAdminEmail && req.user.email !== superAdminEmail) {
-            return res.status(403).json({ message: 'エラー: 管理者リストの変更は最高管理者のみ許可されています。' });
-        }
-        await docRef.set({ admins: newAdminsList || [] }, { merge: true });
-        res.status(200).json({ message: '管理者リストを更新しました。' });
-    } catch (error) { res.status(500).json({ message: 'サーバーエラー' }); }
 });
 
 adminRouter.post('/api/schedule/items', verifyFirebaseToken, async (req, res) => {
@@ -198,16 +236,16 @@ adminRouter.post('/api/schedule/items', verifyFirebaseToken, async (req, res) =>
         const settingsDoc = await db.collection('bot_settings').doc('schedule_settings').get();
         if (!settingsDoc.exists || !settingsDoc.data().googleSheetId) return res.status(400).json({ message: 'スプレッドシートが設定されていません。' });
         const { googleSheetId, googleServiceAccountJson } = settingsDoc.data();
-        const scheduleCommand = client.commands.get('schedule');
-        if (!scheduleCommand || typeof scheduleCommand.getSheetsClient !== 'function') throw new Error("scheduleコマンドまたはgetSheetsClient関数が見つかりません。");
-        const sheets = await scheduleCommand.getSheetsClient(googleServiceAccountJson);
+        const sheets = await getSheetsClient(googleServiceAccountJson);
         const range = 'シート1!A2:C';
         await sheets.spreadsheets.values.clear({ spreadsheetId: googleSheetId, range });
         if (items.length > 0) {
             await sheets.spreadsheets.values.update({ spreadsheetId: googleSheetId, range, valueInputOption: 'USER_ENTERED', resource: { values: items } });
         }
         res.status(200).json({ message: '予定リストをスプレッドシートに保存しました。' });
-    } catch (error) { res.status(500).json({ message: '予定リストの保存に失敗しました。' }); }
+    } catch (error) {
+        res.status(500).json({ message: '予定リストの保存に失敗しました。' });
+    }
 });
 
 adminRouter.post('/api/generate-invite-code', verifyFirebaseToken, async (req, res) => {
@@ -217,7 +255,10 @@ adminRouter.post('/api/generate-invite-code', verifyFirebaseToken, async (req, r
         const superAdminEmail = admins.length > 0 ? admins[0].email : null;
         if (!superAdminEmail || req.user.email !== superAdminEmail) return res.status(403).json({ message: '招待コードの発行は最高管理者のみ許可されています。' });
         const newCode = uuidv4().split('-')[0].toUpperCase();
-        await db.collection('invitation_codes').doc(newCode).set({ code: newCode, createdAt: admin.firestore.FieldValue.serverTimestamp(), createdBy: req.user.email, used: false, usedBy: null, usedAt: null });
+        await db.collection('invitation_codes').doc(newCode).set({
+            code: newCode, createdAt: admin.firestore.FieldValue.serverTimestamp(),
+            createdBy: req.user.email, used: false, usedBy: null, usedAt: null
+        });
         res.status(201).json({ code: newCode });
     } catch (error) { res.status(500).json({ message: '招待コードの生成に失敗しました。' }); }
 });
