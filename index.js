@@ -36,7 +36,6 @@ const client = new Client({
 });
 client.commands = new Collection();
 client.db = db;
-
 const commandsPath = path.join(__dirname, 'commands');
 if (fs.existsSync(commandsPath)) {
     const commandFiles = fs.readdirSync(commandsPath).filter(file => file.endsWith('.js'));
@@ -45,7 +44,6 @@ if (fs.existsSync(commandsPath)) {
         const command = require(filePath);
         if ('data' in command && 'execute' in command) {
             client.commands.set(command.data.name, command);
-            console.log(`[情報] コマンドを読み込みました: /${command.data.name}`);
         }
     }
 }
@@ -62,7 +60,6 @@ app.set('views', path.join(__dirname, 'views'));
 adminRouter.use(express.static(path.join(__dirname, 'public')));
 adminRouter.use(express.json());
 
-// Firebaseトークンを検証し、管理者リストによる認可も行うミドルウェア
 const verifyFirebaseToken = async (req, res, next) => {
     const authHeader = req.headers.authorization;
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -88,7 +85,6 @@ const verifyFirebaseToken = async (req, res, next) => {
     }
 };
 
-// 設定パネルのHTMLをレンダリング
 adminRouter.get('/', (req, res) => {
     const firebaseConfig = {
         apiKey: process.env.FIREBASE_API_KEY,
@@ -157,35 +153,65 @@ adminRouter.post('/api/settings/admins', verifyFirebaseToken, async (req, res) =
         const { admins: newAdminsList } = req.body;
         const docRef = db.collection('bot_settings').doc('toka_profile');
         const docSnap = await docRef.get();
-        const currentSettings = docSnap.exists ? docSnap.data() : {};
-        const currentAdmins = currentSettings.admins || [];
+        const currentAdmins = (docSnap.exists && Array.isArray(docSnap.data().admins)) ? docSnap.data().admins : [];
         const superAdminEmail = currentAdmins.length > 0 ? currentAdmins[0].email : null;
-        const newAdminEmails = (newAdminsList || []).map(a => a.email);
-        const currentAdminEmails = currentAdmins.map(a => a.email);
-        const adminsChanged = JSON.stringify([...currentAdminEmails].sort()) !== JSON.stringify([...newAdminEmails].sort());
-
-        if (adminsChanged && superAdminEmail && req.user.email !== superAdminEmail) {
+        
+        if (superAdminEmail && req.user.email !== superAdminEmail) {
             return res.status(403).json({ message: 'エラー: 管理者リストの変更は最高管理者のみ許可されています。' });
         }
         
-        let finalAdmins = newAdminsList || [];
-        if (docSnap.exists && finalAdmins.length === 0) {
-            finalAdmins.push({ name: req.user.displayName || '管理者', email: req.user.email });
-        } else if (!docSnap.exists) {
-            finalAdmins = [{ name: req.user.displayName || '最初の管理者', email: req.user.email }];
-        }
-        
-        await docRef.set({ admins: finalAdmins }, { merge: true });
-        await db.collection('settings_history').add({ timestamp: admin.firestore.FieldValue.serverTimestamp(), changedBy: req.user.email, changes: { summary: '管理者リストを更新', admins: finalAdmins } });
-        
+        await docRef.set({ admins: newAdminsList || [] }, { merge: true });
         res.status(200).json({ message: '管理者リストを更新しました。' });
     } catch (error) { res.status(500).json({ message: 'サーバーエラー' }); }
 });
 
 
-// --- 招待コード・登録API (変更なし) ---
-adminRouter.post('/api/generate-invite-code', verifyFirebaseToken, async (req, res) => { /* ... */ });
-adminRouter.post('/api/register-with-invite', async (req, res) => { /* ... */ });
+// --- 招待コード・登録API ---
+adminRouter.post('/api/generate-invite-code', verifyFirebaseToken, async (req, res) => {
+    try {
+        const settingsDoc = await db.collection('bot_settings').doc('toka_profile').get();
+        const admins = (settingsDoc.exists && Array.isArray(settingsDoc.data().admins)) ? settingsDoc.data().admins : [];
+        const superAdminEmail = admins.length > 0 ? admins[0].email : null;
+        if (!superAdminEmail || req.user.email !== superAdminEmail) {
+            return res.status(403).json({ message: '招待コードの発行は最高管理者のみ許可されています。' });
+        }
+        const newCode = uuidv4().split('-')[0].toUpperCase();
+        await db.collection('invitation_codes').doc(newCode).set({
+            code: newCode, createdAt: admin.firestore.FieldValue.serverTimestamp(),
+            createdBy: req.user.email, used: false, usedBy: null, usedAt: null
+        });
+        res.status(201).json({ code: newCode });
+    } catch (error) { res.status(500).json({ message: '招待コードの生成に失敗しました。' }); }
+});
+
+adminRouter.post('/api/register-with-invite', async (req, res) => {
+    try {
+        const { inviteCode, displayName, email, password } = req.body;
+        if (!inviteCode || !displayName || !email || !password) {
+            return res.status(400).json({ message: 'すべての項目を入力してください。' });
+        }
+        const inviteCodeRef = db.collection('invitation_codes').doc(inviteCode);
+        const codeDoc = await inviteCodeRef.get();
+        if (!codeDoc.exists || codeDoc.data().used) {
+            return res.status(400).json({ message: 'この招待コードは無効か、既に使用されています。' });
+        }
+        const userRecord = await admin.auth().createUser({ email, password, displayName });
+        const settingsRef = db.collection('bot_settings').doc('toka_profile');
+        await db.runTransaction(async (transaction) => {
+            const settingsDoc = await transaction.get(settingsRef);
+            const admins = (settingsDoc.exists && Array.isArray(settingsDoc.data().admins)) ? settingsDoc.data().admins : [];
+            admins.push({ name: displayName, email: email });
+            transaction.set(settingsRef, { admins }, { merge: true });
+        });
+        await inviteCodeRef.update({ used: true, usedBy: email, usedAt: admin.firestore.FieldValue.serverTimestamp() });
+        res.status(201).json({ message: `ようこそ、${displayName}さん！アカウントが作成されました。ログインしてください。` });
+    } catch (error) {
+        if (error.code === 'auth/email-already-exists') {
+            return res.status(400).json({ message: 'このメールアドレスは既に使用されています。' });
+        }
+        res.status(500).json({ message: 'アカウントの作成に失敗しました。' });
+    }
+});
 
 
 // --- ドメイン名によって管理ページへのアクセスを制御 ---
@@ -196,14 +222,10 @@ app.use((req, res, next) => {
         next();
     }
 });
-
-// --- その他のルート ---
 app.get('/:code', async (req, res) => {
     const { code } = req.params;
     if (code === 'favicon.ico') return res.status(204).send();
 });
-
-// Expressサーバーを起動
 app.listen(port, () => {
     console.log(`[情報] Webサーバーがポート ${port} で起動しました。`);
     console.log(`[情報] 管理ページ: https://${process.env.ADMIN_DOMAIN}`);
@@ -213,11 +235,9 @@ app.listen(port, () => {
 // Discordイベントハンドラ & ログイン
 // =================================================================================
 client.once(Events.ClientReady, c => {
-    console.log('----------------------------------------------------');
     console.log(`✅ ボット起動: ${c.user.tag}`);
     c.application.commands.set(client.commands.map(cmd => cmd.data.toJSON()));
 });
-
 client.on(Events.InteractionCreate, async interaction => {
     if (!interaction.isChatInputCommand()) return;
     const command = client.commands.get(interaction.commandName);
@@ -225,10 +245,6 @@ client.on(Events.InteractionCreate, async interaction => {
     try { await command.execute(interaction); }
     catch (error) {
         console.error(`コマンドエラー (${interaction.commandName}):`, error);
-        const reply = { content: 'コマンド実行中にエラーが発生しました。', ephemeral: true };
-        if (interaction.replied || interaction.deferred) await interaction.followUp(reply);
-        else await interaction.reply(reply);
     }
 });
-
 client.login(process.env.DISCORD_TOKEN);
