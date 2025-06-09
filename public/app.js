@@ -7,7 +7,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const addNicknameBtn = document.getElementById('add-nickname-btn');
     const adminsListContainer = document.getElementById('admins-list-container');
     const addAdminBtn = document.getElementById('add-admin-btn');
-    const adminSettingsSection = document.getElementById('admin-settings-section'); // 管理者設定セクション
+    const adminSettingsSection = document.getElementById('admin-settings-section');
     const authContainer = document.getElementById('auth-container');
     const mainContent = document.getElementById('main-content');
     const userEmailEl = document.getElementById('user-email');
@@ -78,29 +78,6 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // --- 管理者UI関連の関数 ---
-    function createAdminEntry(email = '') {
-        const entryDiv = document.createElement('div');
-        entryDiv.className = 'admin-entry';
-        entryDiv.setAttribute('draggable', true);
-        
-        entryDiv.innerHTML = `
-            <input type="email" class="admin-email" placeholder="管理者メールアドレス" value="${email}">
-            <button type="button" class="delete-admin-btn">削除</button>
-        `;
-        adminsListContainer.appendChild(entryDiv);
-    }
-    
-    addAdminBtn.addEventListener('click', () => createAdminEntry());
-    
-    adminsListContainer.addEventListener('click', (e) => {
-        if (e.target.classList.contains('delete-admin-btn')) {
-            e.target.closest('.admin-entry').remove();
-            // 削除後にUIを再描画して最高管理者表示を更新
-            const currentEmails = Array.from(adminsListContainer.querySelectorAll('.admin-email')).map(input => input.value);
-            renderAdminList(currentEmails);
-        }
-    });
-
     function renderAdminList(emails = []) {
         adminsListContainer.innerHTML = '';
         emails.forEach((email, index) => {
@@ -125,15 +102,36 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    addAdminBtn.addEventListener('click', () => {
+        const newEntry = document.createElement('div');
+        newEntry.className = 'admin-entry';
+        newEntry.setAttribute('draggable', true);
+        newEntry.innerHTML = `
+            <input type="email" class="admin-email" placeholder="管理者メールアドレス" value="">
+            <button type="button" class="delete-admin-btn">削除</button>
+        `;
+        adminsListContainer.appendChild(newEntry);
+    });
+    
+    adminsListContainer.addEventListener('click', (e) => {
+        if (e.target.classList.contains('delete-admin-btn')) {
+            e.target.closest('.admin-entry').remove();
+            const currentEmails = Array.from(adminsListContainer.querySelectorAll('.admin-email')).map(input => input.value);
+            renderAdminList(currentEmails);
+        }
+    });
+
     // --- ドラッグ＆ドロップ関連の処理 ---
     let draggedItem = null;
 
     adminsListContainer.addEventListener('dragstart', (e) => {
+        if (!e.target.classList.contains('admin-entry')) return;
         draggedItem = e.target;
         setTimeout(() => e.target.classList.add('dragging'), 0);
     });
 
     adminsListContainer.addEventListener('dragend', (e) => {
+        if (!e.target.classList.contains('admin-entry')) return;
         e.target.classList.remove('dragging');
         const currentEmails = Array.from(adminsListContainer.querySelectorAll('.admin-email')).map(input => input.value);
         renderAdminList(currentEmails);
@@ -143,6 +141,7 @@ document.addEventListener('DOMContentLoaded', () => {
         e.preventDefault();
         const afterElement = getDragAfterElement(adminsListContainer, e.clientY);
         const dragging = document.querySelector('.dragging');
+        if (!dragging) return;
         if (afterElement == null) {
             adminsListContainer.appendChild(dragging);
         } else {
@@ -178,14 +177,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 baseUserIdInput.value = '';
                 promptTextarea.value = '';
                 nameRecognitionCheckbox.checked = true;
-                adminSettingsSection.style.display = 'block'; // 初回は表示
+                adminSettingsSection.style.display = 'block';
                 renderAdminList([user.email]);
                 return;
             }
 
             if (res.status === 403) {
                 statusMessage.textContent = 'エラー: このページへのアクセス権がありません。';
-                mainContent.innerHTML = '<h2>アクセスが拒否されました</h2>';
+                mainContent.innerHTML = `<h2>アクセスが拒否されました</h2><p>あなたのアカウント(${user.email})には、この設定パネルを閲覧・編集する権限がありません。最高管理者に連絡してください。</p><button id="logout-btn-fallback">ログアウト</button>`;
+                document.getElementById('logout-btn-fallback').addEventListener('click', () => auth.signOut());
                 return;
             }
             if (!res.ok) throw new Error('設定の読み込みに失敗しました');
@@ -201,21 +201,25 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
 
-            // ▼▼▼ ここを「非表示」のロジックに戻します ▼▼▼
-            if (data.currentUser && data.currentUser.isSuperAdmin) {
-                // 最高管理者なら、管理者設定セクションを表示する
-                adminSettingsSection.style.display = 'block';
-                renderAdminList(data.admins || []);
-            } else {
-                // 一般管理者なら、管理者設定セクションを非表示にする
-                adminSettingsSection.style.display = 'none';
+            const isSuperAdmin = data.currentUser && data.currentUser.isSuperAdmin;
+            
+            renderAdminList(data.admins || []);
+
+            // 最高管理者でない場合、UIを無効化
+            if (!isSuperAdmin) {
+                const adminControls = adminSettingsSection.querySelectorAll('input, button');
+                adminControls.forEach(control => {
+                    control.disabled = true;
+                });
+                // ドラッグも無効化
+                adminSettingsSection.querySelectorAll('.admin-entry').forEach(entry => entry.draggable = false);
             }
+
 
             statusMessage.textContent = '設定を読み込みました';
         } catch (err) { statusMessage.textContent = `エラー: ${err.message}`; }
     }
 
-    // (saveBtnの処理は変更ありません)
     saveBtn.addEventListener('click', async () => {
         const user = auth.currentUser;
         if (!user) return;

@@ -42,6 +42,7 @@ for (const file of commandFiles) {
     const command = require(filePath);
     if ('data' in command && 'execute' in command) {
         client.commands.set(command.data.name, command);
+        console.log(`[情報] コマンドを読み込みました: /${command.data.name}`);
     }
 }
 
@@ -104,14 +105,11 @@ adminRouter.get('/api/settings/toka', verifyFirebaseToken, async (req, res) => {
         const data = doc.data();
         const admins = data.admins || [];
         
-        // ▼▼▼ 最高管理者かどうかの判定ロジックを修正 ▼▼▼
         let isSuperAdmin = false;
         if (admins.length > 0) {
-            // 管理者リストが存在する場合、最初の人が最高管理者
             const superAdminEmail = admins[0];
             isSuperAdmin = (req.user.email === superAdminEmail);
         } else {
-            // 管理者リストが空の場合、アクセスしてきた人を暫定的に最高管理者とみなし、UIを表示させる
             isSuperAdmin = true;
         }
 
@@ -133,7 +131,7 @@ adminRouter.get('/api/settings/toka', verifyFirebaseToken, async (req, res) => {
     }
 });
 
-// POST /api/settings/toka (設定の保存)
+// POST /api/settings/toka (設定の保存、アカウント作成、履歴保存)
 adminRouter.post('/api/settings/toka', verifyFirebaseToken, async (req, res) => {
     try {
         const {
@@ -150,14 +148,12 @@ adminRouter.post('/api/settings/toka', verifyFirebaseToken, async (req, res) => 
         
         const docRef = db.collection('bot_settings').doc('toka_profile');
         const docSnap = await docRef.get();
-        const currentAdmins = (docSnap.exists && Array.isArray(docSnap.data().admins)) ? docSnap.data().admins : [];
+        const currentSettings = docSnap.exists ? docSnap.data() : {};
+        const currentAdmins = currentSettings.admins || [];
 
-        // ▼▼▼ 最高管理者かどうかの判定ロジックを修正 ▼▼▼
         const superAdminEmail = currentAdmins.length > 0 ? currentAdmins[0] : null;
         const adminsChanged = JSON.stringify(currentAdmins.sort()) !== JSON.stringify((newAdminsList || []).sort());
         
-        // 管理者リストが変更されており、かつ操作者が最高管理者でない場合はエラー
-        // (ただし、誰も管理者がいない初期状態ではチェックしない)
         if (adminsChanged && superAdminEmail && req.user.email !== superAdminEmail) {
             return res.status(403).json({ message: 'エラー: 管理者リストの変更は最高管理者のみ許可されています。' });
         }
@@ -166,8 +162,10 @@ adminRouter.post('/api/settings/toka', verifyFirebaseToken, async (req, res) => 
         const creationPromises = newlyAddedAdmins.map(async (email) => {
             try {
                 await admin.auth().getUserByEmail(email);
+                console.log(`[情報] 管理者 ${email} は既に存在します。`);
             } catch (error) {
                 if (error.code === 'auth/user-not-found') {
+                    console.log(`[情報] 新規管理者 ${email} のアカウントを作成します...`);
                     await admin.auth().createUser({ email: email });
                     return email;
                 }
@@ -178,7 +176,6 @@ adminRouter.post('/api/settings/toka', verifyFirebaseToken, async (req, res) => 
         const createdUsers = (await Promise.all(creationPromises)).filter(Boolean);
 
         let finalAdmins = newAdminsList || [];
-        // 安全装置：もし管理者が誰もいなくなるような保存が行われそうになったら、操作者自身を管理者リストに強制的に追加する
         if (finalAdmins.length === 0) {
             finalAdmins.push(req.user.email);
             console.log(`[情報] 安全装置が作動: 管理者リストが空になるため、操作者 ${req.user.email} を管理者に設定しました。`);
@@ -193,18 +190,33 @@ adminRouter.post('/api/settings/toka', verifyFirebaseToken, async (req, res) => 
             updatedBy: req.user.email,
             updatedAt: admin.firestore.FieldValue.serverTimestamp()
         };
+        
+        // 履歴を保存
+        await db.collection('settings_history').add({
+            timestamp: admin.firestore.FieldValue.serverTimestamp(),
+            changedBy: req.user.email,
+            changes: {
+                before: currentSettings,
+                after: dataToSave
+            }
+        });
 
+        // 設定本体を保存
         await docRef.set(dataToSave, { merge: true });
         
         let message = '設定を更新しました。';
         if (createdUsers.length > 0) {
             message += `\n新規管理者 (${createdUsers.join(', ')}) のアカウントが作成されました。対象者は「パスワードを忘れた場合」のリンクから初期パスワードを設定してください。`;
         }
-        res.status(200).json({ message: message });
+
+        res.status(200).json({ 
+            message: message,
+            createdUsers: createdUsers
+        });
 
     } catch (error) {
         console.error('POST /api/settings/toka エラー:', error);
-        res.status(500).json({ message: 'サーバーエラー' });
+        res.status(500).json({ message: 'サーバーエラーが発生しました。' });
     }
 });
 
@@ -220,7 +232,9 @@ app.use((req, res, next) => {
 
 // --- その他のルート ---
 app.get('/:code', async (req, res) => {
-    // ...
+    const { code } = req.params;
+    if (code === 'favicon.ico') return res.status(204).send();
+    // (画像表示などの処理があればここに)
 });
 
 // Expressサーバーを起動
