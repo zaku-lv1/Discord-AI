@@ -147,6 +147,12 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // --- ニックネームUI関連の関数 ---
+    function renderNicknameList(nicknames = {}) {
+        nicknamesListContainer.innerHTML = '';
+        for (const [id, name] of Object.entries(nicknames)) {
+            createNicknameEntry(id, name);
+        }
+    }
     function createNicknameEntry(id = '', name = '') {
         const entryDiv = document.createElement('div');
         entryDiv.className = 'nickname-entry';
@@ -285,11 +291,7 @@ document.addEventListener('DOMContentLoaded', () => {
             promptTextarea.value = data.systemPrompt || '';
             nameRecognitionCheckbox.checked = data.enableNameRecognition ?? true;
 
-            if (data.userNicknames) {
-                for (const [id, name] of Object.entries(data.userNicknames)) {
-                    createNicknameEntry(id, name);
-                }
-            }
+            renderNicknameList(data.userNicknames || {});
             
             const currentUserAdminInfo = (data.admins || []).find(admin => admin.email === user.email);
             const displayName = currentUserAdminInfo && currentUserAdminInfo.name ? currentUserAdminInfo.name : user.email;
@@ -322,18 +324,19 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             const token = await user.getIdToken();
             
+            // ▼▼▼ ニックネーム収集のロジックを修正 ▼▼▼
             const nicknamesObject = {};
             const nicknameEntries = document.querySelectorAll('.nickname-entry');
             nicknameEntries.forEach(entry => {
                 const id = entry.querySelector('.nickname-id').value.trim();
                 const name = entry.querySelector('.nickname-name').value.trim();
-                if (id && name) {
+                // IDさえあれば、名前が空でも保存対象とする
+                if (id) {
                     nicknamesObject[id] = name;
                 }
             });
 
-            // ▼▼▼ ここを修正しました ▼▼▼
-            // filterをかけずに、UIに表示されているままの不完全なデータも保存対象とする
+            // 状態管理している配列からデータを取得 (入力が不完全でも保存する)
             const adminsArray = state.admins;
 
             const settings = {
@@ -357,7 +360,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const result = await res.json();
             
-            // パスワード設定メールの送信ロジックは、登録(register)時にしか実行されないので、ここでは不要
             statusMessage.textContent = result.message || '保存しました！';
             
             await fetchSettings(user);
