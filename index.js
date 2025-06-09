@@ -58,7 +58,6 @@ app.set('views', path.join(__dirname, 'views'));
 adminRouter.use(express.static(path.join(__dirname, 'public')));
 adminRouter.use(express.json());
 
-// Firebaseトークンを検証し、管理者リストによる認可も行うミドルウェア
 const verifyFirebaseToken = async (req, res, next) => {
     const authHeader = req.headers.authorization;
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -69,8 +68,6 @@ const verifyFirebaseToken = async (req, res, next) => {
         const decodedToken = await admin.auth().verifyIdToken(idToken);
         const settingsDoc = await db.collection('bot_settings').doc('toka_profile').get();
         const admins = (settingsDoc.exists && Array.isArray(settingsDoc.data().admins)) ? settingsDoc.data().admins : [];
-
-        // 管理者リストが空でなく、かつアクセスしてきたユーザーがリストに含まれていない場合はアクセスを拒否
         if (admins.length > 0 && !admins.includes(decodedToken.email)) {
             return res.status(403).send('Forbidden: Access is denied.');
         }
@@ -82,7 +79,6 @@ const verifyFirebaseToken = async (req, res, next) => {
     }
 };
 
-// 設定パネルのHTMLをレンダリング
 adminRouter.get('/', (req, res) => {
     const firebaseConfig = {
         apiKey: process.env.FIREBASE_API_KEY,
@@ -95,7 +91,6 @@ adminRouter.get('/', (req, res) => {
     res.render('index', { firebaseConfig });
 });
 
-// GET /api/settings/toka (設定の読み込み)
 adminRouter.get('/api/settings/toka', verifyFirebaseToken, async (req, res) => {
     try {
         const doc = await db.collection('bot_settings').doc('toka_profile').get();
@@ -124,14 +119,12 @@ adminRouter.get('/api/settings/toka', verifyFirebaseToken, async (req, res) => {
             }
         };
         res.status(200).json(responseData);
-
     } catch (error) {
         console.error('GET /api/settings/toka エラー:', error);
         res.status(500).json({ message: 'サーバーエラー' });
     }
 });
 
-// POST /api/settings/toka (設定の保存、アカウント作成、履歴保存)
 adminRouter.post('/api/settings/toka', verifyFirebaseToken, async (req, res) => {
     try {
         const {
@@ -150,9 +143,10 @@ adminRouter.post('/api/settings/toka', verifyFirebaseToken, async (req, res) => 
         const docSnap = await docRef.get();
         const currentSettings = docSnap.exists ? docSnap.data() : {};
         const currentAdmins = currentSettings.admins || [];
-
         const superAdminEmail = currentAdmins.length > 0 ? currentAdmins[0] : null;
-        const adminsChanged = JSON.stringify(currentAdmins.sort()) !== JSON.stringify((newAdminsList || []).sort());
+
+        // ▼▼▼ ここがバグのあった箇所です。配列をコピーしてからソートするように修正しました。 ▼▼▼
+        const adminsChanged = JSON.stringify([...currentAdmins].sort()) !== JSON.stringify([...(newAdminsList || [])].sort());
         
         if (adminsChanged && superAdminEmail && req.user.email !== superAdminEmail) {
             return res.status(403).json({ message: 'エラー: 管理者リストの変更は最高管理者のみ許可されています。' });
@@ -162,10 +156,8 @@ adminRouter.post('/api/settings/toka', verifyFirebaseToken, async (req, res) => 
         const creationPromises = newlyAddedAdmins.map(async (email) => {
             try {
                 await admin.auth().getUserByEmail(email);
-                console.log(`[情報] 管理者 ${email} は既に存在します。`);
             } catch (error) {
                 if (error.code === 'auth/user-not-found') {
-                    console.log(`[情報] 新規管理者 ${email} のアカウントを作成します...`);
                     await admin.auth().createUser({ email: email });
                     return email;
                 }
@@ -178,7 +170,6 @@ adminRouter.post('/api/settings/toka', verifyFirebaseToken, async (req, res) => 
         let finalAdmins = newAdminsList || [];
         if (finalAdmins.length === 0) {
             finalAdmins.push(req.user.email);
-            console.log(`[情報] 安全装置が作動: 管理者リストが空になるため、操作者 ${req.user.email} を管理者に設定しました。`);
         }
         
         const dataToSave = {
@@ -191,7 +182,6 @@ adminRouter.post('/api/settings/toka', verifyFirebaseToken, async (req, res) => 
             updatedAt: admin.firestore.FieldValue.serverTimestamp()
         };
         
-        // 履歴を保存
         await db.collection('settings_history').add({
             timestamp: admin.firestore.FieldValue.serverTimestamp(),
             changedBy: req.user.email,
@@ -200,10 +190,9 @@ adminRouter.post('/api/settings/toka', verifyFirebaseToken, async (req, res) => 
                 after: dataToSave
             }
         });
-
-        // 設定本体を保存
-        await docRef.set(dataToSave, { merge: true });
         
+        await docRef.set(dataToSave, { merge: true });
+
         let message = '設定を更新しました。';
         if (createdUsers.length > 0) {
             message += `\n新規管理者 (${createdUsers.join(', ')}) のアカウントが作成されました。対象者は「パスワードを忘れた場合」のリンクから初期パスワードを設定してください。`;
