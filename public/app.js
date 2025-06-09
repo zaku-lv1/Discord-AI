@@ -4,42 +4,42 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- DOM Elements ---
     const authContainer = document.getElementById('auth-container');
+    const mainContent = document.getElementById('main-content');
+    const statusMessage = document.getElementById('status-message');
     const loginForm = document.getElementById('login-form');
+    const loginBtn = document.getElementById('login-btn');
+    const forgotPasswordLink = document.getElementById('forgot-password-link');
     const registerForm = document.getElementById('register-form');
+    const registerBtn = document.getElementById('register-btn');
     const showRegisterFormLink = document.getElementById('show-register-form-link');
     const showLoginFormLink = document.getElementById('show-login-form-link');
-    const loginBtn = document.getElementById('login-btn');
-    const registerBtn = document.getElementById('register-btn');
-    const forgotPasswordLink = document.getElementById('forgot-password-link');
-    const mainContent = document.getElementById('main-content');
     const userEmailEl = document.getElementById('user-email');
     const logoutBtn = document.getElementById('logout-btn');
-    const statusMessage = document.getElementById('status-message');
     const navLinks = document.querySelectorAll('.nav-link');
     const panels = document.querySelectorAll('.dashboard-panel');
     const adminNavItem = document.getElementById('nav-item-admin');
-    
-    // Toka Panel Elements
+    const saveAllBtn = document.getElementById('save-all-btn');
+
+    // Toka Panel
     const baseUserIdInput = document.getElementById('base-user-id-input');
     const promptTextarea = document.getElementById('prompt-textarea');
     const nameRecognitionCheckbox = document.getElementById('name-recognition-checkbox');
     const nicknamesListContainer = document.getElementById('nicknames-list-container');
     const addNicknameBtn = document.getElementById('add-nickname-btn');
-    const saveTokaBtn = document.getElementById('save-toka-btn');
     
-    // Schedule Panel Elements
+    // Schedule Panel
     const remindersEnabledCheckbox = document.getElementById('reminders-enabled-checkbox');
     const reminderTimeInput = document.getElementById('reminder-time-input');
     const googleSheetIdInput = document.getElementById('google-sheet-id-input');
     const reminderGuildIdInput = document.getElementById('reminder-guild-id-input');
     const reminderRoleIdInput = document.getElementById('reminder-role-id-input');
     const serviceAccountJsonTextarea = document.getElementById('service-account-json-textarea');
-    const saveScheduleBtn = document.getElementById('save-schedule-btn');
     const scheduleItemsContainer = document.getElementById('schedule-items-container');
     const addScheduleItemBtn = document.getElementById('add-schedule-item-btn');
     const saveScheduleItemsBtn = document.getElementById('save-schedule-items-btn');
 
-    // Admin Panel Elements
+    // Admin Panel
+    const adminSettingsSection = document.getElementById('panel-admins');
     const inviteCodeGeneratorSection = document.getElementById('invite-code-generator-section');
     const generateInviteCodeBtn = document.getElementById('generate-invite-code-btn');
     const inviteCodeDisplay = document.getElementById('invite-code-display');
@@ -47,16 +47,15 @@ document.addEventListener('DOMContentLoaded', () => {
     const copyInviteCodeBtn = document.getElementById('copy-invite-code-btn');
     const adminsListContainer = document.getElementById('admins-list-container');
     const addAdminBtn = document.getElementById('add-admin-btn');
-    const saveAdminsBtn = document.getElementById('save-admins-btn');
 
-    // UIの状態を管理するための変数
+    // --- UI State ---
     let state = {
         admins: [],
         isSuperAdmin: false,
         scheduleItems: []
     };
 
-    // --- ナビゲーションロジック ---
+    // --- Navigation Logic ---
     navLinks.forEach(link => {
         link.addEventListener('click', (e) => {
             e.preventDefault();
@@ -65,16 +64,12 @@ document.addEventListener('DOMContentLoaded', () => {
             panels.forEach(p => p.style.display = 'none');
             link.classList.add('active');
             const targetPanel = document.getElementById(targetId);
-            if (targetPanel) {
-                targetPanel.style.display = 'block';
-            }
-            if (targetId === 'panel-schedule') {
-                fetchScheduleItems();
-            }
+            if (targetPanel) targetPanel.style.display = 'block';
+            if (targetId === 'panel-schedule') fetchScheduleItems();
         });
     });
 
-    // --- 認証関連 ---
+    // --- Auth & Registration Logic ---
     auth.onAuthStateChanged(user => {
         if (user) {
             authContainer.style.display = 'none';
@@ -91,7 +86,6 @@ document.addEventListener('DOMContentLoaded', () => {
     loginBtn.addEventListener('click', () => {
         const email = document.getElementById('login-email').value;
         const password = document.getElementById('login-password').value;
-        statusMessage.textContent = "";
         auth.signInWithEmailAndPassword(email, password).catch(err => { statusMessage.textContent = `ログインエラー: ${err.message}`; });
     });
 
@@ -101,25 +95,13 @@ document.addEventListener('DOMContentLoaded', () => {
         e.preventDefault();
         const email = document.getElementById('login-email').value;
         if (!email) { statusMessage.textContent = 'メールアドレスを入力してください。'; return; }
-        statusMessage.textContent = '送信中...';
         auth.sendPasswordResetEmail(email)
             .then(() => { statusMessage.textContent = `${email} にパスワード再設定用のメールを送信しました。`; })
             .catch(err => { statusMessage.textContent = `エラー: ${err.message}`; });
     });
 
-    // --- 新規登録と招待コード ---
-    showRegisterFormLink.addEventListener('click', (e) => {
-        e.preventDefault();
-        loginForm.style.display = 'none';
-        registerForm.style.display = 'block';
-        statusMessage.textContent = '';
-    });
-    showLoginFormLink.addEventListener('click', (e) => {
-        e.preventDefault();
-        registerForm.style.display = 'none';
-        loginForm.style.display = 'block';
-        statusMessage.textContent = '';
-    });
+    showRegisterFormLink.addEventListener('click', (e) => { e.preventDefault(); loginForm.style.display = 'none'; registerForm.style.display = 'block'; statusMessage.textContent = ''; });
+    showLoginFormLink.addEventListener('click', (e) => { e.preventDefault(); registerForm.style.display = 'none'; loginForm.style.display = 'block'; statusMessage.textContent = ''; });
 
     registerBtn.addEventListener('click', async () => {
         const inviteCode = document.getElementById('register-invite-code').value.trim();
@@ -154,7 +136,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const token = await user.getIdToken();
             const res = await fetch('/api/generate-invite-code', { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } });
             const result = await res.json();
-            if (!res.ok) throw new Error(result.message || 'コードの生成に失敗しました。');
+            if (!res.ok) throw new Error(result.message);
             newInviteCodeInput.value = result.code;
             inviteCodeDisplay.style.display = 'flex';
             statusMessage.textContent = '新しい招待コードを生成しました。';
@@ -171,7 +153,7 @@ document.addEventListener('DOMContentLoaded', () => {
         statusMessage.textContent = '招待コードをコピーしました！';
     });
 
-    // --- ニックネームUI関連の関数 ---
+    // --- Dynamic List UI Functions ---
     function renderNicknameList(nicknames = {}) {
         nicknamesListContainer.innerHTML = '';
         for (const [id, name] of Object.entries(nicknames)) {
@@ -186,12 +168,9 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     addNicknameBtn.addEventListener('click', () => createNicknameEntry());
     nicknamesListContainer.addEventListener('click', (e) => {
-        if (e.target.classList.contains('delete-nickname-btn')) {
-            e.target.closest('.nickname-entry').remove();
-        }
+        if (e.target.classList.contains('delete-nickname-btn')) e.target.closest('.nickname-entry').remove();
     });
 
-    // --- 管理者UI関連の関数 ---
     function renderAdminList() {
         adminsListContainer.innerHTML = '';
         (state.admins || []).forEach((admin, index) => {
@@ -229,9 +208,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const entry = input.closest('.admin-entry');
             const index = parseInt(entry.dataset.index, 10);
             const field = input.dataset.field;
-            if (state.admins[index]) {
-                state.admins[index][field] = input.value;
-            }
+            if (state.admins[index]) state.admins[index][field] = input.value;
         }
     });
     let draggedIndex = null;
@@ -243,7 +220,7 @@ document.addEventListener('DOMContentLoaded', () => {
     adminsListContainer.addEventListener('dragend', (e) => {
         if (!e.target.classList.contains('admin-entry')) return;
         e.target.classList.remove('dragging');
-        if (draggedIndex !== null) { renderAdminList(); }
+        if (draggedIndex !== null) renderAdminList();
         draggedIndex = null;
     });
     adminsListContainer.addEventListener('drop', (e) => {
@@ -263,19 +240,13 @@ document.addEventListener('DOMContentLoaded', () => {
         e.preventDefault();
     });
 
-    // --- スケジュールアイテムUI関数 ---
     function renderScheduleList() {
         scheduleItemsContainer.innerHTML = '';
         state.scheduleItems.forEach((item, index) => {
             const entryDiv = document.createElement('div');
             entryDiv.className = 'schedule-item-entry';
             entryDiv.dataset.index = index;
-            entryDiv.innerHTML = `
-                <input type="text" class="item-type" data-field="0" placeholder="種別" value="${item[0] || ''}">
-                <input type="text" class="item-task" data-field="1" placeholder="内容" value="${item[1] || ''}">
-                <input type="text" class="item-due" data-field="2" placeholder="期限" value="${item[2] || ''}">
-                <button type="button" class="delete-schedule-item-btn">削除</button>
-            `;
+            entryDiv.innerHTML = `<input type="text" class="item-type" data-field="0" placeholder="種別" value="${item[0] || ''}"><input type="text" class="item-task" data-field="1" placeholder="内容" value="${item[1] || ''}"><input type="text" class="item-due" data-field="2" placeholder="期限" value="${item[2] || ''}"><button type="button" class="delete-schedule-item-btn">削除</button>`;
             scheduleItemsContainer.appendChild(entryDiv);
         });
     }
@@ -297,139 +268,93 @@ document.addEventListener('DOMContentLoaded', () => {
             const entry = input.closest('.schedule-item-entry');
             const index = parseInt(entry.dataset.index, 10);
             const fieldIndex = parseInt(input.dataset.field, 10);
-            if (state.scheduleItems[index]) {
-                state.scheduleItems[index][fieldIndex] = input.value;
-            }
+            if (state.scheduleItems[index]) state.scheduleItems[index][fieldIndex] = input.value;
         }
     });
 
-    // --- データ読み込み/保存 ---
+    // --- Data Fetching & Saving ---
     async function fetchSettings(user) {
         statusMessage.textContent = '読込中...';
         const token = await user.getIdToken();
         try {
-            const [tokaRes, scheduleRes] = await Promise.all([
-                fetch('/api/settings/toka', { headers: { 'Authorization': `Bearer ${token}` } }),
-                fetch('/api/settings/schedule', { headers: { 'Authorization': `Bearer ${token}` } })
-            ]);
-
-            if (tokaRes.status === 403 || tokaRes.status === 401) {
+            const res = await fetch('/api/settings', { headers: { 'Authorization': `Bearer ${token}` } });
+            
+            if (res.status === 403 || res.status === 401) {
                 mainContent.innerHTML = `<h2>アクセスが拒否されました</h2><p>あなたのアカウント(${user.email})には、この設定パネルを閲覧・編集する権限がありません。</p><button id="logout-btn-fallback">ログアウト</button>`;
                 document.getElementById('logout-btn-fallback').addEventListener('click', () => auth.signOut());
                 return;
             }
-            
-            // とーか設定の反映
-            if (tokaRes.ok) {
-                const data = await tokaRes.json();
-                baseUserIdInput.value = data.baseUserId || '';
-                promptTextarea.value = data.systemPrompt || '';
-                nameRecognitionCheckbox.checked = data.enableNameRecognition ?? true;
-                renderNicknameList(data.userNicknames || {});
-                
-                const currentUserAdminInfo = (data.admins || []).find(admin => admin.email === user.email);
-                const displayName = currentUserAdminInfo ? (currentUserAdminInfo.name || user.email) : user.email;
-                userEmailEl.textContent = displayName;
-                
-                state.admins = data.admins || [];
-                state.isSuperAdmin = data.currentUser && data.currentUser.isSuperAdmin;
-                
-                adminNavItem.style.display = 'block';
-                renderAdminList();
-                inviteCodeGeneratorSection.style.display = state.isSuperAdmin ? 'block' : 'none';
-                document.querySelectorAll('#panel-admins input, #panel-admins button').forEach(el => el.disabled = !state.isSuperAdmin);
 
-            } else if (tokaRes.status === 404) {
+            if (res.status === 404) {
                 userEmailEl.textContent = user.displayName || user.email;
-                state.admins = [{ name: user.displayName || '管理者', email: user.email }];
                 state.isSuperAdmin = true;
                 adminNavItem.style.display = 'block';
-                renderAdminList();
+                statusMessage.textContent = '設定はまだありません。「保存」を押すと初期設定が作成されます。';
+                return;
             }
+            if (!res.ok) throw new Error('設定の読み込みに失敗しました');
 
-            // スケジュール設定の反映
-            if (scheduleRes.ok) {
-                const data = await scheduleRes.json();
-                remindersEnabledCheckbox.checked = data.remindersEnabled ?? false;
-                reminderTimeInput.value = data.reminderTime || '';
-                googleSheetIdInput.value = data.googleSheetId || '';
-                reminderGuildIdInput.value = data.reminderGuildId || '';
-                reminderRoleIdInput.value = data.reminderRoleId || '';
-                serviceAccountJsonTextarea.value = data.googleServiceAccountJson || '';
+            const data = await res.json();
+            const tokaData = data.toka || {};
+            const scheduleData = data.schedule || {};
+            
+            baseUserIdInput.value = tokaData.baseUserId || '';
+            promptTextarea.value = tokaData.systemPrompt || '';
+            nameRecognitionCheckbox.checked = tokaData.enableNameRecognition ?? true;
+            renderNicknameList(tokaData.userNicknames || {});
+            
+            const currentUserAdminInfo = (tokaData.admins || []).find(admin => admin.email === user.email);
+            const displayName = currentUserAdminInfo ? (currentUserAdminInfo.name || user.email) : user.email;
+            userEmailEl.textContent = displayName;
+            
+            state.admins = tokaData.admins || [];
+            state.isSuperAdmin = tokaData.currentUser && tokaData.currentUser.isSuperAdmin;
+            
+            adminNavItem.style.display = 'block';
+            renderAdminList();
+            if(!state.isSuperAdmin) {
+                 document.querySelectorAll('#panel-admins input, #panel-admins button').forEach(el => el.disabled = true);
+                 document.querySelectorAll('.admin-entry').forEach(el => el.draggable = false);
             }
+            
+            remindersEnabledCheckbox.checked = scheduleData.remindersEnabled ?? false;
+            reminderTimeInput.value = scheduleData.reminderTime || '';
+            googleSheetIdInput.value = scheduleData.googleSheetId || '';
+            reminderGuildIdInput.value = scheduleData.reminderGuildId || '';
+            reminderRoleIdInput.value = scheduleData.reminderRoleId || '';
+            serviceAccountJsonTextarea.value = scheduleData.googleServiceAccountJson || '';
+            
             statusMessage.textContent = '設定を読み込みました';
         } catch (err) {
             statusMessage.textContent = `エラー: ${err.message}`;
         }
     }
     
-    async function fetchScheduleItems() {
+    saveAllBtn.addEventListener('click', async () => {
         const user = auth.currentUser;
-        if (!user) return;
-        statusMessage.textContent = '予定リストを読み込み中...';
+        if (!user || saveAllBtn.disabled) return;
+        
+        statusMessage.textContent = 'すべての設定を保存中...';
+        saveAllBtn.disabled = true;
+        
         try {
             const token = await user.getIdToken();
-            const res = await fetch('/api/schedule/items', { headers: { 'Authorization': `Bearer ${token}` } });
-            if (!res.ok) {
-                if(res.status === 404) {
-                    state.scheduleItems = [];
-                    renderScheduleList();
-                    statusMessage.textContent = 'スケジュールシートが未設定か、データがありません。';
-                    return;
-                }
-                throw new Error('予定リストの読み込みに失敗しました。');
-            }
-            const items = await res.json();
-            state.scheduleItems = items;
-            renderScheduleList();
-            statusMessage.textContent = '予定リストを読み込みました。';
-        } catch (err) {
-            statusMessage.textContent = `エラー: ${err.message}`;
-        }
-    }
-
-    // 保存ボタンのイベントリスナー
-    saveTokaBtn.addEventListener('click', async () => {
-        const user = auth.currentUser;
-        if (!user || saveTokaBtn.disabled) return;
-        statusMessage.textContent = 'とーか設定を保存中...';
-        saveTokaBtn.disabled = true;
-        try {
-            const token = await user.getIdToken();
+            
             const nicknamesObject = {};
             document.querySelectorAll('.nickname-entry').forEach(entry => {
                 const id = entry.querySelector('.nickname-id').value.trim();
                 const name = entry.querySelector('.nickname-name').value.trim();
                 if (id) nicknamesObject[id] = name;
             });
-            const settings = {
+            const adminsArray = state.admins.filter(admin => admin.email && admin.name);
+            const tokaSettings = {
                 baseUserId: baseUserIdInput.value,
                 systemPrompt: promptTextarea.value,
                 enableNameRecognition: nameRecognitionCheckbox.checked,
                 userNicknames: nicknamesObject,
+                admins: adminsArray
             };
-            const res = await fetch('/api/settings/toka', {
-                method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-                body: JSON.stringify(settings)
-            });
-            const result = await res.json();
-            if (!res.ok) throw new Error(result.message);
-            statusMessage.textContent = result.message;
-        } catch (err) {
-            statusMessage.textContent = `エラー: ${err.message}`;
-        } finally {
-            saveTokaBtn.disabled = false;
-        }
-    });
-
-    saveScheduleBtn.addEventListener('click', async () => {
-        const user = auth.currentUser;
-        if (!user || saveScheduleBtn.disabled) return;
-        statusMessage.textContent = 'スケジュール設定を保存中...';
-        saveScheduleBtn.disabled = true;
-        try {
-            const token = await user.getIdToken();
-            const settings = {
+            const scheduleSettings = {
                 remindersEnabled: remindersEnabledCheckbox.checked,
                 reminderTime: reminderTimeInput.value,
                 googleSheetId: googleSheetIdInput.value,
@@ -437,43 +362,26 @@ document.addEventListener('DOMContentLoaded', () => {
                 reminderRoleId: reminderRoleIdInput.value,
                 googleServiceAccountJson: serviceAccountJsonTextarea.value,
             };
-            const res = await fetch('/api/settings/schedule', {
-                method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-                body: JSON.stringify(settings)
+
+            const res = await fetch('/api/settings', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                body: JSON.stringify({ toka: tokaSettings, schedule: scheduleSettings })
             });
+
             const result = await res.json();
-            if (!res.ok) throw new Error(result.message);
+            if (!res.ok) throw new Error(result.message || '保存に失敗しました');
+            
             statusMessage.textContent = result.message;
-        } catch (err) {
-            statusMessage.textContent = `エラー: ${err.message}`;
-        } finally {
-            saveScheduleBtn.disabled = false;
+            await fetchSettings(user);
+
+        } catch (err) { 
+            statusMessage.textContent = `エラー: ${err.message}`; 
+        } finally { 
+            saveAllBtn.disabled = false; 
         }
     });
 
-    saveAdminsBtn.addEventListener('click', async () => {
-        const user = auth.currentUser;
-        if (!user || saveAdminsBtn.disabled) return;
-        statusMessage.textContent = '管理者リストを保存中...';
-        saveAdminsBtn.disabled = true;
-        try {
-            const token = await user.getIdToken();
-            const adminsArray = state.admins.filter(admin => admin.email && admin.name);
-            const res = await fetch('/api/settings/admins', {
-                method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-                body: JSON.stringify({ admins: adminsArray })
-            });
-            const result = await res.json();
-            if (!res.ok) throw new Error(result.message);
-            statusMessage.textContent = result.message;
-            await fetchSettings(user);
-        } catch (err) {
-            statusMessage.textContent = `エラー: ${err.message}`;
-        } finally {
-            saveAdminsBtn.disabled = false;
-        }
-    });
-    
     saveScheduleItemsBtn.addEventListener('click', async () => {
         const user = auth.currentUser;
         if (!user) return;
@@ -488,7 +396,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 body: JSON.stringify({ items: itemsToSave })
             });
             const result = await res.json();
-            if (!res.ok) throw new Error(result.message || '保存に失敗しました');
+            if (!res.ok) throw new Error(result.message);
             statusMessage.textContent = result.message;
             await fetchScheduleItems();
         } catch (err) { 

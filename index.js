@@ -44,7 +44,6 @@ if (fs.existsSync(commandsPath)) {
         const command = require(filePath);
         if ('data' in command && 'execute' in command) {
             client.commands.set(command.data.name, command);
-            console.log(`[情報] コマンドを読み込みました: /${command.data.name}`);
         }
     }
 }
@@ -60,28 +59,21 @@ async function setupReminderSchedule() {
     }
     try {
         const settingsDoc = await db.collection('bot_settings').doc('schedule_settings').get();
-        if (!settingsDoc.exists) {
-            console.log('[リマインダー] スケジュール設定が見つからないため、セットアップをスキップします。');
-            return;
-        }
+        if (!settingsDoc.exists) { return; }
         const settings = settingsDoc.data();
         if (settings.remindersEnabled && settings.reminderTime) {
             const [hour, minute] = settings.reminderTime.split(':');
             const cronExpression = `${minute} ${hour} * * *`;
+
             if (cron.validate(cronExpression)) {
                 const scheduleCommand = client.commands.get('schedule');
                 if (scheduleCommand && typeof scheduleCommand.scheduleDailyReminder === 'function') {
                     dailyReminderTask = cron.schedule(cronExpression, () => {
-                        console.log(`[リマインダー] 定刻(${settings.reminderTime})になりました。リマインダー処理を実行します。`);
                         scheduleCommand.scheduleDailyReminder(client, db);
                     }, { scheduled: true, timezone: "Asia/Tokyo" });
                     console.log(`[リマインダー] セットアップ完了。毎日 ${settings.reminderTime} にリマインダーが送信されます。`);
                 }
-            } else {
-                console.error(`[リマインダー] エラー: 保存されている時刻 "${settings.reminderTime}" は無効な形式です。`);
             }
-        } else {
-            console.log('[リマインダー] リマインダーが無効か、時刻が未設定のため、スケジュールされませんでした。');
         }
     } catch (error) {
         console.error('[リマインダー] スケジュールセットアップ中にエラーが発生しました:', error);
@@ -133,6 +125,10 @@ adminRouter.get('/api/settings', verifyFirebaseToken, async (req, res) => {
         const schedulePromise = db.collection('bot_settings').doc('schedule_settings').get();
         const [tokaDoc, scheduleDoc] = await Promise.all([tokaPromise, schedulePromise]);
 
+        if (!tokaDoc.exists && !scheduleDoc.exists) {
+            return res.status(404).json({ message: '設定がまだありません。' });
+        }
+
         const tokaData = tokaDoc.exists ? tokaDoc.data() : {};
         const scheduleData = scheduleDoc.exists ? scheduleDoc.data() : {};
         
@@ -170,13 +166,16 @@ adminRouter.post('/api/settings', verifyFirebaseToken, async (req, res) => {
         const tokaDocRef = db.collection('bot_settings').doc('toka_profile');
         const scheduleDocRef = db.collection('bot_settings').doc('schedule_settings');
         
+        const docSnap = await tokaDocRef.get();
+        const currentSettings = docSnap.exists ? docSnap.data() : {};
+
         if (toka) {
-            const docSnap = await tokaDocRef.get();
-            const currentAdmins = (docSnap.exists && Array.isArray(docSnap.data().admins)) ? docSnap.data().admins : [];
+            const currentAdmins = currentSettings.admins || [];
             const superAdminEmail = currentAdmins.length > 0 ? currentAdmins[0].email : null;
             const newAdminEmails = (toka.admins || []).map(a => a.email);
             const currentAdminEmails = currentAdmins.map(a => a.email);
             const adminsChanged = JSON.stringify([...currentAdminEmails].sort()) !== JSON.stringify([...newAdminEmails].sort());
+
             if (adminsChanged && superAdminEmail && req.user.email !== superAdminEmail) {
                 return res.status(403).json({ message: 'エラー: 管理者リストの変更は最高管理者のみ許可されています。' });
             }
@@ -202,63 +201,6 @@ adminRouter.post('/api/settings', verifyFirebaseToken, async (req, res) => {
         console.error('POST /api/settings エラー:', error);
         res.status(500).json({ message: '設定の保存中にサーバーエラーが発生しました。' });
     }
-});
-
-adminRouter.get('/api/schedule/items', verifyFirebaseToken, async (req, res) => {
-    try {
-        const settingsDoc = await db.collection('bot_settings').doc('schedule_settings').get();
-        if (!settingsDoc.exists || !settingsDoc.data().googleSheetId) return res.status(404).json([]);
-        
-        const { googleSheetId, googleServiceAccountJson } = settingsDoc.data();
-        const scheduleCommand = client.commands.get('schedule');
-        if (!scheduleCommand || typeof scheduleCommand.getSheetsClient !== 'function') throw new Error("scheduleコマンドまたはgetSheetsClient関数が見つかりません。");
-        
-        const sheetsClient = await scheduleCommand.getSheetsClient(googleServiceAccountJson);
-        const response = await sheetsClient.spreadsheets.values.get({ spreadsheetId: googleSheetId, range: 'シート1!A2:C' });
-        res.status(200).json(response.data.values || []);
-    } catch (error) {
-        res.status(500).json({ message: 'スプレッドシートの予定読み込みに失敗しました。' });
-    }
-});
-
-adminRouter.post('/api/schedule/items', verifyFirebaseToken, async (req, res) => {
-    try {
-        const { items } = req.body;
-        if (!Array.isArray(items)) return res.status(400).json({ message: '無効なデータ形式です。' });
-
-        const settingsDoc = await db.collection('bot_settings').doc('schedule_settings').get();
-        if (!settingsDoc.exists || !settingsDoc.data().googleSheetId) return res.status(400).json({ message: 'スプレッドシートが設定されていません。' });
-
-        const { googleSheetId, googleServiceAccountJson } = settingsDoc.data();
-        const scheduleCommand = client.commands.get('schedule');
-        if (!scheduleCommand || typeof scheduleCommand.getSheetsClient !== 'function') throw new Error("scheduleコマンドまたはgetSheetsClient関数が見つかりません。");
-
-        const sheets = await scheduleCommand.getSheetsClient(googleServiceAccountJson);
-        const range = 'シート1!A2:C';
-        await sheets.spreadsheets.values.clear({ spreadsheetId: googleSheetId, range });
-        if (items.length > 0) {
-            await sheets.spreadsheets.values.update({ spreadsheetId: googleSheetId, range, valueInputOption: 'USER_ENTERED', resource: { values: items } });
-        }
-        res.status(200).json({ message: '予定リストをスプレッドシートに保存しました。' });
-    } catch (error) {
-        res.status(500).json({ message: '予定リストの保存に失敗しました。' });
-    }
-});
-
-adminRouter.post('/api/generate-invite-code', verifyFirebaseToken, async (req, res) => {
-    try {
-        const settingsDoc = await db.collection('bot_settings').doc('toka_profile').get();
-        const admins = (settingsDoc.exists && Array.isArray(settingsDoc.data().admins)) ? settingsDoc.data().admins : [];
-        const superAdminEmail = admins.length > 0 ? admins[0].email : null;
-        if (!superAdminEmail || req.user.email !== superAdminEmail) return res.status(403).json({ message: '招待コードの発行は最高管理者のみ許可されています。' });
-        
-        const newCode = uuidv4().split('-')[0].toUpperCase();
-        await db.collection('invitation_codes').doc(newCode).set({
-            code: newCode, createdAt: admin.firestore.FieldValue.serverTimestamp(),
-            createdBy: req.user.email, used: false, usedBy: null, usedAt: null
-        });
-        res.status(201).json({ code: newCode });
-    } catch (error) { res.status(500).json({ message: '招待コードの生成に失敗しました。' }); }
 });
 
 adminRouter.post('/api/register-with-invite', async (req, res) => {
@@ -294,13 +236,8 @@ app.use((req, res, next) => {
         next();
     }
 });
-app.get('/:code', async (req, res) => {
-    const { code } = req.params;
-    if (code === 'favicon.ico') return res.status(204).send();
-});
 app.listen(port, () => {
     console.log(`[情報] Webサーバーがポート ${port} で起動しました。`);
-    console.log(`[情報] 管理ページ: https://${process.env.ADMIN_DOMAIN}`);
 });
 
 // =================================================================================
