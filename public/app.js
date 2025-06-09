@@ -1,278 +1,289 @@
-document.addEventListener('DOMContentLoaded', () => {
-    firebase.initializeApp(firebaseConfig);
-    const auth = firebase.auth();
+// =================================================================================
+// モジュールのインポート
+// =================================================================================
+const fs = require('node:fs');
+const path = require('node:path');
+const { Client, GatewayIntentBits, Collection, Events } = require('discord.js');
+const dotenv = require('dotenv');
+const express = require('express');
+const axios = require('axios');
+const admin = require('firebase-admin');
+const ejs = require('ejs');
 
-    // DOM Elements
-    const nicknamesListContainer = document.getElementById('nicknames-list-container');
-    const addNicknameBtn = document.getElementById('add-nickname-btn');
-    const adminsListContainer = document.getElementById('admins-list-container');
-    const addAdminBtn = document.getElementById('add-admin-btn');
-    const adminSettingsSection = document.getElementById('admin-settings-section');
-    const authContainer = document.getElementById('auth-container');
-    const mainContent = document.getElementById('main-content');
-    const userEmailEl = document.getElementById('user-email');
-    const statusMessage = document.getElementById('status-message');
-    const loginEmailInput = document.getElementById('login-email');
-    const loginPasswordInput = document.getElementById('login-password');
-    const baseUserIdInput = document.getElementById('base-user-id-input');
-    const promptTextarea = document.getElementById('prompt-textarea');
-    const nameRecognitionCheckbox = document.getElementById('name-recognition-checkbox');
-    const loginBtn = document.getElementById('login-btn');
-    const logoutBtn = document.getElementById('logout-btn');
-    const saveBtn = document.getElementById('save-btn');
-    const forgotPasswordLink = document.getElementById('forgot-password-link');
+dotenv.config();
 
-    // ▼▼▼ UIの状態を管理するための変数を追加 ▼▼▼
-    let state = {
-        admins: [],
-        isSuperAdmin: false
-    };
+// =================================================================================
+// Firebase Admin SDKの初期化
+// =================================================================================
+try {
+    const serviceAccountString = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
+    if (!serviceAccountString) throw new Error('環境変数 `FIREBASE_SERVICE_ACCOUNT_JSON` が設定されていません。');
+    const serviceAccount = JSON.parse(serviceAccountString);
+    admin.initializeApp({ credential: admin.credential.cert(serviceAccount) });
+    console.log('[情報] Firebase Admin SDKが正常に初期化されました。');
+} catch (error) {
+    console.error('[致命的エラー] Firebase Admin SDKの初期化に失敗しました:', error.message);
+    process.exit(1);
+}
+const db = admin.firestore();
 
-    auth.onAuthStateChanged(user => {
-        if (user) {
-            authContainer.style.display = 'none';
-            mainContent.style.display = 'block';
-            userEmailEl.textContent = user.email;
-            fetchSettings(user);
-        } else {
-            authContainer.style.display = 'block';
-            mainContent.style.display = 'none';
-        }
-    });
-
-    loginBtn.addEventListener('click', () => {
-        const email = loginEmailInput.value;
-        const password = loginPasswordInput.value;
-        statusMessage.textContent = "";
-        auth.signInWithEmailAndPassword(email, password)
-            .catch(err => { statusMessage.textContent = `ログインエラー: IDまたはパスワードが違います。`; });
-    });
-
-    logoutBtn.addEventListener('click', () => auth.signOut());
-
-    forgotPasswordLink.addEventListener('click', (e) => {
-        e.preventDefault();
-        const email = loginEmailInput.value;
-        if (!email) {
-            statusMessage.textContent = 'パスワードをリセットするために、メールアドレスを入力してください。';
-            return;
-        }
-        statusMessage.textContent = '送信中...';
-        auth.sendPasswordResetEmail(email)
-            .then(() => { statusMessage.textContent = `${email} にパスワード再設定用のメールを送信しました。`; })
-            .catch(err => { statusMessage.textContent = `エラー: ${err.message}`; });
-    });
-
-    // --- ニックネームUI関連の関数 (変更なし) ---
-    function createNicknameEntry(id = '', name = '') {
-        const entryDiv = document.createElement('div');
-        entryDiv.className = 'nickname-entry';
-        entryDiv.innerHTML = `
-            <input type="text" class="nickname-id" placeholder="ユーザーID" value="${id}">
-            <input type="text" class="nickname-name" placeholder="ニックネーム" value="${name}">
-            <button type="button" class="delete-nickname-btn">削除</button>
-        `;
-        nicknamesListContainer.appendChild(entryDiv);
+// =================================================================================
+// Discordクライアントの初期化とコマンド読み込み
+// =================================================================================
+const client = new Client({
+    intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent]
+});
+client.commands = new Collection();
+client.db = db;
+const commandsPath = path.join(__dirname, 'commands');
+const commandFiles = fs.readdirSync(commandsPath).filter(file => file.endsWith('.js'));
+for (const file of commandFiles) {
+    const filePath = path.join(commandsPath, file);
+    const command = require(filePath);
+    if ('data' in command && 'execute' in command) {
+        client.commands.set(command.data.name, command);
+        console.log(`[情報] コマンドを読み込みました: /${command.data.name}`);
     }
-    addNicknameBtn.addEventListener('click', () => createNicknameEntry());
-    nicknamesListContainer.addEventListener('click', (e) => {
-        if (e.target.classList.contains('delete-nickname-btn')) {
-            e.target.closest('.nickname-entry').remove();
-        }
-    });
+}
 
-    // --- ▼▼▼ 管理者UIのロジックを全面的に書き換え ▼▼▼ ---
+// =================================================================================
+// Expressサーバーの設定
+// =================================================================================
+const app = express();
+const port = process.env.PORT || 80;
 
-    // state.admins 配列を元に、UIを完全に再描画する関数
-    function renderAdminList() {
-        adminsListContainer.innerHTML = ''; // リストを一旦空にする
+const adminRouter = express.Router();
+app.set('view engine', 'ejs');
+app.set('views', path.join(__dirname, 'views'));
+adminRouter.use(express.static(path.join(__dirname, 'public')));
+adminRouter.use(express.json());
+
+// Firebaseトークンを検証し、管理者リストによる認可も行うミドルウェア
+const verifyFirebaseToken = async (req, res, next) => {
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        return res.status(401).send('Unauthorized: No token provided.');
+    }
+    const idToken = authHeader.split('Bearer ')[1];
+    try {
+        const decodedToken = await admin.auth().verifyIdToken(idToken);
         
-        state.admins.forEach((email, index) => {
-            const entryDiv = document.createElement('div');
-            entryDiv.className = 'admin-entry';
-            entryDiv.setAttribute('draggable', state.isSuperAdmin);
+        const settingsDoc = await db.collection('bot_settings').doc('toka_profile').get();
+        const admins = (settingsDoc.exists && Array.isArray(settingsDoc.data().admins)) ? settingsDoc.data().admins : [];
 
-            // データ属性にインデックスを保持
-            entryDiv.dataset.index = index; 
+        // --- デバッグログ ---
+        console.log('\n========================');
+        console.log('🔑 管理者チェック開始');
+        console.log('👤 アクセスしてきたユーザー:', decodedToken.email);
+        console.log('👥 DBの管理者リスト:', admins);
+        
+        const isAllowed = admins.length === 0 || admins.includes(decodedToken.email);
+        
+        console.log('✅ アクセス許可:', isAllowed ? 'はい' : 'いいえ');
+        console.log('========================\n');
+        // --- デバッグログここまで ---
 
-            if (index === 0) {
-                entryDiv.classList.add('super-admin');
-                entryDiv.innerHTML = `
-                    <input type="email" class="admin-email" placeholder="管理者メールアドレス" value="${email}">
-                    <span class="super-admin-label">👑 最高管理者</span>
-                    <button type="button" class="delete-admin-btn">削除</button>
-                `;
-            } else {
-                entryDiv.innerHTML = `
-                    <input type="email" class="admin-email" placeholder="管理者メールアドレス" value="${email}">
-                    <button type="button" class="delete-admin-btn">削除</button>
-                `;
+        if (!isAllowed) {
+            return res.status(403).send('Forbidden: Access is denied.');
+        }
+
+        req.user = decodedToken;
+        next();
+    } catch (error) {
+        console.error('認証エラー:', error);
+        res.status(403).send('Unauthorized: Invalid token');
+    }
+};
+
+// 設定パネルのHTMLをレンダリング
+adminRouter.get('/', (req, res) => {
+    const firebaseConfig = {
+        apiKey: process.env.FIREBASE_API_KEY,
+        authDomain: process.env.FIREBASE_AUTH_DOMAIN,
+        projectId: process.env.FIREBASE_PROJECT_ID,
+        storageBucket: process.env.FIREBASE_STORAGE_BUCKET,
+        messagingSenderId: process.env.FIREBASE_MESSAGING_SENDER_ID,
+        appId: process.env.FIREBASE_APP_ID,
+    };
+    res.render('index', { firebaseConfig });
+});
+
+// GET /api/settings/toka (設定の読み込み)
+adminRouter.get('/api/settings/toka', verifyFirebaseToken, async (req, res) => {
+    try {
+        const doc = await db.collection('bot_settings').doc('toka_profile').get();
+        if (!doc.exists) {
+            return res.status(404).json({ message: '設定がまだありません。' });
+        }
+        const data = doc.data();
+        const admins = data.admins || [];
+        
+        let isSuperAdmin = false;
+        if (admins.length > 0) {
+            const superAdminEmail = admins[0];
+            isSuperAdmin = (req.user.email === superAdminEmail);
+        } else {
+            isSuperAdmin = true;
+        }
+
+        const responseData = {
+            baseUserId: data.baseUserId || null,
+            systemPrompt: data.systemPrompt || '',
+            enableNameRecognition: data.enableNameRecognition ?? true,
+            userNicknames: data.userNicknames || {},
+            admins: admins,
+            currentUser: {
+                isSuperAdmin: isSuperAdmin
             }
-            adminsListContainer.appendChild(entryDiv);
+        };
+        res.status(200).json(responseData);
+
+    } catch (error) {
+        console.error('GET /api/settings/toka エラー:', error);
+        res.status(500).json({ message: 'サーバーエラー' });
+    }
+});
+
+// POST /api/settings/toka (設定の保存)
+adminRouter.post('/api/settings/toka', verifyFirebaseToken, async (req, res) => {
+    try {
+        const {
+            systemPrompt,
+            baseUserId,
+            enableNameRecognition,
+            userNicknames,
+            admins: newAdminsList
+        } = req.body;
+
+        // --- デバッグログ ---
+        console.log('\n========================');
+        console.log('💾 設定保存リクエスト受信');
+        console.log('1. フロントエンドから受け取ったadminsリスト:', newAdminsList);
+        // ---
+
+        const docRef = db.collection('bot_settings').doc('toka_profile');
+        const docSnap = await docRef.get();
+        const currentSettings = docSnap.exists ? docSnap.data() : {};
+        const currentAdmins = currentSettings.admins || [];
+        
+        // --- デバッグログ ---
+        console.log('2. DBに現在保存されているadminsリスト:', currentAdmins);
+        // ---
+
+        const superAdminEmail = currentAdmins.length > 0 ? currentAdmins[0] : null;
+        const adminsChanged = JSON.stringify(currentAdmins.sort()) !== JSON.stringify((newAdminsList || []).sort());
+        
+        if (adminsChanged && superAdminEmail && req.user.email !== superAdminEmail) {
+            return res.status(403).json({ message: 'エラー: 管理者リストの変更は最高管理者のみ許可されています。' });
+        }
+
+        const newlyAddedAdmins = (newAdminsList || []).filter(email => !currentAdmins.includes(email));
+        const creationPromises = newlyAddedAdmins.map(async (email) => {
+            try {
+                await admin.auth().getUserByEmail(email);
+            } catch (error) {
+                if (error.code === 'auth/user-not-found') {
+                    await admin.auth().createUser({ email: email });
+                    return email;
+                }
+                throw error;
+            }
         });
         
-        // 最高管理者でない場合、UIを非表示にする
-        adminSettingsSection.style.display = state.isSuperAdmin ? 'block' : 'none';
-    }
+        const createdUsers = (await Promise.all(creationPromises)).filter(Boolean);
 
-    // 「+ 管理者を追加」ボタンの処理
-    addAdminBtn.addEventListener('click', () => {
-        state.admins.push(''); // 状態管理の配列に空の要素を追加
-        renderAdminList();    // 配列を元にUIを再描画
-    });
-    
-    // 「削除」と「入力内容の更新」の処理
-    adminsListContainer.addEventListener('click', (e) => {
-        if (e.target.classList.contains('delete-admin-btn')) {
-            const entry = e.target.closest('.admin-entry');
-            const index = parseInt(entry.dataset.index, 10);
-            state.admins.splice(index, 1); // 配列から要素を削除
-            renderAdminList();             // UIを再描画
+        let finalAdmins = newAdminsList || [];
+        if (finalAdmins.length === 0) {
+            finalAdmins.push(req.user.email);
         }
-    });
-    adminsListContainer.addEventListener('input', (e) => {
-        if (e.target.classList.contains('admin-email')) {
-            const entry = e.target.closest('.admin-entry');
-            const index = parseInt(entry.dataset.index, 10);
-            state.admins[index] = e.target.value; // 配列の値を更新
-        }
-    });
-    
-    // --- ドラッグ＆ドロップ関連の処理 ---
-    let draggedIndex = null;
-
-    adminsListContainer.addEventListener('dragstart', (e) => {
-        if (!state.isSuperAdmin || !e.target.classList.contains('admin-entry')) return;
-        draggedIndex = parseInt(e.target.dataset.index, 10);
-        setTimeout(() => e.target.classList.add('dragging'), 0);
-    });
-
-    adminsListContainer.addEventListener('dragend', (e) => {
-        if (!e.target.classList.contains('admin-entry')) return;
-        e.target.classList.remove('dragging');
-        draggedIndex = null;
-    });
-
-    adminsListContainer.addEventListener('drop', (e) => {
-        if (!state.isSuperAdmin) return;
-        const dropTarget = e.target.closest('.admin-entry');
-        if (dropTarget && draggedIndex !== null) {
-            const dropIndex = parseInt(dropTarget.dataset.index, 10);
-            const draggedItem = state.admins.splice(draggedIndex, 1)[0];
-            state.admins.splice(dropIndex, 0, draggedItem);
-            renderAdminList(); // 状態が更新された配列を元にUIを再描画
-        }
-    });
-
-    adminsListContainer.addEventListener('dragover', (e) => {
-        if (!state.isSuperAdmin) return;
-        e.preventDefault();
-    });
-    
-    // --- 設定の読み込みと保存 ---
-    async function fetchSettings(user) {
-        statusMessage.textContent = '読込中...';
-        try {
-            const token = await user.getIdToken();
-            const res = await fetch('/api/settings/toka', { headers: { 'Authorization': `Bearer ${token}` } });
-            
-            nicknamesListContainer.innerHTML = ''; 
-            adminsListContainer.innerHTML = '';
-
-            if (res.status === 404) {
-                statusMessage.textContent = '設定はまだありません。';
-                baseUserIdInput.value = '';
-                promptTextarea.value = '';
-                nameRecognitionCheckbox.checked = true;
-                
-                state.admins = [user.email]; // 状態を更新
-                state.isSuperAdmin = true;
-                renderAdminList(); // 状態を元にUIを描画
-                return;
-            }
-
-            if (res.status === 403) {
-                statusMessage.textContent = 'エラー: このページへのアクセス権がありません。';
-                mainContent.innerHTML = `<h2>アクセスが拒否されました</h2><p>あなたのアカウント(${user.email})には、この設定パネルを閲覧・編集する権限がありません。最高管理者に連絡してください。</p><button id="logout-btn-fallback">ログアウト</button>`;
-                document.getElementById('logout-btn-fallback').addEventListener('click', () => auth.signOut());
-                return;
-            }
-            if (!res.ok) throw new Error('設定の読み込みに失敗しました');
-
-            const data = await res.json();
-            baseUserIdInput.value = data.baseUserId || '';
-            promptTextarea.value = data.systemPrompt || '';
-            nameRecognitionCheckbox.checked = data.enableNameRecognition ?? true;
-
-            if (data.userNicknames) {
-                for (const [id, name] of Object.entries(data.userNicknames)) {
-                    createNicknameEntry(id, name);
-                }
-            }
-            
-            state.admins = data.admins || []; // 状態を更新
-            state.isSuperAdmin = data.currentUser && data.currentUser.isSuperAdmin;
-            renderAdminList(); // 状態を元にUIを描画
-
-            statusMessage.textContent = '設定を読み込みました';
-        } catch (err) { statusMessage.textContent = `エラー: ${err.message}`; }
-    }
-
-    saveBtn.addEventListener('click', async () => {
-        const user = auth.currentUser;
-        if (!user) return;
         
-        statusMessage.textContent = '保存中...';
-        saveBtn.disabled = true;
+        const dataToSave = {
+            systemPrompt,
+            baseUserId: baseUserId || null,
+            enableNameRecognition: enableNameRecognition ?? true,
+            userNicknames: userNicknames || {},
+            admins: finalAdmins,
+            updatedBy: req.user.email,
+            updatedAt: admin.firestore.FieldValue.serverTimestamp()
+        };
         
-        try {
-            const token = await user.getIdToken();
-            
-            const nicknamesObject = {};
-            const nicknameEntries = document.querySelectorAll('.nickname-entry');
-            nicknameEntries.forEach(entry => {
-                const id = entry.querySelector('.nickname-id').value.trim();
-                const name = entry.querySelector('.nickname-name').value.trim();
-                if (id && name) {
-                    nicknamesObject[id] = name;
-                }
-            });
-            
-            // 状態管理している配列からデータを取得
-            const adminsArray = state.admins.map(email => email.trim()).filter(email => email);
+        // --- デバッグログ ---
+        console.log('3. DBにこれから保存するadminsリスト:', dataToSave.admins);
+        // ---
 
-            const settings = {
-                baseUserId: baseUserIdInput.value,
-                systemPrompt: promptTextarea.value,
-                enableNameRecognition: nameRecognitionCheckbox.checked,
-                userNicknames: nicknamesObject,
-                admins: adminsArray
-            };
-
-            const res = await fetch('/api/settings/toka', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-                body: JSON.stringify(settings)
-            });
-
-            if (!res.ok) {
-                const errorData = await res.json();
-                throw new Error(errorData.message || '保存に失敗しました');
+        await db.collection('settings_history').add({
+            timestamp: admin.firestore.FieldValue.serverTimestamp(),
+            changedBy: req.user.email,
+            changes: {
+                before: currentSettings,
+                after: dataToSave
             }
+        });
+        
+        await docRef.set(dataToSave, { merge: true });
 
-            const result = await res.json();
-            statusMessage.textContent = result.message || '保存しました！';
-            
-            if (result.createdUsers && result.createdUsers.length > 0) {
-                // (メール送信処理は変更なし)
-            }
-            
-            await fetchSettings(user);
+        console.log('4. 保存完了');
+        console.log('========================\n');
 
-        } catch (err) { 
-            statusMessage.textContent = `エラー: ${err.message}`; 
-        } finally { 
-            saveBtn.disabled = false; 
+        let message = '設定を更新しました。';
+        if (createdUsers.length > 0) {
+            message += `\n新規管理者 (${createdUsers.join(', ')}) のアカウントが作成されました。対象者は「パスワードを忘れた場合」のリンクから初期パスワードを設定してください。`;
         }
-    });
+
+        res.status(200).json({ 
+            message: message,
+            createdUsers: createdUsers
+        });
+
+    } catch (error) {
+        console.error('POST /api/settings/toka エラー:', error);
+        res.status(500).json({ message: 'サーバーエラーが発生しました。' });
+    }
 });
+
+
+// --- ドメイン名によって管理ページへのアクセスを制御 ---
+app.use((req, res, next) => {
+    if (req.hostname === process.env.ADMIN_DOMAIN) {
+        adminRouter(req, res, next);
+    } else {
+        next();
+    }
+});
+
+// --- その他のルート ---
+app.get('/:code', async (req, res) => {
+    const { code } = req.params;
+    if (code === 'favicon.ico') return res.status(204).send();
+    // (画像表示などの処理があればここに)
+});
+
+// Expressサーバーを起動
+app.listen(port, () => {
+    console.log(`[情報] Webサーバーがポート ${port} で起動しました。`);
+    console.log(`[情報] 管理ページ: https://${process.env.ADMIN_DOMAIN}`);
+});
+
+// =================================================================================
+// Discordイベントハンドラ & ログイン
+// =================================================================================
+client.once(Events.ClientReady, c => {
+    console.log('----------------------------------------------------');
+    console.log(`✅ ボット起動: ${c.user.tag}`);
+    c.application.commands.set(client.commands.map(cmd => cmd.data.toJSON()));
+});
+
+client.on(Events.InteractionCreate, async interaction => {
+    if (!interaction.isChatInputCommand()) return;
+    const command = client.commands.get(interaction.commandName);
+    if (!command) return;
+    try { await command.execute(interaction); }
+    catch (error) {
+        console.error(`コマンドエラー (${interaction.commandName}):`, error);
+        const reply = { content: 'コマンド実行中にエラーが発生しました。', ephemeral: true };
+        if (interaction.replied || interaction.deferred) await interaction.followUp(reply);
+        else await interaction.reply(reply);
+    }
+});
+
+client.login(process.env.DISCORD_TOKEN);
