@@ -109,49 +109,51 @@ async function scheduleDailyReminder(client, db) {
     let settings;
     try {
         const settingsDoc = await db.collection('bot_settings').doc('schedule_settings').get();
-        if (!settingsDoc.exists || !settingsDoc.data().remindersEnabled) return null;
+        if (!settingsDoc.exists || !settingsDoc.data().remindersEnabled) return;
         settings = settingsDoc.data();
-    } catch (error) { return null; }
+    } catch (error) { return; }
 
     const { googleSheetId, googleServiceAccountJson, reminderGuildId, reminderRoleId } = settings;
-    if (!googleSheetId || !googleServiceAccountJson || !reminderGuildId || !reminderRoleId) return null;
+    if (!googleSheetId || !googleServiceAccountJson || !reminderGuildId || !reminderRoleId) return;
     
+    console.log(`${logPrefix} 処理を開始します。`);
     const getTomorrowDateString = () => {
         const tomorrow = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Tokyo" }));
         tomorrow.setDate(tomorrow.getDate() + 1);
         return tomorrow.toISOString().slice(0, 10);
     };
     const tomorrowStr = getTomorrowDateString();
+    console.log(`${logPrefix} 明日の日付 (${tomorrowStr}) の宿題をチェックします...`);
     
     let sheets;
     try {
         sheets = await getSheetsClient(googleServiceAccountJson);
-    } catch (authError) { return null; }
+    } catch (authError) { return; }
 
     let allSchedules;
     try {
         const response = await sheets.spreadsheets.values.get({ spreadsheetId: googleSheetId, range: `${SHEET_NAME}!A2:C` });
         allSchedules = response.data.values || [];
-    } catch (error) { return null; }
+    } catch (error) { return; }
     
     const cleanedSchedules = allSchedules.map(row => ({ type: (row[0] || '').trim(), task: (row[1] || '').trim(), due: (row[2] || '').trim() })).filter(s => s.task);
     const homeworkDueTomorrow = cleanedSchedules.filter(s => s.due === tomorrowStr && s.type === '課題');
-    if (homeworkDueTomorrow.length === 0) return null;
+    if (homeworkDueTomorrow.length === 0) return;
     
-    const reminderEmbed = new EmbedBuilder().setTitle(`📢 明日提出の宿題リマインダー (${tomorrowStr})`).setColor(0xFFB700).setDescription('以下の宿題が明日提出です。').setTimestamp().addFields(homeworkDueTomorrow.map(({ type, task }) => ({ name: `📝 ${task}`, value: `種別: ${type}` })));
+    const reminderEmbed = new EmbedBuilder().setTitle(`📢 明日提出の宿題リマインダー (${tomorrowStr})`).setColor(0xFFB700).setDescription('以下の宿題が明日提出です。忘れずに！').setTimestamp().addFields(homeworkDueTomorrow.map(({ type, task }) => ({ name: `📝 ${task}`, value: `種別: ${type}` })));
     
     try {
         const guild = await client.guilds.fetch(reminderGuildId);
         const role = await guild.roles.fetch(reminderRoleId);
-        if (!role) return null;
+        if (!role) return;
         await guild.members.fetch();
         const membersWithRole = role.members;
         for (const member of membersWithRole.values()) {
             if (member.user.bot) continue;
             try { await member.send({ embeds: [reminderEmbed] }); }
-            catch (dmError) { console.warn(`${logPrefix} ⚠️ ${member.user.tag} へのDM送信に失敗しました。`); }
+            catch (dmError) { console.warn(`${logPrefix} ⚠️ ${member.user.tag} へのDM送信失敗`); }
         }
-    } catch (error) { console.error(`${logPrefix} 送信処理中にエラーが発生しました:`, error); }
+    } catch (error) { console.error(`${logPrefix} 送信処理中にエラー:`, error); }
 }
 
 module.exports = {
@@ -187,11 +189,8 @@ module.exports = {
         const initialEmbed = schedulesExist ? createScheduleEmbed(schedules[currentIndex], currentIndex, totalSchedules) : null;
         const initialRow = updateScheduleButtons(currentIndex, totalSchedules, schedulesExist);
         const replyOptions = { components: [initialRow] };
-        if (initialEmbed) {
-            replyOptions.embeds = [initialEmbed];
-        } else {
-            replyOptions.content = '✅ 登録されている予定はありません。「追加」ボタンから新しい予定を登録できます。';
-        }
+        if (initialEmbed) { replyOptions.embeds = [initialEmbed]; }
+        else { replyOptions.content = '✅ 登録されている予定はありません。「追加」ボタンから新しい予定を登録できます。'; }
         
         const message = await interaction.editReply(replyOptions);
         const filter = i => i.user.id === interaction.user.id;
@@ -206,25 +205,25 @@ module.exports = {
                 const actionHandlers = {
                     'schedule_previous': () => { if (currentExist) currentIndex = Math.max(0, currentIndex - 1); },
                     'schedule_next': () => { if (currentExist) currentIndex = Math.min(currentTotal - 1, currentIndex + 1); },
-                    'schedule_add_modal_trigger': () => i.showModal(new ModalBuilder().setCustomId('schedule_add_text_modal').setTitle('新しい予定を文章で追加').addComponents(new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId('schedule_text_input').setLabel('予定の詳細を文章で入力').setStyle(TextInputStyle.Paragraph).setPlaceholder('例:\n・明日の数学の宿題\n・国語の音読 来週月曜まで').setRequired(true)))),
+                    'schedule_add_modal_trigger': () => i.showModal(new ModalBuilder().setCustomId('schedule_add_text_modal').setTitle('新しい予定を文章で追加').addComponents(new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId('schedule_text_input').setLabel('予定の詳細を文章で入力').setStyle(TextInputStyle.Paragraph).setRequired(true)))),
                     'schedule_edit_modal_trigger': () => {
                         if (!currentExist || !schedules[currentIndex]) return i.reply({ content: '編集対象の予定がありません。', ephemeral: true });
                         const [type, task, due] = schedules[currentIndex];
-                        const modal = new ModalBuilder().setCustomId(`schedule_edit_modal_submit_${currentIndex}`).setTitle('予定を編集').addComponents(
+                        return i.showModal(new ModalBuilder().setCustomId(`schedule_edit_modal_submit_${currentIndex}`).setTitle('予定を編集').addComponents(
                             new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId('edit_type_input').setLabel('種別').setStyle(TextInputStyle.Short).setValue(type || '').setRequired(false)),
                             new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId('edit_task_input').setLabel('内容').setStyle(TextInputStyle.Paragraph).setValue(task || '').setRequired(true)),
                             new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId('edit_due_input').setLabel('期限').setStyle(TextInputStyle.Short).setValue(due || '').setRequired(false))
-                        );
-                        return i.showModal(modal);
+                        ));
                     },
-                    'schedule_delete_modal_trigger': () => i.showModal(new ModalBuilder().setCustomId('schedule_delete_text_modal').setTitle('削除する予定の情報を入力').addComponents(new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId('schedule_delete_description_input').setLabel('削除したい予定の特徴を教えてください').setStyle(TextInputStyle.Paragraph).setPlaceholder('例: 「数学の宿題」と「来週のレポート」').setRequired(true))))
+                    'schedule_delete_modal_trigger': () => i.showModal(new ModalBuilder().setCustomId('schedule_delete_text_modal').setTitle('削除する予定の情報を入力').addComponents(new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId('schedule_delete_description_input').setLabel('削除したい予定の特徴を教えてください').setStyle(TextInputStyle.Paragraph).setRequired(true))))
                 };
                 const handler = actionHandlers[i.customId];
                 if (typeof handler === 'function') { if (await handler()) return; }
                 const newEmbed = currentExist ? createScheduleEmbed(schedules[currentIndex], currentIndex, currentTotal) : null;
                 const newRow = updateScheduleButtons(currentIndex, currentTotal, currentExist);
                 const updateOptions = { components: [newRow] };
-                if (newEmbed) { updateOptions.embeds = [newEmbed]; updateOptions.content = null; } else { updateOptions.embeds = []; updateOptions.content = '✅ 登録されている予定はありません。「追加」ボタンから新しい予定を登録できます。'; }
+                if (newEmbed) { updateOptions.embeds = [newEmbed]; updateOptions.content = null; }
+                else { updateOptions.embeds = []; updateOptions.content = '✅ 登録されている予定はありません。「追加」ボタンから新しい予定を登録できます。'; }
                 await i.update(updateOptions);
             } catch (error) { console.error('ボタン操作中のエラー:', error); }
         });
@@ -257,13 +256,11 @@ module.exports = {
     async handleScheduleDeleteModal(interaction) {
         await interaction.deferReply({ ephemeral: true });
         const userInput = interaction.fields.getTextInputValue('schedule_delete_description_input');
-        
         const db = interaction.client.db;
         const settingsDoc = await db.collection('bot_settings').doc('schedule_settings').get();
         if (!settingsDoc.exists) return interaction.editReply({ content: '❌ スケジュール設定が見つかりません。' });
         const { googleSheetId, googleServiceAccountJson } = settingsDoc.data();
         if (!googleSheetId || !googleServiceAccountJson) return interaction.editReply({ content: '❌ スケジュール設定に不備があります。' });
-
         let sheets, currentSchedules;
         try {
             sheets = await getSheetsClient(googleServiceAccountJson);
@@ -274,10 +271,8 @@ module.exports = {
 
         const { indicesToDelete, reason } = await extractDeletionTargetWithAI(userInput, currentSchedules);
         if (!indicesToDelete || indicesToDelete.length === 0) return interaction.editReply({ content: `❌ AIが削除対象を特定できませんでした。\n> **AIの理由:** ${reason || '不明'}` });
-        
         const validSortedIndices = [...new Set(indicesToDelete)].filter(idx => typeof idx === 'number' && idx >= 0 && idx < currentSchedules.length).sort((a, b) => b - a);
         if (validSortedIndices.length === 0) return interaction.editReply({ content: `❌ 有効な削除対象が見つかりませんでした。` });
-
         try {
             const spreadsheetInfo = await sheets.spreadsheets.get({ spreadsheetId: googleSheetId });
             const sheet1 = spreadsheetInfo.data.sheets.find(s => s.properties.title === SHEET_NAME);
@@ -292,16 +287,13 @@ module.exports = {
         const newTask = interaction.fields.getTextInputValue('edit_task_input').trim();
         const newDueRaw = interaction.fields.getTextInputValue('edit_due_input').trim() || '未定';
         if (!newTask) return interaction.editReply({ content: '❌ 「内容」は必須です。' });
-        
         const extracted = await extractScheduleInfoWithAI(`${newType} ${newTask} ${newDueRaw}`);
         const newDue = (extracted.length > 0 && extracted[0].due) ? extracted[0].due : newDueRaw;
-
         const db = interaction.client.db;
         const settingsDoc = await db.collection('bot_settings').doc('schedule_settings').get();
         if (!settingsDoc.exists) return interaction.editReply({ content: '❌ スケジュール設定が見つかりません。' });
         const { googleSheetId, googleServiceAccountJson } = settingsDoc.data();
         if (!googleSheetId || !googleServiceAccountJson) return interaction.editReply({ content: '❌ スケジュール設定に不備があります。' });
-
         try {
             const sheets = await getSheetsClient(googleServiceAccountJson);
             await sheets.spreadsheets.values.update({
