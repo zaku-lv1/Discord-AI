@@ -78,12 +78,12 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // --- 管理者UI関連の関数 ---
-    function renderAdminList(emails = [], isSuperAdmin = false) {
+    function renderAdminList(emails = []) {
         adminsListContainer.innerHTML = '';
         emails.forEach((email, index) => {
             const entryDiv = document.createElement('div');
             entryDiv.className = 'admin-entry';
-            entryDiv.setAttribute('draggable', isSuperAdmin); // 最高管理者のみドラッグ可能
+            entryDiv.setAttribute('draggable', true);
 
             if (index === 0) {
                 entryDiv.classList.add('super-admin');
@@ -100,30 +100,19 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             adminsListContainer.appendChild(entryDiv);
         });
-        
-        // 全ての入力欄とボタンの有効/無効状態を制御
-        const adminControls = adminSettingsSection.querySelectorAll('input, button');
-        adminControls.forEach(control => {
-            control.disabled = !isSuperAdmin;
-        });
     }
 
-    // ▼▼▼ 「+管理者を追加」ボタンの処理を修正 ▼▼▼
     addAdminBtn.addEventListener('click', () => {
-        // 現在のUIからメールアドレスのリストを取得
         const currentEmails = Array.from(adminsListContainer.querySelectorAll('.admin-email')).map(input => input.value);
-        // 末尾に空の要素（新しい入力欄用）を追加
         currentEmails.push('');
-        // 新しいリストで全体を再描画する
-        renderAdminList(currentEmails, true); // trueを渡し、新しい行も操作可能にする
+        renderAdminList(currentEmails);
     });
     
     adminsListContainer.addEventListener('click', (e) => {
         if (e.target.classList.contains('delete-admin-btn')) {
             e.target.closest('.admin-entry').remove();
             const currentEmails = Array.from(adminsListContainer.querySelectorAll('.admin-email')).map(input => input.value);
-            const isSuperAdmin = !addAdminBtn.disabled;
-            renderAdminList(currentEmails, isSuperAdmin);
+            renderAdminList(currentEmails);
         }
     });
 
@@ -131,7 +120,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let draggedItem = null;
 
     adminsListContainer.addEventListener('dragstart', (e) => {
-        if (!e.target.classList.contains('admin-entry') || addAdminBtn.disabled) return;
+        if (!e.target.classList.contains('admin-entry')) return;
         draggedItem = e.target;
         setTimeout(() => e.target.classList.add('dragging'), 0);
     });
@@ -140,12 +129,10 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!e.target.classList.contains('admin-entry')) return;
         e.target.classList.remove('dragging');
         const currentEmails = Array.from(adminsListContainer.querySelectorAll('.admin-email')).map(input => input.value);
-        const isSuperAdmin = !addAdminBtn.disabled;
-        renderAdminList(currentEmails, isSuperAdmin);
+        renderAdminList(currentEmails);
     });
 
     adminsListContainer.addEventListener('dragover', (e) => {
-        if (addAdminBtn.disabled) return;
         e.preventDefault();
         const afterElement = getDragAfterElement(adminsListContainer, e.clientY);
         const dragging = document.querySelector('.dragging');
@@ -186,7 +173,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 promptTextarea.value = '';
                 nameRecognitionCheckbox.checked = true;
                 adminSettingsSection.style.display = 'block';
-                renderAdminList([user.email], true);
+                renderAdminList([user.email]);
                 return;
             }
 
@@ -208,10 +195,14 @@ document.addEventListener('DOMContentLoaded', () => {
                     createNicknameEntry(id, name);
                 }
             }
-            
-            const isSuperAdmin = data.currentUser && data.currentUser.isSuperAdmin;
-            adminSettingsSection.style.display = 'block'; // セクションは常に表示
-            renderAdminList(data.admins || [], isSuperAdmin);
+
+            // ▼▼▼ ここを「非表示」ロジックに修正 ▼▼▼
+            if (data.currentUser && data.currentUser.isSuperAdmin) {
+                adminSettingsSection.style.display = 'block';
+                renderAdminList(data.admins || []);
+            } else {
+                adminSettingsSection.style.display = 'none';
+            }
 
             statusMessage.textContent = '設定を読み込みました';
         } catch (err) { statusMessage.textContent = `エラー: ${err.message}`; }
@@ -262,6 +253,27 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const result = await res.json();
             statusMessage.textContent = result.message || '保存しました！';
+            
+            if (result.createdUsers && result.createdUsers.length > 0) {
+                statusMessage.textContent += '\n新規管理者にパスワード設定メールを送信中...';
+                
+                const emailPromises = result.createdUsers.map(email => {
+                    return auth.sendPasswordResetEmail(email)
+                        .then(() => {
+                            console.log(`[情報] ${email} にパスワード設定メールを送信しました。`);
+                            return email;
+                        })
+                        .catch(err => {
+                            console.error(`[エラー] ${email} へのメール送信に失敗:`, err);
+                            return null;
+                        });
+                });
+
+                const sentEmails = (await Promise.all(emailPromises)).filter(Boolean);
+                if (sentEmails.length > 0) {
+                    statusMessage.textContent = result.message + `\n${sentEmails.join(', ')} にパスワード設定メールを送信しました。`;
+                }
+            }
             
             await fetchSettings(user);
 
