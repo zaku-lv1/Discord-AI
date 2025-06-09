@@ -83,12 +83,10 @@ async function cleanupExpiredSchedules(sheets, sheetId) {
         return deleteRequests.length;
     } catch (sheetError) { return 0; }
 }
-
 function createScheduleEmbed(scheduleItem, currentIndex, totalSchedules) {
     const [type, task, dueDate] = scheduleItem;
     return new EmbedBuilder().setTitle(`📝 ${type || 'N/A'} (${currentIndex + 1}/${totalSchedules})`).setColor(0x0099FF).addFields({ name: '内容', value: task || 'N/A' },{ name: '期限', value: dueDate || 'N/A' }).setTimestamp().setFooter({ text: `予定 ${currentIndex + 1} / ${totalSchedules}` });
 }
-
 function updateScheduleButtons(currentIndex, totalSchedules, schedulesExist) {
     const row = new ActionRowBuilder().addComponents(
         new ButtonBuilder().setCustomId('schedule_previous').setLabel('前の予定').setStyle(ButtonStyle.Primary).setDisabled(currentIndex === 0 || !schedulesExist),
@@ -112,7 +110,6 @@ async function scheduleDailyReminder(client, db) {
         if (!settingsDoc.exists || !settingsDoc.data().remindersEnabled) return;
         settings = settingsDoc.data();
     } catch (error) { return; }
-
     const { googleSheetId, googleServiceAccountJson, reminderGuildId, reminderRoleId } = settings;
     if (!googleSheetId || !googleServiceAccountJson || !reminderGuildId || !reminderRoleId) return;
     
@@ -123,12 +120,10 @@ async function scheduleDailyReminder(client, db) {
         return tomorrow.toISOString().slice(0, 10);
     };
     const tomorrowStr = getTomorrowDateString();
-    console.log(`${logPrefix} 明日の日付 (${tomorrowStr}) の宿題をチェックします...`);
     
     let sheets;
-    try {
-        sheets = await getSheetsClient(googleServiceAccountJson);
-    } catch (authError) { return; }
+    try { sheets = await getSheetsClient(googleServiceAccountJson); }
+    catch (authError) { return; }
 
     let allSchedules;
     try {
@@ -140,7 +135,7 @@ async function scheduleDailyReminder(client, db) {
     const homeworkDueTomorrow = cleanedSchedules.filter(s => s.due === tomorrowStr && s.type === '課題');
     if (homeworkDueTomorrow.length === 0) return;
     
-    const reminderEmbed = new EmbedBuilder().setTitle(`📢 明日提出の宿題リマインダー (${tomorrowStr})`).setColor(0xFFB700).setDescription('以下の宿題が明日提出です。忘れずに！').setTimestamp().addFields(homeworkDueTomorrow.map(({ type, task }) => ({ name: `📝 ${task}`, value: `種別: ${type}` })));
+    const reminderEmbed = new EmbedBuilder().setTitle(`📢 明日提出の宿題リマインダー (${tomorrowStr})`).setColor(0xFFB700).setDescription('以下の宿題が明日提出です。').setTimestamp().addFields(homeworkDueTomorrow.map(({ type, task }) => ({ name: `📝 ${task}`, value: `種別: ${type}` })));
     
     try {
         const guild = await client.guilds.fetch(reminderGuildId);
@@ -190,7 +185,7 @@ module.exports = {
         const initialRow = updateScheduleButtons(currentIndex, totalSchedules, schedulesExist);
         const replyOptions = { components: [initialRow] };
         if (initialEmbed) { replyOptions.embeds = [initialEmbed]; }
-        else { replyOptions.content = '✅ 登録されている予定はありません。「追加」ボタンから新しい予定を登録できます。'; }
+        else { replyOptions.content = '✅ 登録されている予定はありません。'; }
         
         const message = await interaction.editReply(replyOptions);
         const filter = i => i.user.id === interaction.user.id;
@@ -223,7 +218,7 @@ module.exports = {
                 const newRow = updateScheduleButtons(currentIndex, currentTotal, currentExist);
                 const updateOptions = { components: [newRow] };
                 if (newEmbed) { updateOptions.embeds = [newEmbed]; updateOptions.content = null; }
-                else { updateOptions.embeds = []; updateOptions.content = '✅ 登録されている予定はありません。「追加」ボタンから新しい予定を登録できます。'; }
+                else { updateOptions.embeds = []; updateOptions.content = '✅ 登録されている予定はありません。'; }
                 await i.update(updateOptions);
             } catch (error) { console.error('ボタン操作中のエラー:', error); }
         });
@@ -240,13 +235,11 @@ module.exports = {
         if (!extractedSchedules || extractedSchedules.length === 0) return interaction.editReply({ content: '❌ AIが予定情報を抽出できませんでした。' });
         const valuesToAppend = extractedSchedules.map(({ type, task, due }) => task ? [type || 'その他', task, due || '未定'] : null).filter(Boolean);
         if (valuesToAppend.length === 0) return interaction.editReply({ content: '❌ 有効な予定を作成できませんでした。' });
-        
         const db = interaction.client.db;
         const settingsDoc = await db.collection('bot_settings').doc('schedule_settings').get();
         if (!settingsDoc.exists) return interaction.editReply({ content: '❌ スケジュール設定が見つかりません。' });
         const { googleSheetId, googleServiceAccountJson } = settingsDoc.data();
         if (!googleSheetId || !googleServiceAccountJson) return interaction.editReply({ content: '❌ スケジュール設定に不備があります。' });
-
         try {
             const sheets = await getSheetsClient(googleServiceAccountJson);
             await sheets.spreadsheets.values.append({ spreadsheetId: googleSheetId, range: SHEET_NAME, valueInputOption: 'USER_ENTERED', resource: { values: valuesToAppend } });
@@ -268,7 +261,6 @@ module.exports = {
             currentSchedules = response.data.values || [];
             if (currentSchedules.length === 0) return interaction.editReply({ content: 'ℹ️ 削除対象の予定がありません。' });
         } catch (error) { return interaction.editReply({ content: '❌ スプレッドシートの読み込みに失敗しました。' }); }
-
         const { indicesToDelete, reason } = await extractDeletionTargetWithAI(userInput, currentSchedules);
         if (!indicesToDelete || indicesToDelete.length === 0) return interaction.editReply({ content: `❌ AIが削除対象を特定できませんでした。\n> **AIの理由:** ${reason || '不明'}` });
         const validSortedIndices = [...new Set(indicesToDelete)].filter(idx => typeof idx === 'number' && idx >= 0 && idx < currentSchedules.length).sort((a, b) => b - a);
