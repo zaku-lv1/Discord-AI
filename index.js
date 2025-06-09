@@ -9,7 +9,7 @@ const express = require('express');
 const axios = require('axios');
 const admin = require('firebase-admin');
 const ejs = require('ejs');
-const { v4: uuidv4 } = require('uuid'); // 招待コード生成用にuuidをインポート
+const { v4: uuidv4 } = require('uuid');
 
 dotenv.config();
 
@@ -153,8 +153,7 @@ adminRouter.post('/api/settings/toka', verifyFirebaseToken, async (req, res) => 
             updatedBy: req.user.email,
             updatedAt: admin.firestore.FieldValue.serverTimestamp()
         };
-
-        await docRef.set(dataToSave, { merge: true });
+        
         await db.collection('settings_history').add({
             timestamp: admin.firestore.FieldValue.serverTimestamp(),
             changedBy: req.user.email,
@@ -163,7 +162,9 @@ adminRouter.post('/api/settings/toka', verifyFirebaseToken, async (req, res) => 
                 after: dataToSave
             }
         });
-
+        
+        await docRef.set(dataToSave, { merge: true });
+        
         res.status(200).json({ message: '設定を更新しました。' });
     } catch (error) {
         console.error('POST /api/settings/toka エラー:', error);
