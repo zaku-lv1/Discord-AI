@@ -37,7 +37,7 @@ document.addEventListener('DOMContentLoaded', () => {
         admins: [],
         isSuperAdmin: false
     };
-
+    
     // --- ログイン/登録フォームの切り替え ---
     showRegisterFormLink.addEventListener('click', (e) => {
         e.preventDefault();
@@ -52,7 +52,7 @@ document.addEventListener('DOMContentLoaded', () => {
         statusMessage.textContent = '';
     });
 
-    // --- 新規登録処理 ---
+    // --- ▼▼▼ 新規登録処理を修正 ▼▼▼ ---
     registerBtn.addEventListener('click', async () => {
         const inviteCode = document.getElementById('register-invite-code').value.trim();
         const displayName = document.getElementById('register-display-name').value.trim();
@@ -62,6 +62,7 @@ document.addEventListener('DOMContentLoaded', () => {
         statusMessage.textContent = '登録中...';
         registerBtn.disabled = true;
         try {
+            // ステップ1: サーバーにアカウント作成を依頼
             const res = await fetch('/api/register-with-invite', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -70,14 +71,16 @@ document.addEventListener('DOMContentLoaded', () => {
             const result = await res.json();
             if (!res.ok) throw new Error(result.message || '登録に失敗しました。');
             
-            statusMessage.textContent = result.message;
-            document.getElementById('register-form').reset();
-            showLoginFormLink.click();
+            // ステップ2: サーバーでの作成が成功したら、その情報でそのままログインする
+            statusMessage.textContent = '登録成功！自動的にログインしています...';
+            await auth.signInWithEmailAndPassword(email, password);
+            
+            // これでonAuthStateChangedが発火し、自動的にダッシュボードに遷移する
+            // フォームのリセットや画面切り替えは不要になる
 
         } catch (err) {
             statusMessage.textContent = `エラー: ${err.message}`;
-        } finally {
-            registerBtn.disabled = false;
+            registerBtn.disabled = false; // エラー時のみボタンを有効に戻す
         }
     });
     
@@ -91,6 +94,14 @@ document.addEventListener('DOMContentLoaded', () => {
             mainContent.style.display = 'none';
             loginForm.style.display = 'block';
             registerForm.style.display = 'none';
+            // ログアウト時にフォームをリセット
+            if (document.getElementById('register-form')) {
+                document.getElementById('register-form').reset();
+            }
+            if (document.getElementById('login-form')) {
+                document.getElementById('login-form').reset();
+            }
+            statusMessage.textContent = '';
         }
     });
 
@@ -305,9 +316,20 @@ document.addEventListener('DOMContentLoaded', () => {
             if (state.isSuperAdmin) {
                 adminSettingsSection.style.display = 'block';
                 inviteCodeGeneratorSection.style.display = 'block';
+                // 最高管理者でも一般のコントロールは有効のまま
+                const adminControls = adminSettingsSection.querySelectorAll('input, button');
+                 adminControls.forEach(control => {
+                    control.disabled = false;
+                });
             } else {
-                adminSettingsSection.style.display = 'none';
+                adminSettingsSection.style.display = 'block'; // 一般管理者にもリストは表示
                 inviteCodeGeneratorSection.style.display = 'none';
+                // ただし、操作はできないようにする
+                const adminControls = adminSettingsSection.querySelectorAll('input, button');
+                adminControls.forEach(control => {
+                    control.disabled = true;
+                });
+                adminsListContainer.querySelectorAll('.admin-entry').forEach(entry => entry.draggable = false);
             }
 
             statusMessage.textContent = '設定を読み込みました';
@@ -324,19 +346,16 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             const token = await user.getIdToken();
             
-            // ▼▼▼ ニックネーム収集のロジックを修正 ▼▼▼
             const nicknamesObject = {};
             const nicknameEntries = document.querySelectorAll('.nickname-entry');
             nicknameEntries.forEach(entry => {
                 const id = entry.querySelector('.nickname-id').value.trim();
                 const name = entry.querySelector('.nickname-name').value.trim();
-                // IDさえあれば、名前が空でも保存対象とする
                 if (id) {
                     nicknamesObject[id] = name;
                 }
             });
 
-            // 状態管理している配列からデータを取得 (入力が不完全でも保存する)
             const adminsArray = state.admins;
 
             const settings = {
@@ -359,7 +378,6 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             const result = await res.json();
-            
             statusMessage.textContent = result.message || '保存しました！';
             
             await fetchSettings(user);
