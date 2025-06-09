@@ -18,32 +18,32 @@
         <h1>ボット設定管理パネル</h1>
         
         <div id="auth-container">
-            <div id="login-form">
+            <form id="login-form">
                 <h2>ログイン</h2>
                 <input type="email" id="login-email" placeholder="メールアドレス" required>
                 <input type="password" id="login-password" placeholder="パスワード" required>
                 <div class="login-actions">
-                    <button id="login-btn">ログイン</button>
+                    <button type="button" id="login-btn">ログイン</button>
                     <a href="#" id="forgot-password-link">パスワードを忘れた場合</a>
                 </div>
                 <div class="switch-form-link">
                     <a href="#" id="show-register-form-link">招待コードをお持ちですか？ 新規登録はこちら</a>
                 </div>
-            </div>
+            </form>
 
-            <div id="register-form" style="display:none;">
+            <form id="register-form" style="display:none;">
                 <h2>招待コードで新規登録</h2>
                 <input type="text" id="register-invite-code" placeholder="招待コード" required>
                 <input type="text" id="register-display-name" placeholder="表示名" required>
                 <input type="email" id="register-email" placeholder="メールアドレス" required>
                 <input type="password" id="register-password" placeholder="パスワード (6文字以上)" required>
                 <div class="login-actions">
-                    <button id="register-btn">登録</button>
+                    <button type="button" id="register-btn">登録</button>
                 </div>
                 <div class="switch-form-link">
                     <a href="#" id="show-login-form-link">アカウントをお持ちですか？ ログインはこちら</a>
                 </div>
-            </div>
+            </form>
         </div>
 
         <div id="main-content" style="display: none;">
