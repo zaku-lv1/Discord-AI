@@ -10,6 +10,7 @@ const axios = require('axios');
 const admin = require('firebase-admin');
 const ejs = require('ejs');
 const { v4: uuidv4 } = require('uuid');
+const cron = require('node-cron');
 
 dotenv.config();
 
@@ -36,6 +37,7 @@ const client = new Client({
 });
 client.commands = new Collection();
 client.db = db;
+
 const commandsPath = path.join(__dirname, 'commands');
 if (fs.existsSync(commandsPath)) {
     const commandFiles = fs.readdirSync(commandsPath).filter(file => file.endsWith('.js'));
@@ -44,7 +46,54 @@ if (fs.existsSync(commandsPath)) {
         const command = require(filePath);
         if ('data' in command && 'execute' in command) {
             client.commands.set(command.data.name, command);
+            console.log(`[情報] コマンドを読み込みました: /${command.data.name}`);
         }
+    }
+}
+
+// =================================================================================
+// リマインダー スケジューラー
+// =================================================================================
+let dailyReminderTask = null;
+
+async function setupReminderSchedule() {
+    if (dailyReminderTask) {
+        dailyReminderTask.stop();
+        console.log('[リマインダー] 既存のスケジュールを停止しました。');
+    }
+
+    try {
+        const settingsDoc = await db.collection('bot_settings').doc('schedule_settings').get();
+        if (!settingsDoc.exists) {
+            console.log('[リマインダー] スケジュール設定が見つからないため、セットアップをスキップします。');
+            return;
+        }
+
+        const settings = settingsDoc.data();
+        if (settings.remindersEnabled && settings.reminderTime) {
+            const [hour, minute] = settings.reminderTime.split(':');
+            const cronExpression = `${minute} ${hour} * * *`;
+
+            if (cron.validate(cronExpression)) {
+                const { scheduleDailyReminder } = require('./commands/schedule.js');
+                
+                dailyReminderTask = cron.schedule(cronExpression, () => {
+                    console.log(`[リマインダー] 定刻(${settings.reminderTime})になりました。リマインダー処理を実行します。`);
+                    scheduleDailyReminder(client, db);
+                }, {
+                    scheduled: true,
+                    timezone: "Asia/Tokyo"
+                });
+
+                console.log(`[リマインダー] セットアップ完了。毎日 ${settings.reminderTime} にリマインダーが送信されます。`);
+            } else {
+                console.error(`[リマインダー] エラー: 保存されている時刻 "${settings.reminderTime}" は無効な形式です。`);
+            }
+        } else {
+            console.log('[リマインダー] リマインダーが無効か、時刻が未設定のため、スケジュールされませんでした。');
+        }
+    } catch (error) {
+        console.error('[リマインダー] スケジュールセットアップ中にエラーが発生しました:', error);
     }
 }
 
@@ -140,12 +189,23 @@ adminRouter.post('/api/settings/toka', verifyFirebaseToken, async (req, res) => 
 
 adminRouter.post('/api/settings/schedule', verifyFirebaseToken, async (req, res) => {
     try {
-        const { googleSheetId, googleServiceAccountJson, reminderGuildId, reminderRoleId, remindersEnabled } = req.body;
+        const { googleSheetId, googleServiceAccountJson, reminderGuildId, reminderRoleId, remindersEnabled, reminderTime } = req.body;
         try { if(googleServiceAccountJson) JSON.parse(googleServiceAccountJson); } catch (e) { return res.status(400).json({ message: 'GoogleサービスアカウントのJSON形式が無効です。' }); }
-        const dataToSave = { googleSheetId, googleServiceAccountJson, reminderGuildId, reminderRoleId, remindersEnabled, updatedBy: req.user.email, updatedAt: admin.firestore.FieldValue.serverTimestamp() };
+        
+        const dataToSave = { 
+            googleSheetId, googleServiceAccountJson, reminderGuildId, 
+            reminderRoleId, remindersEnabled, reminderTime,
+            updatedBy: req.user.email, updatedAt: admin.firestore.FieldValue.serverTimestamp() 
+        };
         await db.collection('bot_settings').doc('schedule_settings').set(dataToSave, { merge: true });
+        
+        await setupReminderSchedule(); // 設定保存後にスケジューラーを再設定
+        
         res.status(200).json({ message: 'スケジュール設定を更新しました。' });
-    } catch (error) { res.status(500).json({ message: 'サーバーエラー' }); }
+    } catch (error) { 
+        console.error('POST /api/settings/schedule エラー:', error);
+        res.status(500).json({ message: 'サーバーエラー' });
+    }
 });
 
 adminRouter.post('/api/settings/admins', verifyFirebaseToken, async (req, res) => {
@@ -156,7 +216,11 @@ adminRouter.post('/api/settings/admins', verifyFirebaseToken, async (req, res) =
         const currentAdmins = (docSnap.exists && Array.isArray(docSnap.data().admins)) ? docSnap.data().admins : [];
         const superAdminEmail = currentAdmins.length > 0 ? currentAdmins[0].email : null;
         
-        if (superAdminEmail && req.user.email !== superAdminEmail) {
+        const newAdminEmails = (newAdminsList || []).map(a => a.email);
+        const currentAdminEmails = currentAdmins.map(a => a.email);
+        const adminsChanged = JSON.stringify([...currentAdminEmails].sort()) !== JSON.stringify([...newAdminEmails].sort());
+
+        if (adminsChanged && superAdminEmail && req.user.email !== superAdminEmail) {
             return res.status(403).json({ message: 'エラー: 管理者リストの変更は最高管理者のみ許可されています。' });
         }
         
@@ -222,22 +286,28 @@ app.use((req, res, next) => {
         next();
     }
 });
+
 app.get('/:code', async (req, res) => {
     const { code } = req.params;
     if (code === 'favicon.ico') return res.status(204).send();
 });
+
 app.listen(port, () => {
     console.log(`[情報] Webサーバーがポート ${port} で起動しました。`);
     console.log(`[情報] 管理ページ: https://${process.env.ADMIN_DOMAIN}`);
 });
 
 // =================================================================================
-// Discordイベントハンドラ & ログイン
+// Discordイベントハンドラ & ログイン & スケジューラー起動
 // =================================================================================
 client.once(Events.ClientReady, c => {
+    console.log('----------------------------------------------------');
     console.log(`✅ ボット起動: ${c.user.tag}`);
     c.application.commands.set(client.commands.map(cmd => cmd.data.toJSON()));
+    console.log('[リマインダー] 初期スケジュールをセットアップします...');
+    setupReminderSchedule();
 });
+
 client.on(Events.InteractionCreate, async interaction => {
     if (!interaction.isChatInputCommand()) return;
     const command = client.commands.get(interaction.commandName);
@@ -247,4 +317,5 @@ client.on(Events.InteractionCreate, async interaction => {
         console.error(`コマンドエラー (${interaction.commandName}):`, error);
     }
 });
+
 client.login(process.env.DISCORD_TOKEN);

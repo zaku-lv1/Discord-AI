@@ -3,41 +3,34 @@ document.addEventListener('DOMContentLoaded', () => {
     const auth = firebase.auth();
 
     // --- DOM Elements ---
+    const authContainer = document.getElementById('auth-container');
     const loginForm = document.getElementById('login-form');
     const registerForm = document.getElementById('register-form');
     const showRegisterFormLink = document.getElementById('show-register-form-link');
     const showLoginFormLink = document.getElementById('show-login-form-link');
+    const loginBtn = document.getElementById('login-btn');
     const registerBtn = document.getElementById('register-btn');
-    const authContainer = document.getElementById('auth-container');
+    const forgotPasswordLink = document.getElementById('forgot-password-link');
     const mainContent = document.getElementById('main-content');
     const userEmailEl = document.getElementById('user-email');
-    const statusMessage = document.getElementById('status-message');
-    const loginBtn = document.getElementById('login-btn');
     const logoutBtn = document.getElementById('logout-btn');
-    const forgotPasswordLink = document.getElementById('forgot-password-link');
-    
-    // Dashboard Nav
+    const statusMessage = document.getElementById('status-message');
     const navLinks = document.querySelectorAll('.nav-link');
     const panels = document.querySelectorAll('.dashboard-panel');
     const adminNavItem = document.getElementById('nav-item-admin');
-    
-    // Toka Panel
     const baseUserIdInput = document.getElementById('base-user-id-input');
     const promptTextarea = document.getElementById('prompt-textarea');
     const nameRecognitionCheckbox = document.getElementById('name-recognition-checkbox');
     const nicknamesListContainer = document.getElementById('nicknames-list-container');
     const addNicknameBtn = document.getElementById('add-nickname-btn');
     const saveTokaBtn = document.getElementById('save-toka-btn');
-    
-    // Schedule Panel
     const remindersEnabledCheckbox = document.getElementById('reminders-enabled-checkbox');
+    const reminderTimeInput = document.getElementById('reminder-time-input');
     const googleSheetIdInput = document.getElementById('google-sheet-id-input');
     const reminderGuildIdInput = document.getElementById('reminder-guild-id-input');
     const reminderRoleIdInput = document.getElementById('reminder-role-id-input');
     const serviceAccountJsonTextarea = document.getElementById('service-account-json-textarea');
     const saveScheduleBtn = document.getElementById('save-schedule-btn');
-
-    // Admin Panel
     const inviteCodeGeneratorSection = document.getElementById('invite-code-generator-section');
     const generateInviteCodeBtn = document.getElementById('generate-invite-code-btn');
     const inviteCodeDisplay = document.getElementById('invite-code-display');
@@ -115,7 +108,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const displayName = document.getElementById('register-display-name').value.trim();
         const email = document.getElementById('register-email').value.trim();
         const password = document.getElementById('register-password').value;
-        
         statusMessage.textContent = '登録中...';
         registerBtn.disabled = true;
         try {
@@ -126,7 +118,6 @@ document.addEventListener('DOMContentLoaded', () => {
             });
             const result = await res.json();
             if (!res.ok) throw new Error(result.message || '登録に失敗しました。');
-            
             statusMessage.textContent = result.message;
             document.getElementById('register-form').reset();
             showLoginFormLink.click();
@@ -139,7 +130,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     generateInviteCodeBtn.addEventListener('click', async () => {
         const user = auth.currentUser;
-        if (!user) return;
+        if (!user || !state.isSuperAdmin) return;
         generateInviteCodeBtn.disabled = true;
         try {
             const token = await user.getIdToken();
@@ -162,18 +153,107 @@ document.addEventListener('DOMContentLoaded', () => {
         statusMessage.textContent = '招待コードをコピーしました！';
     });
 
+    // --- 動的リストのUI関数 ---
+    function renderNicknameList(nicknames = {}) {
+        nicknamesListContainer.innerHTML = '';
+        for (const [id, name] of Object.entries(nicknames)) {
+            createNicknameEntry(id, name);
+        }
+    }
+    function createNicknameEntry(id = '', name = '') {
+        const entryDiv = document.createElement('div');
+        entryDiv.className = 'nickname-entry';
+        entryDiv.innerHTML = `<input type="text" class="nickname-id" placeholder="ユーザーID" value="${id}"><input type="text" class="nickname-name" placeholder="ニックネーム" value="${name}"><button type="button" class="delete-nickname-btn">削除</button>`;
+        nicknamesListContainer.appendChild(entryDiv);
+    }
+    addNicknameBtn.addEventListener('click', () => createNicknameEntry());
+    nicknamesListContainer.addEventListener('click', (e) => {
+        if (e.target.classList.contains('delete-nickname-btn')) {
+            e.target.closest('.nickname-entry').remove();
+        }
+    });
 
+    function renderAdminList() {
+        adminsListContainer.innerHTML = '';
+        (state.admins || []).forEach((admin, index) => {
+            const entryDiv = document.createElement('div');
+            entryDiv.className = 'admin-entry';
+            entryDiv.setAttribute('draggable', state.isSuperAdmin);
+            entryDiv.dataset.index = index;
+            let html = `<input type="text" class="admin-name" data-field="name" placeholder="表示名" value="${admin.name || ''}"><input type="email" class="admin-email" data-field="email" placeholder="管理者メールアドレス" value="${admin.email || ''}">`;
+            if (index === 0) {
+                entryDiv.classList.add('super-admin');
+                html += `<span class="super-admin-label">👑</span>`;
+            }
+            html += `<button type="button" class="delete-admin-btn">削除</button>`;
+            entryDiv.innerHTML = html;
+            adminsListContainer.appendChild(entryDiv);
+        });
+    }
+    addAdminBtn.addEventListener('click', () => {
+        if (!state.isSuperAdmin) return;
+        state.admins.push({ name: '', email: '' });
+        renderAdminList();
+    });
+    adminsListContainer.addEventListener('click', (e) => {
+        if (e.target.classList.contains('delete-admin-btn')) {
+            if (!state.isSuperAdmin) return;
+            const entry = e.target.closest('.admin-entry');
+            const index = parseInt(entry.dataset.index, 10);
+            state.admins.splice(index, 1);
+            renderAdminList();
+        }
+    });
+    adminsListContainer.addEventListener('input', (e) => {
+        const input = e.target;
+        if (input.classList.contains('admin-name') || input.classList.contains('admin-email')) {
+            const entry = input.closest('.admin-entry');
+            const index = parseInt(entry.dataset.index, 10);
+            const field = input.dataset.field;
+            if (state.admins[index]) {
+                state.admins[index][field] = input.value;
+            }
+        }
+    });
+    let draggedIndex = null;
+    adminsListContainer.addEventListener('dragstart', (e) => {
+        if (!state.isSuperAdmin || !e.target.classList.contains('admin-entry')) return;
+        draggedIndex = parseInt(e.target.dataset.index, 10);
+        setTimeout(() => e.target.classList.add('dragging'), 0);
+    });
+    adminsListContainer.addEventListener('dragend', (e) => {
+        if (!e.target.classList.contains('admin-entry')) return;
+        e.target.classList.remove('dragging');
+        if (draggedIndex !== null) { renderAdminList(); }
+        draggedIndex = null;
+    });
+    adminsListContainer.addEventListener('drop', (e) => {
+        if (!state.isSuperAdmin || draggedIndex === null) return;
+        e.preventDefault();
+        const dropTarget = e.target.closest('.admin-entry');
+        if (dropTarget) {
+            const dropIndex = parseInt(dropTarget.dataset.index, 10);
+            if (draggedIndex === dropIndex) return;
+            const draggedItem = state.admins.splice(draggedIndex, 1)[0];
+            state.admins.splice(dropIndex, 0, draggedItem);
+            renderAdminList();
+        }
+    });
+    adminsListContainer.addEventListener('dragover', (e) => {
+        if (!state.isSuperAdmin) return;
+        e.preventDefault();
+    });
+    
     // --- 設定全体の読み込み ---
     async function fetchSettings(user) {
         statusMessage.textContent = '読込中...';
+        const token = await user.getIdToken();
         try {
-            const token = await user.getIdToken();
             const [tokaRes, scheduleRes] = await Promise.all([
                 fetch('/api/settings/toka', { headers: { 'Authorization': `Bearer ${token}` } }),
                 fetch('/api/settings/schedule', { headers: { 'Authorization': `Bearer ${token}` } })
             ]);
 
-            // エラー処理
             if (tokaRes.status === 403 || tokaRes.status === 401) {
                 mainContent.innerHTML = `<h2>アクセスが拒否されました</h2><p>あなたのアカウント(${user.email})には、この設定パネルを閲覧・編集する権限がありません。</p><button id="logout-btn-fallback">ログアウト</button>`;
                 document.getElementById('logout-btn-fallback').addEventListener('click', () => auth.signOut());
@@ -186,13 +266,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 baseUserIdInput.value = data.baseUserId || '';
                 promptTextarea.value = data.systemPrompt || '';
                 nameRecognitionCheckbox.checked = data.enableNameRecognition ?? true;
-                
-                nicknamesListContainer.innerHTML = '';
-                if(data.userNicknames) {
-                    for (const [id, name] of Object.entries(data.userNicknames)) {
-                        createNicknameEntry(id, name);
-                    }
-                }
+                renderNicknameList(data.userNicknames || {});
                 
                 const currentUserAdminInfo = (data.admins || []).find(admin => admin.email === user.email);
                 const displayName = currentUserAdminInfo ? (currentUserAdminInfo.name || user.email) : user.email;
@@ -200,11 +274,16 @@ document.addEventListener('DOMContentLoaded', () => {
                 
                 state.admins = data.admins || [];
                 state.isSuperAdmin = data.currentUser && data.currentUser.isSuperAdmin;
-
-                adminNavItem.style.display = state.isSuperAdmin ? 'block' : 'none';
+                
+                adminNavItem.style.display = 'block';
+                inviteCodeGeneratorSection.style.display = state.isSuperAdmin ? 'block' : 'none';
                 renderAdminList();
-            } else if (tokaRes.status === 404) {
-                 // とーか初回設定
+                if(!state.isSuperAdmin) {
+                     document.querySelectorAll('#panel-admins input, #panel-admins button').forEach(el => el.disabled = true);
+                     generateInviteCodeBtn.disabled = true; // 念のため
+                }
+
+            } else if (tokaRes.status === 404) { // とーか初回設定
                 userEmailEl.textContent = user.displayName || user.email;
                 state.admins = [{ name: user.displayName || '管理者', email: user.email }];
                 state.isSuperAdmin = true;
@@ -216,12 +295,12 @@ document.addEventListener('DOMContentLoaded', () => {
             if (scheduleRes.ok) {
                 const data = await scheduleRes.json();
                 remindersEnabledCheckbox.checked = data.remindersEnabled ?? false;
+                reminderTimeInput.value = data.reminderTime || '';
                 googleSheetIdInput.value = data.googleSheetId || '';
                 reminderGuildIdInput.value = data.reminderGuildId || '';
                 reminderRoleIdInput.value = data.reminderRoleId || '';
                 serviceAccountJsonTextarea.value = data.googleServiceAccountJson || '';
             }
-
             statusMessage.textContent = '設定を読み込みました';
         } catch (err) {
             statusMessage.textContent = `エラー: ${err.message}`;
@@ -271,6 +350,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const token = await user.getIdToken();
             const settings = {
                 remindersEnabled: remindersEnabledCheckbox.checked,
+                reminderTime: reminderTimeInput.value,
                 googleSheetId: googleSheetIdInput.value,
                 reminderGuildId: reminderGuildIdInput.value,
                 reminderRoleId: reminderRoleIdInput.value,
@@ -297,35 +377,18 @@ document.addEventListener('DOMContentLoaded', () => {
         saveAdminsBtn.disabled = true;
         try {
             const token = await user.getIdToken();
-            const adminsArray = state.admins.filter(admin => admin.email && admin.name);
             const res = await fetch('/api/settings/admins', {
                 method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-                body: JSON.stringify({ admins: adminsArray })
+                body: JSON.stringify({ admins: state.admins })
             });
             const result = await res.json();
             if (!res.ok) throw new Error(result.message);
             statusMessage.textContent = result.message;
+            await fetchSettings(user);
         } catch (err) {
             statusMessage.textContent = `エラー: ${err.message}`;
         } finally {
             saveAdminsBtn.disabled = false;
         }
     });
-
-    // --- 動的リストのUI関数 ---
-    function createNicknameEntry(id = '', name = '') { /* ... */ }
-    addNicknameBtn.addEventListener('click', () => createNicknameEntry());
-    nicknamesListContainer.addEventListener('click', (e) => { /* ... */ });
-    
-    function renderAdminList() { /* ... */ }
-    addAdminBtn.addEventListener('click', () => { /* ... */ });
-    adminsListContainer.addEventListener('click', (e) => { /* ... */ });
-    adminsListContainer.addEventListener('input', (e) => { /* ... */ });
-    
-    // Drag & Drop
-    let draggedIndex = null;
-    adminsListContainer.addEventListener('dragstart', (e) => { /* ... */ });
-    adminsListContainer.addEventListener('dragend', (e) => { /* ... */ });
-    adminsListContainer.addEventListener('drop', (e) => { /* ... */ });
-    adminsListContainer.addEventListener('dragover', (e) => { /* ... */ });
 });
