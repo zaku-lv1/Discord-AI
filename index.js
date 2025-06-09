@@ -58,6 +58,7 @@ app.set('views', path.join(__dirname, 'views'));
 adminRouter.use(express.static(path.join(__dirname, 'public')));
 adminRouter.use(express.json());
 
+// Firebaseトークンを検証し、管理者リストによる認可も行うミドルウェア
 const verifyFirebaseToken = async (req, res, next) => {
     const authHeader = req.headers.authorization;
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -68,7 +69,9 @@ const verifyFirebaseToken = async (req, res, next) => {
         const decodedToken = await admin.auth().verifyIdToken(idToken);
         const settingsDoc = await db.collection('bot_settings').doc('toka_profile').get();
         const admins = (settingsDoc.exists && Array.isArray(settingsDoc.data().admins)) ? settingsDoc.data().admins : [];
-        if (admins.length > 0 && !admins.includes(decodedToken.email)) {
+
+        // admins配列に、オブジェクトのemailプロパティとしてユーザーが含まれているかチェック
+        if (admins.length > 0 && !admins.some(admin => admin.email === decodedToken.email)) {
             return res.status(403).send('Forbidden: Access is denied.');
         }
         req.user = decodedToken;
@@ -79,6 +82,7 @@ const verifyFirebaseToken = async (req, res, next) => {
     }
 };
 
+// 設定パネルのHTMLをレンダリング
 adminRouter.get('/', (req, res) => {
     const firebaseConfig = {
         apiKey: process.env.FIREBASE_API_KEY,
@@ -91,6 +95,7 @@ adminRouter.get('/', (req, res) => {
     res.render('index', { firebaseConfig });
 });
 
+// GET /api/settings/toka (設定の読み込み)
 adminRouter.get('/api/settings/toka', verifyFirebaseToken, async (req, res) => {
     try {
         const doc = await db.collection('bot_settings').doc('toka_profile').get();
@@ -101,8 +106,9 @@ adminRouter.get('/api/settings/toka', verifyFirebaseToken, async (req, res) => {
         const admins = data.admins || [];
         
         let isSuperAdmin = false;
+        // 最高管理者は、リストの最初の管理者オブジェクトのemailと比較
         if (admins.length > 0) {
-            const superAdminEmail = admins[0];
+            const superAdminEmail = admins[0].email;
             isSuperAdmin = (req.user.email === superAdminEmail);
         } else {
             isSuperAdmin = true;
@@ -125,6 +131,7 @@ adminRouter.get('/api/settings/toka', verifyFirebaseToken, async (req, res) => {
     }
 });
 
+// POST /api/settings/toka (設定の保存)
 adminRouter.post('/api/settings/toka', verifyFirebaseToken, async (req, res) => {
     try {
         const {
@@ -143,23 +150,25 @@ adminRouter.post('/api/settings/toka', verifyFirebaseToken, async (req, res) => 
         const docSnap = await docRef.get();
         const currentSettings = docSnap.exists ? docSnap.data() : {};
         const currentAdmins = currentSettings.admins || [];
-        const superAdminEmail = currentAdmins.length > 0 ? currentAdmins[0] : null;
+        const superAdminEmail = currentAdmins.length > 0 ? currentAdmins[0].email : null;
 
-        // ▼▼▼ ここがバグのあった箇所です。配列をコピーしてからソートするように修正しました。 ▼▼▼
-        const adminsChanged = JSON.stringify([...currentAdmins].sort()) !== JSON.stringify([...(newAdminsList || [])].sort());
-        
+        const newAdminEmails = (newAdminsList || []).map(a => a.email);
+        const currentAdminEmails = currentAdmins.map(a => a.email);
+        const adminsChanged = JSON.stringify(currentAdminEmails.sort()) !== JSON.stringify(newAdminEmails.sort());
+
         if (adminsChanged && superAdminEmail && req.user.email !== superAdminEmail) {
             return res.status(403).json({ message: 'エラー: 管理者リストの変更は最高管理者のみ許可されています。' });
         }
 
-        const newlyAddedAdmins = (newAdminsList || []).filter(email => !currentAdmins.includes(email));
-        const creationPromises = newlyAddedAdmins.map(async (email) => {
+        const newlyAddedAdmins = (newAdminsList || []).filter(newAdmin => !currentAdmins.some(currentAdmin => currentAdmin.email === newAdmin.email));
+        const creationPromises = newlyAddedAdmins.map(async (admin) => {
+            if (!admin.email) return;
             try {
-                await admin.auth().getUserByEmail(email);
+                await admin.auth().getUserByEmail(admin.email);
             } catch (error) {
                 if (error.code === 'auth/user-not-found') {
-                    await admin.auth().createUser({ email: email });
-                    return email;
+                    await admin.auth().createUser({ email: admin.email });
+                    return admin.email;
                 }
                 throw error;
             }
@@ -169,7 +178,7 @@ adminRouter.post('/api/settings/toka', verifyFirebaseToken, async (req, res) => 
 
         let finalAdmins = newAdminsList || [];
         if (finalAdmins.length === 0) {
-            finalAdmins.push(req.user.email);
+            finalAdmins.push({ name: '（自動登録された最高管理者）', email: req.user.email });
         }
         
         const dataToSave = {

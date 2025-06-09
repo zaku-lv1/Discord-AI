@@ -22,9 +22,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const saveBtn = document.getElementById('save-btn');
     const forgotPasswordLink = document.getElementById('forgot-password-link');
 
-    // ▼▼▼ UIの状態を管理するための変数を追加 ▼▼▼
+    // UIの状態を管理するための変数
     let state = {
-        admins: [],
+        admins: [], // {name: string, email: string} の配列
         isSuperAdmin: false
     };
 
@@ -63,7 +63,7 @@ document.addEventListener('DOMContentLoaded', () => {
             .catch(err => { statusMessage.textContent = `エラー: ${err.message}`; });
     });
 
-    // --- ニックネームUI関連の関数 (変更なし) ---
+    // --- ニックネームUI関連の関数 ---
     function createNicknameEntry(id = '', name = '') {
         const entryDiv = document.createElement('div');
         entryDiv.className = 'nickname-entry';
@@ -81,89 +81,92 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // --- ▼▼▼ 管理者UIのロジックを全面的に書き換え ▼▼▼ ---
-
-    // state.admins 配列を元に、UIを完全に再描画する関数
+    // --- 管理者UI関連の関数 ---
     function renderAdminList() {
-        adminsListContainer.innerHTML = ''; // リストを一旦空にする
-        
-        state.admins.forEach((email, index) => {
+        adminsListContainer.innerHTML = '';
+        state.admins.forEach((admin, index) => {
             const entryDiv = document.createElement('div');
             entryDiv.className = 'admin-entry';
             entryDiv.setAttribute('draggable', state.isSuperAdmin);
+            entryDiv.dataset.index = index;
 
-            // データ属性にインデックスを保持
-            entryDiv.dataset.index = index; 
-
+            let html = `
+                <input type="text" class="admin-name" data-field="name" placeholder="表示名" value="${admin.name || ''}">
+                <input type="email" class="admin-email" data-field="email" placeholder="管理者メールアドレス" value="${admin.email || ''}">
+            `;
+            
             if (index === 0) {
                 entryDiv.classList.add('super-admin');
-                entryDiv.innerHTML = `
-                    <input type="email" class="admin-email" placeholder="管理者メールアドレス" value="${email}">
-                    <span class="super-admin-label">👑 最高管理者</span>
-                    <button type="button" class="delete-admin-btn">削除</button>
-                `;
-            } else {
-                entryDiv.innerHTML = `
-                    <input type="email" class="admin-email" placeholder="管理者メールアドレス" value="${email}">
-                    <button type="button" class="delete-admin-btn">削除</button>
-                `;
+                const label = document.createElement('span');
+                label.className = 'super-admin-label';
+                label.innerHTML = '👑';
+                html += label.outerHTML;
             }
+            
+            const deleteBtn = document.createElement('button');
+            deleteBtn.type = 'button';
+            deleteBtn.className = 'delete-admin-btn';
+            deleteBtn.textContent = '削除';
+
+            entryDiv.innerHTML = html + deleteBtn.outerHTML;
             adminsListContainer.appendChild(entryDiv);
         });
-        
+
         // 最高管理者でない場合、UIを非表示にする
         adminSettingsSection.style.display = state.isSuperAdmin ? 'block' : 'none';
     }
 
-    // 「+ 管理者を追加」ボタンの処理
     addAdminBtn.addEventListener('click', () => {
-        state.admins.push(''); // 状態管理の配列に空の要素を追加
-        renderAdminList();    // 配列を元にUIを再描画
+        if (!state.isSuperAdmin) return;
+        state.admins.push({ name: '', email: '' });
+        renderAdminList();
     });
     
-    // 「削除」と「入力内容の更新」の処理
     adminsListContainer.addEventListener('click', (e) => {
         if (e.target.classList.contains('delete-admin-btn')) {
+            if (!state.isSuperAdmin) return;
             const entry = e.target.closest('.admin-entry');
             const index = parseInt(entry.dataset.index, 10);
-            state.admins.splice(index, 1); // 配列から要素を削除
-            renderAdminList();             // UIを再描画
+            state.admins.splice(index, 1);
+            renderAdminList();
         }
     });
+
     adminsListContainer.addEventListener('input', (e) => {
-        if (e.target.classList.contains('admin-email')) {
-            const entry = e.target.closest('.admin-entry');
+        const input = e.target;
+        if (input.classList.contains('admin-name') || input.classList.contains('admin-email')) {
+            const entry = input.closest('.admin-entry');
             const index = parseInt(entry.dataset.index, 10);
-            state.admins[index] = e.target.value; // 配列の値を更新
+            const field = input.dataset.field;
+            if (state.admins[index]) {
+                state.admins[index][field] = input.value;
+            }
         }
     });
-    
+
     // --- ドラッグ＆ドロップ関連の処理 ---
     let draggedIndex = null;
-
     adminsListContainer.addEventListener('dragstart', (e) => {
         if (!state.isSuperAdmin || !e.target.classList.contains('admin-entry')) return;
         draggedIndex = parseInt(e.target.dataset.index, 10);
         setTimeout(() => e.target.classList.add('dragging'), 0);
     });
-
     adminsListContainer.addEventListener('dragend', (e) => {
         if (!e.target.classList.contains('admin-entry')) return;
         e.target.classList.remove('dragging');
         draggedIndex = null;
     });
-
     adminsListContainer.addEventListener('drop', (e) => {
-        if (!state.isSuperAdmin) return;
+        if (!state.isSuperAdmin || draggedIndex === null) return;
+        e.preventDefault();
         const dropTarget = e.target.closest('.admin-entry');
-        if (dropTarget && draggedIndex !== null) {
+        if (dropTarget) {
             const dropIndex = parseInt(dropTarget.dataset.index, 10);
             const draggedItem = state.admins.splice(draggedIndex, 1)[0];
             state.admins.splice(dropIndex, 0, draggedItem);
-            renderAdminList(); // 状態が更新された配列を元にUIを再描画
+            renderAdminList();
         }
     });
-
     adminsListContainer.addEventListener('dragover', (e) => {
         if (!state.isSuperAdmin) return;
         e.preventDefault();
@@ -184,13 +187,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 baseUserIdInput.value = '';
                 promptTextarea.value = '';
                 nameRecognitionCheckbox.checked = true;
-                
-                state.admins = [user.email]; // 状態を更新
+                state.admins = [{ name: '（自動登録）', email: user.email }];
                 state.isSuperAdmin = true;
-                renderAdminList(); // 状態を元にUIを描画
+                renderAdminList();
                 return;
             }
-
             if (res.status === 403) {
                 statusMessage.textContent = 'エラー: このページへのアクセス権がありません。';
                 mainContent.innerHTML = `<h2>アクセスが拒否されました</h2><p>あなたのアカウント(${user.email})には、この設定パネルを閲覧・編集する権限がありません。最高管理者に連絡してください。</p><button id="logout-btn-fallback">ログアウト</button>`;
@@ -210,9 +211,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
             
-            state.admins = data.admins || []; // 状態を更新
+            state.admins = data.admins || [];
             state.isSuperAdmin = data.currentUser && data.currentUser.isSuperAdmin;
-            renderAdminList(); // 状態を元にUIを描画
+            renderAdminList();
 
             statusMessage.textContent = '設定を読み込みました';
         } catch (err) { statusMessage.textContent = `エラー: ${err.message}`; }
@@ -237,9 +238,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     nicknamesObject[id] = name;
                 }
             });
-            
-            // 状態管理している配列からデータを取得
-            const adminsArray = state.admins.map(email => email.trim()).filter(email => email);
+
+            const adminsArray = state.admins.filter(admin => admin.email && admin.name);
 
             const settings = {
                 baseUserId: baseUserIdInput.value,
@@ -264,7 +264,23 @@ document.addEventListener('DOMContentLoaded', () => {
             statusMessage.textContent = result.message || '保存しました！';
             
             if (result.createdUsers && result.createdUsers.length > 0) {
-                // (メール送信処理は変更なし)
+                statusMessage.textContent += '\n新規管理者にパスワード設定メールを送信中...';
+                
+                const emailPromises = result.createdUsers.map(email => {
+                    return auth.sendPasswordResetEmail(email)
+                        .then(() => {
+                            console.log(`[情報] ${email} にパスワード設定メールを送信しました。`);
+                            return email;
+                        })
+                        .catch(err => {
+                            console.error(`[エラー] ${email} へのメール送信に失敗:`, err);
+                            return null;
+                        });
+                });
+                const sentEmails = (await Promise.all(emailPromises)).filter(Boolean);
+                if (sentEmails.length > 0) {
+                    statusMessage.textContent = result.message + `\n${sentEmails.join(', ')} にパスワード設定メールを送信しました。`;
+                }
             }
             
             await fetchSettings(user);
