@@ -2,9 +2,7 @@ document.addEventListener('DOMContentLoaded', () => {
     firebase.initializeApp(firebaseConfig);
     const auth = firebase.auth();
 
-    // --- DOM Elements ---
-    const loaderContainer = document.getElementById('loader-container');
-    const pageContainer = document.querySelector('.container');
+    // DOM Elements
     const authContainer = document.getElementById('auth-container');
     const mainContent = document.getElementById('main-content');
     const statusMessage = document.getElementById('status-message');
@@ -51,14 +49,14 @@ document.addEventListener('DOMContentLoaded', () => {
     const addAdminBtn = document.getElementById('add-admin-btn');
     const saveAdminsBtn = document.getElementById('save-admins-btn');
 
-    // UIの状態を管理するための変数
+    // UI State
     let state = {
         admins: [],
         isSuperAdmin: false,
         scheduleItems: []
     };
 
-    // --- ナビゲーションロジック ---
+    // --- Navigation Logic ---
     navLinks.forEach(link => {
         link.addEventListener('click', (e) => {
             e.preventDefault();
@@ -74,11 +72,8 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    // --- 認証関連 ---
+    // --- Auth & Registration Logic ---
     auth.onAuthStateChanged(user => {
-        loaderContainer.style.display = 'none';
-        pageContainer.style.display = 'block';
-
         if (user) {
             authContainer.style.display = 'none';
             mainContent.style.display = 'block';
@@ -108,7 +103,6 @@ document.addEventListener('DOMContentLoaded', () => {
             .catch(err => { statusMessage.textContent = `エラー: ${err.message}`; });
     });
     
-    // --- 新規登録と招待コード ---
     showRegisterFormLink.addEventListener('click', (e) => { e.preventDefault(); loginForm.style.display = 'none'; registerForm.style.display = 'block'; statusMessage.textContent = ''; });
     showLoginFormLink.addEventListener('click', (e) => { e.preventDefault(); registerForm.style.display = 'none'; loginForm.style.display = 'block'; statusMessage.textContent = ''; });
 
@@ -163,7 +157,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
 
-    // --- 動的リストのUI関数 ---
+    // --- Dynamic List UI Functions ---
     function renderNicknameList(nicknames = {}) {
         nicknamesListContainer.innerHTML = '';
         Object.entries(nicknames).forEach(([id, name]) => createNicknameEntry(id, name));
@@ -296,12 +290,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
 
-            if (tokaRes.status === 404) {
-                userEmailEl.textContent = user.displayName || user.email;
-                state.isSuperAdmin = true;
-                adminNavItem.style.display = 'block';
-                statusMessage.textContent = '設定はまだありません。「保存」を押すと初期設定が作成されます。';
-            } else if (tokaRes.ok) {
+            if (tokaRes.ok) {
                 const data = await tokaRes.json();
                 baseUserIdInput.value = data.baseUserId || '';
                 promptTextarea.value = data.systemPrompt || '';
@@ -317,11 +306,17 @@ document.addEventListener('DOMContentLoaded', () => {
                      document.querySelectorAll('#panel-admins input, #panel-admins button').forEach(el => el.disabled = true);
                      inviteCodeGeneratorSection.style.display = 'none';
                 } else {
-                    document.querySelectorAll('#panel-admins input, #panel-admins button').forEach(el => el.disabled = false);
-                    inviteCodeGeneratorSection.style.display = 'block';
+                     document.querySelectorAll('#panel-admins input, #panel-admins button').forEach(el => el.disabled = false);
+                     inviteCodeGeneratorSection.style.display = 'block';
                 }
+            } else if (tokaRes.status === 404) {
+                userEmailEl.textContent = user.displayName || user.email;
+                state.admins = [{ name: user.displayName || '管理者', email: user.email }];
+                state.isSuperAdmin = true;
+                adminNavItem.style.display = 'block';
+                renderAdminList();
             }
-            
+
             if (scheduleRes.ok) {
                 const data = await scheduleRes.json();
                 remindersEnabledCheckbox.checked = data.remindersEnabled ?? false;
@@ -439,11 +434,7 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             const token = await user.getIdToken();
             const itemsToSave = state.scheduleItems.filter(item => (item[0] || item[1] || item[2]));
-            const res = await fetch('/api/schedule/items', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-                body: JSON.stringify({ items: itemsToSave })
-            });
+            const res = await fetch('/api/schedule/items', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }, body: JSON.stringify({ items: itemsToSave }) });
             const result = await res.json();
             if (!res.ok) throw new Error(result.message);
             statusMessage.textContent = result.message;
