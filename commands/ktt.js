@@ -14,11 +14,6 @@ module.exports = {
     .setName('ktt')
     .setDescription('KTTと井原先生を召喚したり退出させたりします。'),
   async execute(interaction) {
-    // 権限チェック (変更なし)
-    if (interaction.user.id !== process.env.ADMIN && interaction.user.id !== "1062565968959774761") {
-        await interaction.reply({ content: 'このコマンドを実行する権限がありません。', ephemeral: true });
-        return;
-    }
 
     if (!interaction.inGuild() || !interaction.channel || interaction.channel.type === ChannelType.DM) {
         await interaction.reply({ content: 'このコマンドはサーバーのテキストチャンネルでのみ使用できます。', ephemeral: true });
