@@ -158,7 +158,7 @@ async function scheduleDailyReminder(client, db) {
 }
 
 module.exports = {
-    data: new SlashCommandBuilder().setName('schedule').setDescription('予定を確認・追加・編集・削除します。(DB設定で動作)'),
+    data: new SlashCommandBuilder().setName('schedule').setDescription('予定を確認・追加・編集・削除します。'),
 
     async execute(interaction) {
         await interaction.deferReply({ ephemeral: true });
@@ -167,14 +167,18 @@ module.exports = {
         if (!settingsDoc.exists) return interaction.editReply({ content: '❌ スケジュール機能の設定がデータベースに見つかりません。' });
         
         const settings = settingsDoc.data();
-        const { googleSheetId, googleServiceAccountJson } = settings;
-        if (!googleSheetId || !googleServiceAccountJson) return interaction.editReply({ content: '❌ Google Sheet IDまたはサービスアカウント情報が設定されていません。' });
+        const { googleSheetId } = settings;
+        const credentialsJson = process.env.FIREBASE_SERVICE_ACCOUNT_JSON; // .envから読み込む
+
+        if (!googleSheetId || !credentialsJson) {
+            return interaction.editReply({ content: '❌ Google Sheet IDまたはサービスアカウント情報が設定されていません。' });
+        }
         
         let sheets;
         try {
-            sheets = await getSheetsClient(googleServiceAccountJson);
+            sheets = await getSheetsClient(credentialsJson);
         } catch (authError) {
-            return interaction.editReply({ content: '❌ Google APIへの認証に失敗しました。サービスアカウントのJSON情報が正しいか確認してください。' });
+            return interaction.editReply({ content: '❌ Google APIへの認証に失敗しました。' });
         }
         
         const deletedCount = await cleanupExpiredSchedules(sheets, googleSheetId);
