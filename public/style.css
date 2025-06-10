@@ -84,8 +84,12 @@ textarea { resize: vertical; }
 
 .button-group { display: flex; justify-content: flex-end; margin-top: 2rem; }
 
-button { padding: 14px 24px; border: none; border-radius: 8px; font-size: 1rem; font-weight: bold; cursor: pointer; transition: all 0.3s ease; width: 100%; letter-spacing: 0.5px; }
+button { padding: 14px 24px; border: none; border-radius: 8px; font-size: 1rem; font-weight: bold; cursor: pointer; transition: all 0.3s ease; letter-spacing: 0.5px; }
 button:disabled { background-color: #ccc !important; cursor: not-allowed; transform: none !important; box-shadow: none !important; background-image: none !important; }
+
+.save-btn, #login-btn, #register-btn, .secondary-btn {
+    width: 100%;
+}
 
 .save-btn, #login-btn, #register-btn { background-image: linear-gradient(to right, #64b5f6, #42a5f5, #2196f3); background-size: 200% auto; color: white; box-shadow: 0 4px 15px 0 rgba(65, 132, 234, 0.4); }
 .save-btn:hover:not(:disabled), #login-btn:hover:not(:disabled), #register-btn:hover:not(:disabled) { background-position: right center; transform: translateY(-2px); box-shadow: 0 6px 20px 0 rgba(65, 132, 234, 0.5); }
@@ -102,7 +106,7 @@ button:disabled { background-color: #ccc !important; cursor: not-allowed; transf
 
 /* ========== ダッシュボードレイアウト ========== */
 #dashboard-container { display: flex; margin-top: 1rem; gap: 2rem; }
-#dashboard-nav { flex: 0 0 200px; }
+#dashboard-nav { flex: 0 0 180px; }
 #dashboard-nav ul { list-style: none; padding: 0; margin: 0; position: sticky; top: 2rem; }
 #dashboard-nav li a { display: block; padding: 12px 15px; text-decoration: none; color: #4b4f56; border-radius: 8px; font-weight: 500; transition: background-color 0.2s, color 0.2s; margin-bottom: 5px; }
 #dashboard-nav li a:hover { background-color: rgba(102, 166, 255, 0.1); }
@@ -121,9 +125,9 @@ input:checked + .slider { background-color: #42a5f5; }
 input:checked + .slider:before { transform: translateX(24px); }
 
 /* ========== 動的リスト共通スタイル ========== */
-.secondary-btn { background-color: #6c757d; color: white; width: 100%; }
+.secondary-btn { background-color: #6c757d; color: white; }
 .secondary-btn:hover:not(:disabled) { background-color: #5a6268; transform: translateY(-1px); }
-.delete-btn { background-color: #e74c3c; color: white; padding: 12px 16px; font-size: 0.9rem; width: auto; font-weight: 500; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+.delete-btn { background-color: #e74c3c; color: white; padding: 12px 16px; font-size: 0.9rem; width: auto; font-weight: 500; box-shadow: 0 2px 8px rgba(0,0,0,0.1); flex-shrink: 0; }
 .delete-btn:hover:not(:disabled) { background-color: #c0392b; transform: translateY(-1px); }
 
 /* ========== ニックネーム設定UI ========== */
@@ -132,7 +136,6 @@ input:checked + .slider:before { transform: translateX(24px); }
 .nickname-entry input, .admin-entry input, .schedule-item-entry input { margin-bottom: 0 !important; padding: 12px; }
 .nickname-entry .nickname-id { flex: 2; }
 .nickname-entry .nickname-name { flex: 1; }
-.nickname-entry .delete-nickname-btn { background-color: #e74c3c; color: white; }
 
 /* ========== 管理者設定UI ========== */
 #invite-code-generator-section { padding: 15px; background-color: rgba(102, 166, 255, 0.1); border-radius: 8px; border: 1px solid rgba(102, 166, 255, 0.2); }
@@ -152,54 +155,22 @@ input:checked + .slider:before { transform: translateX(24px); }
 .schedule-item-entry .item-type { flex: 1.5; }
 .schedule-item-entry .item-task { flex: 3; }
 .schedule-item-entry .item-due { flex: 1.5; }
-#add-schedule-item-btn { margin-bottom: 1rem; } /* ボタン間の距離を調整 */
+#add-schedule-item-btn { margin-bottom: 1rem; }
 #save-schedule-items-btn { background-image: linear-gradient(to right, #ffc107, #ffb300, #ffa000); box-shadow: 0 4px 15px 0 rgba(255, 193, 7, 0.4); }
 #save-schedule-items-btn:hover:not(:disabled) { background-position: right center; transform: translateY(-2px); box-shadow: 0 6px 20px 0 rgba(255, 193, 7, 0.5); }
 
 
 /* ========== レスポンシブ対応 ========== */
 @media (max-width: 768px) {
-    .container {
-        padding: 1.5rem 1rem;
-    }
+    .container { padding: 1.5rem 1rem; }
     h1 { font-size: 1.5rem; }
     h2 { font-size: 1.25rem; }
-
-    #dashboard-container {
-        flex-direction: column;
-    }
-    #dashboard-nav {
-        flex-basis: auto;
-        width: 100%;
-    }
-    #dashboard-nav ul {
-        display: flex;
-        justify-content: flex-start;
-        overflow-x: auto; /* はみ出たらスクロール */
-        -webkit-overflow-scrolling: touch;
-        padding-bottom: 10px;
-        gap: 5px;
-    }
-    #dashboard-nav li {
-        flex-shrink: 0;
-    }
-    #dashboard-nav li a {
-        padding: 8px 12px;
-        font-size: 0.9rem;
-    }
-    .admin-entry, .nickname-entry, .schedule-item-entry {
-        flex-direction: column;
-        align-items: stretch;
-        padding: 15px;
-        border: 1px solid #ddd;
-        border-radius: 8px;
-    }
-    .admin-entry.super-admin {
-        border-left: none;
-        border-top: 4px solid #ffc107;
-    }
-    .super-admin-label {
-        text-align: right;
-        margin: -10px 0 5px 0;
-    }
+    #dashboard-container { flex-direction: column; gap: 1rem; }
+    #dashboard-nav { flex-basis: auto; width: 100%; }
+    #dashboard-nav ul { display: flex; justify-content: flex-start; overflow-x: auto; -webkit-overflow-scrolling: touch; padding-bottom: 10px; gap: 5px; }
+    #dashboard-nav li { flex-shrink: 0; }
+    #dashboard-nav li a { padding: 8px 12px; font-size: 0.9rem; }
+    .admin-entry, .nickname-entry, .schedule-item-entry { flex-direction: column; align-items: stretch; padding: 15px; border: 1px solid #ddd; border-radius: 8px; }
+    .admin-entry.super-admin { border-left: none; border-top: 4px solid #ffc107; }
+    .super-admin-label { text-align: right; margin: -10px 0 5px 0; }
 }
