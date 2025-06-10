@@ -55,7 +55,8 @@ h3 {
 p { line-height: 1.7; }
 hr { border: none; border-top: 1px solid rgba(0, 0, 0, 0.1); margin: 2.5rem 0; }
 
-input[type="email"], input[type="password"], input[type="text"], input[type="time"], textarea {
+/* ▼▼▼ このセレクタに select を追加し、appearance と background関連のプロパティを追加しました ▼▼▼ */
+input[type="email"], input[type="password"], input[type="text"], input[type="time"], textarea, select {
     width: 100%;
     padding: 14px;
     border: 1px solid #ddd;
@@ -65,6 +66,13 @@ input[type="email"], input[type="password"], input[type="text"], input[type="tim
     transition: border-color 0.3s, box-shadow 0.3s;
     background-color: rgba(255, 255, 255, 0.8);
     font-family: inherit;
+    -webkit-appearance: none;
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%23343a40' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M2 5l6 6 6-6'/%3e%3c/svg%3e");
+    background-repeat: no-repeat;
+    background-position: right 0.75rem center;
+    background-size: 16px 12px;
+    padding-right: 2.5rem;
 }
 input:not(:last-child), textarea:not(:last-child) { margin-bottom: 1rem; }
 input:disabled, textarea:disabled { background-color: #e9ecef !important; cursor: not-allowed; }
