@@ -15,10 +15,15 @@
     <script src="/app.js" defer></script>
 </head>
 <body>
-    <div class="container">
+    <div id="loader-container" class="loader-container">
+        <div class="spinner"></div>
+        <p class="loader-text">読み込み中...</p>
+    </div>
+
+    <div class="container" style="display: none;">
         <h1>ボット設定管理パネル</h1>
         
-        <div id="auth-container">
+        <div id="auth-container" style="display: none;">
             <form id="login-form">
                 <h2>ログイン</h2>
                 <input type="email" id="login-email" placeholder="メールアドレス" required>
@@ -68,6 +73,7 @@
                         <div class="form-group"><div class="toggle-container"><label for="name-recognition-checkbox" class="toggle-label">個別の名前認識を有効にする</label><label class="toggle-switch"><input type="checkbox" id="name-recognition-checkbox"><span class="slider"></span></label></div></div>
                         <div class="form-group"><label for="prompt-textarea">システムプロンプト (キャラクター設定)</label><textarea id="prompt-textarea" rows="10" placeholder="ここにキャラクター設定を入力..."></textarea></div>
                         <div class="form-group"><label>ニックネーム設定</label><div id="nicknames-list-container"></div><button type="button" id="add-nickname-btn" class="secondary-btn">＋ ニックネームを追加</button></div>
+                        <div class="button-group"><button id="save-toka-btn" class="save-btn">とーか設定を保存</button></div>
                     </div>
 
                     <div id="panel-schedule" class="dashboard-panel" style="display: none;">
@@ -75,8 +81,7 @@
                         <div class="form-group"><div class="toggle-container"><label for="reminders-enabled-checkbox" class="toggle-label">宿題リマインダーを有効にする</label><label class="toggle-switch"><input type="checkbox" id="reminders-enabled-checkbox"><span class="slider"></span></label></div></div>
                         <div class="form-group"><label for="reminder-time-input">リマインダー時刻 (24時間表記)</label><input type="time" id="reminder-time-input"><small>毎日この時刻に、翌日提出の課題がDMに通知されます。</small></div>
                         <div class="form-group"><label for="google-sheet-id-input">GoogleスプレッドシートID</label><input type="text" id="google-sheet-id-input" placeholder="予定を管理するスプレッドシートのID"></div>
-                        <div class="form-group"><label for="reminder-guild-id-input">リマインダー対象のサーバーID</label><input type="text" id="reminder-guild-id-input" placeholder="リマインダーを送信するDiscordサーバーのID"></div>
-                        <div class="form-group"><label for="reminder-role-id-input">リマインダー対象のロールID</label><input type="text" id="reminder-role-id-input" placeholder="リマインダーDMを送る対象のロールID"></div>
+                        <div class="button-group"><button id="save-schedule-settings-btn" class="save-btn">基本設定を保存</button></div>
                         <hr>
                         <h3>予定リストエディター</h3>
                         <div id="schedule-items-container"></div>
@@ -89,11 +94,9 @@
                         <hr>
                         <h2>管理者アカウント</h2>
                         <div class="form-group"><label>管理者リスト</label><div id="admins-list-container"></div><button type="button" id="add-admin-btn" class="secondary-btn">＋ 管理者を追加</button><small>リストの一番上の管理者が「最高管理者」です。</small></div>
+                        <div class="button-group"><button id="save-admins-btn" class="save-btn">管理者リストを保存</button></div>
                     </div>
                 </main>
-            </div>
-            <div class="button-group-main">
-                <button id="save-all-btn" class="save-btn">すべての設定を保存</button>
             </div>
         </div>
         <p id="status-message"></p>

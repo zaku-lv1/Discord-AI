@@ -3,6 +3,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const auth = firebase.auth();
 
     // --- DOM Elements ---
+    const loader = document.getElementById('loader-container');
+    const pageContainer = document.querySelector('.container');
     const authContainer = document.getElementById('auth-container');
     const mainContent = document.getElementById('main-content');
     const statusMessage = document.getElementById('status-message');
@@ -72,6 +74,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- Auth & Registration Logic ---
     auth.onAuthStateChanged(user => {
+        // 認証チェックが完了したら、ロード画面を消してメインコンテナを表示
+        loader.style.display = 'none';
+        pageContainer.style.display = 'block';
+
         if (user) {
             authContainer.style.display = 'none';
             mainContent.style.display = 'block';

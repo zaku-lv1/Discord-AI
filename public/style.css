@@ -174,3 +174,29 @@ input:checked + .slider:before { transform: translateX(24px); }
     .admin-entry.super-admin { border-left: none; border-top: 4px solid #ffc107; }
     .super-admin-label { text-align: right; margin: -10px 0 5px 0; }
 }
+
+/* ▼▼▼ ロード画面のスタイルを追加 ▼▼▼ */
+.loader-container {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    gap: 1rem;
+}
+.spinner {
+    border: 6px solid rgba(255, 255, 255, 0.3);
+    border-top: 6px solid #fff;
+    border-radius: 50%;
+    width: 50px;
+    height: 50px;
+    animation: spin 1s linear infinite;
+}
+.loader-text {
+    color: #fff;
+    font-weight: 500;
+    font-size: 1.1rem;
+}
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
