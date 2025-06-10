@@ -38,7 +38,6 @@ const client = new Client({
 });
 client.commands = new Collection();
 client.db = db;
-
 const commandsPath = path.join(__dirname, 'commands');
 if (fs.existsSync(commandsPath)) {
     const commandFiles = fs.readdirSync(commandsPath).filter(file => file.endsWith('.js'));
@@ -47,6 +46,7 @@ if (fs.existsSync(commandsPath)) {
         const command = require(filePath);
         if ('data' in command && 'execute' in command) {
             client.commands.set(command.data.name, command);
+            console.log(`[情報] コマンドを読み込みました: /${command.data.name}`);
         }
     }
 }
@@ -55,8 +55,18 @@ if (fs.existsSync(commandsPath)) {
 // Google Sheets API クライアント取得ヘルパー関数
 // =================================================================================
 async function getSheetsClient(credentialsJson) {
-    if (!credentialsJson) throw new Error('GoogleサービスアカウントのJSON認証情報が設定されていません。');
-    const serviceAccountCreds = JSON.parse(credentialsJson);
+    // 渡されるのがオブジェクト形式の場合も文字列の場合も対応
+    let serviceAccountCreds = credentialsJson;
+    if (typeof credentialsJson === 'string') {
+        try {
+            serviceAccountCreds = JSON.parse(credentialsJson);
+        } catch (e) {
+            throw new Error('GoogleサービスアカウントのJSON形式が無効です。');
+        }
+    }
+    if (!serviceAccountCreds || !serviceAccountCreds.client_email) {
+        throw new Error('Googleサービスアカウントの認証情報が無効です。');
+    }
     const jwtClient = new JWT({
         email: serviceAccountCreds.client_email,
         key: serviceAccountCreds.private_key,
@@ -87,6 +97,7 @@ async function setupReminderSchedule() {
                 const scheduleCommand = client.commands.get('schedule');
                 if (scheduleCommand && typeof scheduleCommand.scheduleDailyReminder === 'function') {
                     dailyReminderTask = cron.schedule(cronExpression, () => {
+                        console.log(`[リマインダー] 定刻(${settings.reminderTime})になりました。`);
                         scheduleCommand.scheduleDailyReminder(client, db);
                     }, { scheduled: true, timezone: "Asia/Tokyo" });
                     console.log(`[リマインダー] セットアップ完了。毎日 ${settings.reminderTime} にリマインダーが送信されます。`);
@@ -107,7 +118,7 @@ const adminRouter = express.Router();
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
 adminRouter.use(express.static(path.join(__dirname, 'public')));
-adminRouter.use(express.json());
+adminRouter.use(express.json({ limit: '5mb' }));
 
 const verifyFirebaseToken = async (req, res, next) => {
     const authHeader = req.headers.authorization;
@@ -143,6 +154,10 @@ adminRouter.get('/api/settings', verifyFirebaseToken, async (req, res) => {
         const schedulePromise = db.collection('bot_settings').doc('schedule_settings').get();
         const [tokaDoc, scheduleDoc] = await Promise.all([tokaPromise, schedulePromise]);
 
+        if (!tokaDoc.exists && !scheduleDoc.exists) {
+            return res.status(404).json({ message: '設定がまだありません。' });
+        }
+
         const tokaData = tokaDoc.exists ? tokaDoc.data() : {};
         const scheduleData = scheduleDoc.exists ? scheduleDoc.data() : {};
         
@@ -164,7 +179,7 @@ adminRouter.get('/api/settings', verifyFirebaseToken, async (req, res) => {
                 googleSheetId: scheduleData.googleSheetId || '',
                 reminderGuildId: scheduleData.reminderGuildId || '',
                 reminderRoleId: scheduleData.reminderRoleId || '',
-                googleServiceAccountJson: scheduleData.googleServiceAccountJson || ''
+                googleServiceAccountJson: scheduleData.googleServiceAccountJson ? JSON.stringify(scheduleData.googleServiceAccountJson, null, 2) : ''
             }
         });
     } catch (error) {
@@ -182,7 +197,7 @@ adminRouter.post('/api/settings', verifyFirebaseToken, async (req, res) => {
         
         const docSnap = await tokaDocRef.get();
         const currentSettings = docSnap.exists ? docSnap.data() : {};
-        
+
         if (toka) {
             const currentAdmins = currentSettings.admins || [];
             const superAdminEmail = currentAdmins.length > 0 ? currentAdmins[0].email : null;
@@ -201,8 +216,15 @@ adminRouter.post('/api/settings', verifyFirebaseToken, async (req, res) => {
         }
         
         if (schedule) {
-            try { if(schedule.googleServiceAccountJson) JSON.parse(schedule.googleServiceAccountJson); } catch (e) { return res.status(400).json({ message: 'GoogleサービスアカウントのJSON形式が無効です。' }); }
-            const scheduleDataToSave = { ...schedule, updatedBy: req.user.email, updatedAt: admin.firestore.FieldValue.serverTimestamp() };
+            let parsedJson = null;
+            if (schedule.googleServiceAccountJson) {
+                try {
+                    parsedJson = JSON.parse(schedule.googleServiceAccountJson);
+                } catch (e) {
+                    return res.status(400).json({ message: 'GoogleサービスアカウントのJSON形式が無効です。' });
+                }
+            }
+            const scheduleDataToSave = { ...schedule, googleServiceAccountJson: parsedJson, updatedBy: req.user.email, updatedAt: admin.firestore.FieldValue.serverTimestamp() };
             batch.set(scheduleDocRef, scheduleDataToSave, { merge: true });
         }
 
@@ -255,10 +277,7 @@ adminRouter.post('/api/generate-invite-code', verifyFirebaseToken, async (req, r
         const superAdminEmail = admins.length > 0 ? admins[0].email : null;
         if (!superAdminEmail || req.user.email !== superAdminEmail) return res.status(403).json({ message: '招待コードの発行は最高管理者のみ許可されています。' });
         const newCode = uuidv4().split('-')[0].toUpperCase();
-        await db.collection('invitation_codes').doc(newCode).set({
-            code: newCode, createdAt: admin.firestore.FieldValue.serverTimestamp(),
-            createdBy: req.user.email, used: false, usedBy: null, usedAt: null
-        });
+        await db.collection('invitation_codes').doc(newCode).set({ code: newCode, createdAt: admin.firestore.FieldValue.serverTimestamp(), createdBy: req.user.email, used: false, usedBy: null, usedAt: null });
         res.status(201).json({ code: newCode });
     } catch (error) { res.status(500).json({ message: '招待コードの生成に失敗しました。' }); }
 });
