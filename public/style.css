@@ -156,3 +156,21 @@ input:checked + .slider:before { transform: translateX(24px); }
     transform: translateY(-2px);
     box-shadow: 0 6px 20px 0 rgba(40, 167, 69, 0.5);
 }
+
+#schedule-items-container {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 15px;
+}
+
+/* ▼▼▼ このボタンに下のマージンを追加 ▼▼▼ */
+#add-schedule-item-btn {
+    margin-bottom: 1rem;
+}
+
+.schedule-item-entry {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
