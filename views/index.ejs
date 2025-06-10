@@ -19,10 +19,8 @@
         <div class="spinner"></div>
         <p class="loader-text">読み込み中...</p>
     </div>
-
     <div class="container" style="display: none;">
         <h1>ボット設定管理パネル</h1>
-        
         <div id="auth-container" style="display: none;">
             <form id="login-form">
                 <h2>ログイン</h2>
@@ -50,13 +48,11 @@
                 </div>
             </form>
         </div>
-
         <div id="main-content" style="display: none;">
             <div class="user-info">
                 <p>ようこそ, <span id="user-email"></span> さん</p>
                 <button id="logout-btn">ログアウト</button>
             </div>
-            
             <div id="dashboard-container">
                 <nav id="dashboard-nav">
                     <ul>
@@ -65,17 +61,16 @@
                         <li id="nav-item-admin" style="display: none;"><a href="#" class="nav-link" data-target="panel-admins">管理者設定</a></li>
                     </ul>
                 </nav>
-
                 <main id="dashboard-content">
                     <div id="panel-toka" class="dashboard-panel">
                         <h2>とーか 設定</h2>
+                        <div class="form-group"><label for="toka-model-mode">AIモデルモード</label><select id="toka-model-mode" class="form-control"><option value="hybrid">ハイブリッド (高品質)</option><option value="flash_only">Flash (高速)</option></select><small>使用するAIモデルを選択します。</small></div>
                         <div class="form-group"><label for="base-user-id-input">ベースユーザーID</label><input type="text" id="base-user-id-input" placeholder="とーかの見た目と名前の元になるDiscordユーザーID"></div>
                         <div class="form-group"><div class="toggle-container"><label for="name-recognition-checkbox" class="toggle-label">個別の名前認識を有効にする</label><label class="toggle-switch"><input type="checkbox" id="name-recognition-checkbox"><span class="slider"></span></label></div></div>
                         <div class="form-group"><label for="prompt-textarea">システムプロンプト (キャラクター設定)</label><textarea id="prompt-textarea" rows="10" placeholder="ここにキャラクター設定を入力..."></textarea></div>
                         <div class="form-group"><label>ニックネーム設定</label><div id="nicknames-list-container"></div><button type="button" id="add-nickname-btn" class="secondary-btn">＋ ニックネームを追加</button></div>
                         <div class="button-group"><button id="save-toka-btn" class="save-btn">とーか設定を保存</button></div>
                     </div>
-
                     <div id="panel-schedule" class="dashboard-panel" style="display: none;">
                         <h2>スケジュール設定</h2>
                         <div class="form-group"><div class="toggle-container"><label for="reminders-enabled-checkbox" class="toggle-label">宿題リマインダーを有効にする</label><label class="toggle-switch"><input type="checkbox" id="reminders-enabled-checkbox"><span class="slider"></span></label></div></div>
@@ -88,7 +83,6 @@
                         <button type="button" id="add-schedule-item-btn" class="secondary-btn">＋ 予定を追加</button>
                         <div class="button-group"><button id="save-schedule-items-btn" class="save-btn">予定リストをシートに保存</button></div>
                     </div>
-                    
                     <div id="panel-admins" class="dashboard-panel" style="display: none;">
                         <div id="invite-code-generator-section"><div class="form-group"><label>新しい管理者を招待</label><button type="button" id="generate-invite-code-btn" class="secondary-btn">招待コードを生成</button><div id="invite-code-display" style="display:none;"><p>このコードを新しい管理者に伝えてください。</p><input type="text" id="new-invite-code" readonly><button type="button" id="copy-invite-code-btn">コピー</button></div></div></div>
                         <hr>

@@ -163,7 +163,6 @@ adminRouter.get('/api/schedule/items', verifyFirebaseToken, async (req, res) => 
         const response = await sheetsClient.spreadsheets.values.get({ spreadsheetId: googleSheetId, range: 'シート1!A2:C' });
         res.status(200).json(response.data.values || []);
     } catch (error) {
-        console.error('GET /api/schedule/items エラー:', error);
         res.status(500).json({ message: 'スプレッドシートの予定読み込みに失敗しました。' });
     }
 });

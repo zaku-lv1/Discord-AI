@@ -6,14 +6,13 @@ const { GoogleGenerativeAI } = require('@google/generative-ai');
 const SHEET_NAME = 'シート1';
 const TRY_MODELS = ['gemini-1.5-flash'];
 
-// Google Sheets API クライアント取得ヘルパー関数
-async function getSheetsClient(credentialsObject) {
-    if (!credentialsObject || !credentialsObject.client_email) {
-        throw new Error('Googleサービスアカウントの認証情報(オブジェクト)が無効です。');
-    }
+async function getSheetsClient() {
+    const credentialsJson = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
+    if (!credentialsJson) throw new Error('GoogleサービスアカウントのJSON認証情報が.envに設定されていません。');
+    const serviceAccountCreds = JSON.parse(credentialsJson);
     const jwtClient = new JWT({
-        email: credentialsObject.client_email,
-        key: credentialsObject.private_key,
+        email: serviceAccountCreds.client_email,
+        key: serviceAccountCreds.private_key,
         scopes: ['https://www.googleapis.com/auth/spreadsheets'],
     });
     return google.sheets({ version: 'v4', auth: jwtClient });
@@ -114,9 +113,8 @@ async function scheduleDailyReminder(client, db) {
         if (!settingsDoc.exists || !settingsDoc.data().remindersEnabled) return;
         settings = settingsDoc.data();
     } catch (error) { return; }
-
-    const { googleSheetId, googleServiceAccountJson, reminderGuildId, reminderRoleId } = settings;
-    if (!googleSheetId || !googleServiceAccountJson || !reminderGuildId || !reminderRoleId) return;
+    const { googleSheetId, reminderGuildId, reminderRoleId } = settings;
+    if (!googleSheetId || !reminderGuildId || !reminderRoleId) return;
     
     console.log(`${logPrefix} 処理を開始します。`);
     const getTomorrowDateString = () => {
@@ -127,9 +125,8 @@ async function scheduleDailyReminder(client, db) {
     const tomorrowStr = getTomorrowDateString();
     
     let sheets;
-    try {
-        sheets = await getSheetsClient(googleServiceAccountJson);
-    } catch (authError) { return; }
+    try { sheets = await getSheetsClient(); }
+    catch (authError) { return; }
 
     let allSchedules;
     try {
@@ -158,28 +155,20 @@ async function scheduleDailyReminder(client, db) {
 }
 
 module.exports = {
-    data: new SlashCommandBuilder().setName('schedule').setDescription('予定を確認・追加・編集・削除します。'),
-
+    data: new SlashCommandBuilder().setName('schedule').setDescription('予定を確認・追加・編集・削除します。(DB設定で動作)'),
     async execute(interaction) {
         await interaction.deferReply({ ephemeral: true });
         const db = interaction.client.db;
         const settingsDoc = await db.collection('bot_settings').doc('schedule_settings').get();
         if (!settingsDoc.exists) return interaction.editReply({ content: '❌ スケジュール機能の設定がデータベースに見つかりません。' });
-        
         const settings = settingsDoc.data();
         const { googleSheetId } = settings;
-        const credentialsJson = process.env.FIREBASE_SERVICE_ACCOUNT_JSON; // .envから読み込む
-
-        if (!googleSheetId || !credentialsJson) {
-            return interaction.editReply({ content: '❌ Google Sheet IDまたはサービスアカウント情報が設定されていません。' });
-        }
+        if (!googleSheetId) return interaction.editReply({ content: '❌ Google Sheet IDが設定されていません。' });
         
         let sheets;
         try {
-            sheets = await getSheetsClient(credentialsJson);
-        } catch (authError) {
-            return interaction.editReply({ content: '❌ Google APIへの認証に失敗しました。' });
-        }
+            sheets = await getSheetsClient();
+        } catch (authError) { return interaction.editReply({ content: '❌ Google APIへの認証に失敗しました。' }); }
         
         const deletedCount = await cleanupExpiredSchedules(sheets, googleSheetId);
         if (deletedCount > 0) {
@@ -221,7 +210,7 @@ module.exports = {
                     const [type, task, due] = schedules[currentIndex];
                     const modal = new ModalBuilder().setCustomId(`schedule_edit_modal_submit_${currentIndex}`).setTitle('予定を編集').addComponents(
                         new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId('edit_type_input').setLabel('種別').setStyle(TextInputStyle.Short).setValue(type || '').setRequired(false)),
-                        new ActionRowRowBuilder().addComponents(new TextInputBuilder().setCustomId('edit_task_input').setLabel('内容').setStyle(TextInputStyle.Paragraph).setValue(task || '').setRequired(true)),
+                        new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId('edit_task_input').setLabel('内容').setStyle(TextInputStyle.Paragraph).setValue(task || '').setRequired(true)),
                         new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId('edit_due_input').setLabel('期限').setStyle(TextInputStyle.Short).setValue(due || '').setRequired(false))
                     );
                     return await i.showModal(modal);
@@ -266,10 +255,10 @@ module.exports = {
         const db = interaction.client.db;
         const settingsDoc = await db.collection('bot_settings').doc('schedule_settings').get();
         if (!settingsDoc.exists) return interaction.editReply({ content: '❌ スケジュール設定が見つかりません。' });
-        const { googleSheetId, googleServiceAccountJson } = settingsDoc.data();
-        if (!googleSheetId || !googleServiceAccountJson) return interaction.editReply({ content: '❌ スケジュール設定に不備があります。' });
+        const { googleSheetId } = settingsDoc.data();
+        if (!googleSheetId) return interaction.editReply({ content: '❌ スケジュール設定に不備があります。' });
         try {
-            const sheets = await getSheetsClient(googleServiceAccountJson);
+            const sheets = await getSheetsClient();
             await sheets.spreadsheets.values.append({ spreadsheetId: googleSheetId, range: SHEET_NAME, valueInputOption: 'USER_ENTERED', resource: { values: valuesToAppend } });
             await interaction.editReply({ content: `✅ ${valuesToAppend.length}件の予定を追加しました！` });
         } catch (sheetError) { await interaction.editReply({ content: '❌ スプレッドシートへの予定追加中にエラーが発生しました。' }); }
@@ -281,11 +270,11 @@ module.exports = {
         const db = interaction.client.db;
         const settingsDoc = await db.collection('bot_settings').doc('schedule_settings').get();
         if (!settingsDoc.exists) return interaction.editReply({ content: '❌ スケジュール設定が見つかりません。' });
-        const { googleSheetId, googleServiceAccountJson } = settingsDoc.data();
-        if (!googleSheetId || !googleServiceAccountJson) return interaction.editReply({ content: '❌ スケジュール設定に不備があります。' });
+        const { googleSheetId } = settingsDoc.data();
+        if (!googleSheetId) return interaction.editReply({ content: '❌ スケジュール設定に不備があります。' });
         let sheets, currentSchedules;
         try {
-            sheets = await getSheetsClient(googleServiceAccountJson);
+            sheets = await getSheetsClient();
             const response = await sheets.spreadsheets.values.get({ spreadsheetId: googleSheetId, range: `${SHEET_NAME}!A2:C` });
             currentSchedules = response.data.values || [];
             if (currentSchedules.length === 0) return interaction.editReply({ content: 'ℹ️ 削除対象の予定がありません。' });
@@ -297,6 +286,7 @@ module.exports = {
         try {
             const spreadsheetInfo = await sheets.spreadsheets.get({ spreadsheetId: googleSheetId });
             const sheet1 = spreadsheetInfo.data.sheets.find(s => s.properties.title === SHEET_NAME);
+            if (!sheet1) throw new Error('Cannot find sheet with name ' + SHEET_NAME);
             const deleteRequests = validSortedIndices.map(index => ({ deleteDimension: { range: { sheetId: sheet1.properties.sheetId, dimension: 'ROWS', startIndex: index + 1, endIndex: index + 2 } } }));
             await sheets.spreadsheets.batchUpdate({ spreadsheetId: googleSheetId, resource: { requests: deleteRequests } });
             await interaction.editReply({ content: `✅ ${deleteRequests.length}件の予定を削除しました。` });
@@ -314,10 +304,10 @@ module.exports = {
         const db = interaction.client.db;
         const settingsDoc = await db.collection('bot_settings').doc('schedule_settings').get();
         if (!settingsDoc.exists) return interaction.editReply({ content: '❌ スケジュール設定が見つかりません。' });
-        const { googleSheetId, googleServiceAccountJson } = settingsDoc.data();
-        if (!googleSheetId || !googleServiceAccountJson) return interaction.editReply({ content: '❌ スケジュール設定に不備があります。' });
+        const { googleSheetId } = settingsDoc.data();
+        if (!googleSheetId) return interaction.editReply({ content: '❌ スケジュール設定に不備があります。' });
         try {
-            const sheets = await getSheetsClient(googleServiceAccountJson);
+            const sheets = await getSheetsClient();
             await sheets.spreadsheets.values.update({
                 spreadsheetId: googleSheetId, range: `'${SHEET_NAME}'!A${targetIndex + 2}:C${targetIndex + 2}`, valueInputOption: 'USER_ENTERED', resource: { values: [[newType, newTask, newDue]] },
             });
