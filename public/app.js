@@ -7,10 +7,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const mainContent = document.getElementById('main-content');
     const statusMessage = document.getElementById('status-message');
     const loginForm = document.getElementById('login-form');
-    const loginBtn = document.getElementById('login-btn');
-    const forgotPasswordLink = document.getElementById('forgot-password-link');
     const registerForm = document.getElementById('register-form');
+    const loginBtn = document.getElementById('login-btn');
     const registerBtn = document.getElementById('register-btn');
+    const forgotPasswordLink = document.getElementById('forgot-password-link');
     const showRegisterFormLink = document.getElementById('show-register-form-link');
     const showLoginFormLink = document.getElementById('show-login-form-link');
     const userEmailEl = document.getElementById('user-email');
@@ -18,26 +18,27 @@ document.addEventListener('DOMContentLoaded', () => {
     const navLinks = document.querySelectorAll('.nav-link');
     const panels = document.querySelectorAll('.dashboard-panel');
     const adminNavItem = document.getElementById('nav-item-admin');
-    const saveAllBtn = document.getElementById('save-all-btn');
     
-    // Toka Panel Elements
+    // Toka Panel
     const baseUserIdInput = document.getElementById('base-user-id-input');
     const promptTextarea = document.getElementById('prompt-textarea');
     const nameRecognitionCheckbox = document.getElementById('name-recognition-checkbox');
     const nicknamesListContainer = document.getElementById('nicknames-list-container');
     const addNicknameBtn = document.getElementById('add-nickname-btn');
+    const saveTokaBtn = document.getElementById('save-toka-btn');
     
-    // Schedule Panel Elements
+    // Schedule Panel
     const remindersEnabledCheckbox = document.getElementById('reminders-enabled-checkbox');
     const reminderTimeInput = document.getElementById('reminder-time-input');
     const googleSheetIdInput = document.getElementById('google-sheet-id-input');
     const reminderGuildIdInput = document.getElementById('reminder-guild-id-input');
     const reminderRoleIdInput = document.getElementById('reminder-role-id-input');
+    const saveScheduleSettingsBtn = document.getElementById('save-schedule-settings-btn');
     const scheduleItemsContainer = document.getElementById('schedule-items-container');
     const addScheduleItemBtn = document.getElementById('add-schedule-item-btn');
     const saveScheduleItemsBtn = document.getElementById('save-schedule-items-btn');
 
-    // Admin Panel Elements
+    // Admin Panel
     const adminSettingsSection = document.getElementById('panel-admins');
     const inviteCodeGeneratorSection = document.getElementById('invite-code-generator-section');
     const generateInviteCodeBtn = document.getElementById('generate-invite-code-btn');
@@ -46,15 +47,16 @@ document.addEventListener('DOMContentLoaded', () => {
     const copyInviteCodeBtn = document.getElementById('copy-invite-code-btn');
     const adminsListContainer = document.getElementById('admins-list-container');
     const addAdminBtn = document.getElementById('add-admin-btn');
-    
-    // --- UI State ---
+    const saveAdminsBtn = document.getElementById('save-admins-btn');
+
+    // UIの状態を管理するための変数
     let state = {
         admins: [],
         isSuperAdmin: false,
         scheduleItems: []
     };
 
-    // --- Navigation Logic ---
+    // --- ナビゲーションロジック ---
     navLinks.forEach(link => {
         link.addEventListener('click', (e) => {
             e.preventDefault();
@@ -63,14 +65,16 @@ document.addEventListener('DOMContentLoaded', () => {
             panels.forEach(p => p.style.display = 'none');
             link.classList.add('active');
             const targetPanel = document.getElementById(targetId);
-            if (targetPanel) targetPanel.style.display = 'block';
+            if (targetPanel) {
+                targetPanel.style.display = 'block';
+            }
             if (targetId === 'panel-schedule') {
                 fetchScheduleItems();
             }
         });
     });
 
-    // --- Auth & Registration Logic ---
+    // --- 認証関連 ---
     auth.onAuthStateChanged(user => {
         if (user) {
             authContainer.style.display = 'none';
@@ -87,6 +91,7 @@ document.addEventListener('DOMContentLoaded', () => {
     loginBtn.addEventListener('click', () => {
         const email = document.getElementById('login-email').value;
         const password = document.getElementById('login-password').value;
+        statusMessage.textContent = "";
         auth.signInWithEmailAndPassword(email, password).catch(err => { statusMessage.textContent = `ログインエラー: ${err.message}`; });
     });
 
@@ -96,11 +101,13 @@ document.addEventListener('DOMContentLoaded', () => {
         e.preventDefault();
         const email = document.getElementById('login-email').value;
         if (!email) { statusMessage.textContent = 'メールアドレスを入力してください。'; return; }
+        statusMessage.textContent = '送信中...';
         auth.sendPasswordResetEmail(email)
             .then(() => { statusMessage.textContent = `${email} にパスワード再設定用のメールを送信しました。`; })
             .catch(err => { statusMessage.textContent = `エラー: ${err.message}`; });
     });
-    
+
+    // --- 新規登録と招待コード ---
     showRegisterFormLink.addEventListener('click', (e) => { e.preventDefault(); loginForm.style.display = 'none'; registerForm.style.display = 'block'; statusMessage.textContent = ''; });
     showLoginFormLink.addEventListener('click', (e) => { e.preventDefault(); registerForm.style.display = 'none'; loginForm.style.display = 'block'; statusMessage.textContent = ''; });
 
@@ -155,7 +162,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
 
-    // --- Dynamic List UI Functions ---
+    // --- 動的リストのUI関数 ---
     function renderNicknameList(nicknames = {}) {
         nicknamesListContainer.innerHTML = '';
         Object.entries(nicknames).forEach(([id, name]) => createNicknameEntry(id, name));
@@ -163,12 +170,12 @@ document.addEventListener('DOMContentLoaded', () => {
     function createNicknameEntry(id = '', name = '') {
         const entryDiv = document.createElement('div');
         entryDiv.className = 'nickname-entry';
-        entryDiv.innerHTML = `<input type="text" class="nickname-id" placeholder="ユーザーID" value="${id}"><input type="text" class="nickname-name" placeholder="ニックネーム" value="${name}"><button type="button" class="delete-nickname-btn">削除</button>`;
+        entryDiv.innerHTML = `<input type="text" class="nickname-id" placeholder="ユーザーID" value="${id}"><input type="text" class="nickname-name" placeholder="ニックネーム" value="${name}"><button type="button" class="delete-btn">削除</button>`;
         nicknamesListContainer.appendChild(entryDiv);
     }
     addNicknameBtn.addEventListener('click', () => createNicknameEntry());
     nicknamesListContainer.addEventListener('click', (e) => {
-        if (e.target.classList.contains('delete-nickname-btn')) e.target.closest('.nickname-entry').remove();
+        if (e.target.classList.contains('delete-btn')) e.target.closest('.nickname-entry').remove();
     });
 
     function renderAdminList() {
@@ -183,7 +190,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 entryDiv.classList.add('super-admin');
                 html += `<span class="super-admin-label">👑</span>`;
             }
-            html += `<button type="button" class="delete-admin-btn">削除</button>`;
+            html += `<button type="button" class="delete-btn">削除</button>`;
             entryDiv.innerHTML = html;
             adminsListContainer.appendChild(entryDiv);
         });
@@ -194,7 +201,7 @@ document.addEventListener('DOMContentLoaded', () => {
         renderAdminList();
     });
     adminsListContainer.addEventListener('click', (e) => {
-        if (e.target.classList.contains('delete-admin-btn')) {
+        if (e.target.classList.contains('delete-btn')) {
             if (!state.isSuperAdmin) return;
             const entry = e.target.closest('.admin-entry');
             const index = parseInt(entry.dataset.index, 10);
@@ -239,14 +246,14 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!state.isSuperAdmin) return;
         e.preventDefault();
     });
-    
+
     function renderScheduleList() {
         scheduleItemsContainer.innerHTML = '';
         state.scheduleItems.forEach((item, index) => {
             const entryDiv = document.createElement('div');
             entryDiv.className = 'schedule-item-entry';
             entryDiv.dataset.index = index;
-            entryDiv.innerHTML = `<input type="text" class="item-type" data-field="0" placeholder="種別" value="${item[0] || ''}"><input type="text" class="item-task" data-field="1" placeholder="内容" value="${item[1] || ''}"><input type="text" class="item-due" data-field="2" placeholder="期限" value="${item[2] || ''}"><button type="button" class="delete-schedule-item-btn">削除</button>`;
+            entryDiv.innerHTML = `<input type="text" class="item-type" data-field="0" placeholder="種別" value="${item[0] || ''}"><input type="text" class="item-task" data-field="1" placeholder="内容" value="${item[1] || ''}"><input type="text" class="item-due" data-field="2" placeholder="期限" value="${item[2] || ''}"><button type="button" class="delete-btn">削除</button>`;
             scheduleItemsContainer.appendChild(entryDiv);
         });
     }
@@ -255,7 +262,7 @@ document.addEventListener('DOMContentLoaded', () => {
         renderScheduleList();
     });
     scheduleItemsContainer.addEventListener('click', (e) => {
-        if (e.target.classList.contains('delete-schedule-item-btn')) {
+        if (e.target.classList.contains('delete-btn')) {
             const entry = e.target.closest('.schedule-item-entry');
             const index = parseInt(entry.dataset.index, 10);
             state.scheduleItems.splice(index, 1);
@@ -273,7 +280,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
 
-    // --- Data Fetching & Saving ---
+    // --- Data Fetching ---
     async function fetchSettings(user) {
         statusMessage.textContent = '読込中...';
         const token = await user.getIdToken();
@@ -286,7 +293,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
 
-            // 初回アクセス（404）の場合の処理
             if (res.status === 404) {
                 userEmailEl.textContent = user.displayName || user.email;
                 state.admins = [{ name: user.displayName || '管理者', email: user.email }];
@@ -307,19 +313,20 @@ document.addEventListener('DOMContentLoaded', () => {
             renderNicknameList(tokaData.userNicknames || {});
             
             const currentUserAdminInfo = (tokaData.admins || []).find(admin => admin.email === user.email);
-            const displayName = currentUserAdminInfo ? (currentUserAdminInfo.name || user.email) : user.email;
-            userEmailEl.textContent = displayName;
+            userEmailEl.textContent = (currentUserAdminInfo && currentUserAdminInfo.name) ? currentUserAdminInfo.name : user.email;
             
             state.admins = tokaData.admins || [];
             state.isSuperAdmin = tokaData.currentUser && tokaData.currentUser.isSuperAdmin;
             
             adminNavItem.style.display = 'block';
             renderAdminList();
-            const adminControls = document.querySelectorAll('#panel-admins input, #panel-admins button');
             if(!state.isSuperAdmin) {
-                adminControls.forEach(el => el.disabled = true);
+                 document.querySelectorAll('#panel-admins input, #panel-admins button').forEach(el => el.disabled = true);
+                 document.querySelectorAll('.admin-entry').forEach(el => el.draggable = false);
+                 inviteCodeGeneratorSection.style.display = 'none';
             } else {
-                adminControls.forEach(el => el.disabled = false);
+                 document.querySelectorAll('#panel-admins input, #panel-admins button').forEach(el => el.disabled = false);
+                 inviteCodeGeneratorSection.style.display = 'block';
             }
 
             const scheduleData = data.schedule || {};
@@ -349,7 +356,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     statusMessage.textContent = 'スケジュールシートが未設定か、データがありません。';
                     return;
                 }
-                throw new Error('予定リストの読み込みに失敗しました。');
+                const errorData = await res.json();
+                throw new Error(errorData.message || '予定リストの読み込みに失敗しました。');
             }
             const items = await res.json();
             state.scheduleItems = items;
@@ -360,6 +368,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    // --- 保存ボタンのイベントリスナー ---
     saveAllBtn.addEventListener('click', async () => {
         const user = auth.currentUser;
         if (!user || saveAllBtn.disabled) return;
@@ -395,7 +404,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
                 body: JSON.stringify({ toka: tokaSettings, schedule: scheduleSettings })
             });
-
             const result = await res.json();
             if (!res.ok) throw new Error(result.message);
             statusMessage.textContent = result.message;
