@@ -275,88 +275,80 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // --- Data Fetching ---
-    async function fetchSettings(user) {
-        statusMessage.textContent = '読込中...';
-        const token = await user.getIdToken();
-        
-        let tokaDataLoaded = false;
-        let finalStatusMessage = '設定を読み込みました。';
+// 【修正後】
+async function fetchSettings(user) {
+    statusMessage.textContent = '読込中...';
+    const token = await user.getIdToken();
+    let finalStatusMessage = '設定を読み込みました。';
+    let tokaDataLoaded = false;
 
-        // Fetch Toka & Admin Settings
-        try {
-            const tokaRes = await fetch('/api/settings/toka', { headers: { 'Authorization': `Bearer ${token}` } });
-            if (tokaRes.status === 403 || tokaRes.status === 401) {
-                throw new Error('アクセスが拒否されました。');
-            }
+    // --- とーか・管理者設定を読み込み ---
+    try {
+        const tokaRes = await fetch('/api/settings/toka', { headers: { 'Authorization': `Bearer ${token}` } });
 
-            if (tokaRes.ok) {
-                const data = await tokaRes.json();
-                baseUserIdInput.value = data.baseUserId || '';
-                promptTextarea.value = data.systemPrompt || '';
-                nameRecognitionCheckbox.checked = data.enableNameRecognition ?? true;
-                tokaModelModeSelect.value = data.modelMode || 'hybrid';
-                renderNicknameList(data.userNicknames || {});
-                const currentUserAdminInfo = (data.admins || []).find(admin => admin.email === user.email);
-                userEmailEl.textContent = (currentUserAdminInfo && currentUserAdminInfo.name) ? currentUserAdminInfo.name : user.email;
-                state.admins = data.admins || [];
-                state.isSuperAdmin = data.currentUser && data.currentUser.isSuperAdmin;
-                adminNavItem.style.display = 'block';
-                renderAdminList();
-                document.querySelectorAll('#panel-admins input, #panel-admins button').forEach(el => el.disabled = !state.isSuperAdmin);
-                inviteCodeGeneratorSection.style.display = state.isSuperAdmin ? 'block' : 'none';
-            } else if (tokaRes.status === 404) {
-                userEmailEl.textContent = user.displayName || user.email;
-                state.isSuperAdmin = true;
-                adminNavItem.style.display = 'block';
-            } else {
-                const errData = await tokaRes.json();
-                throw new Error(errData.message || 'とーか設定の読み込みに失敗');
-            }
-            tokaDataLoaded = true;
-        } catch (err) {
-            finalStatusMessage = `エラー: ${err.message}`;
+        if (tokaRes.status === 403 || tokaRes.status === 401) {
+            mainContent.innerHTML = `<h2>アクセスが拒否されました</h2><p>あなたのアカウント(${user.email})には権限がありません。</p><button id="logout-btn-fallback">ログアウト</button>`;
+            document.getElementById('logout-btn-fallback').addEventListener('click', () => auth.signOut());
+            return;
         }
-        
-        // Fetch Schedule Settings
-        try {
-            const scheduleRes = await fetch('/api/settings/schedule', { headers: { 'Authorization': `Bearer ${token}` } });
-            if (scheduleRes.ok) {
-                const data = await scheduleRes.json();
-                remindersEnabledCheckbox.checked = data.remindersEnabled ?? false;
-                reminderTimeInput.value = data.reminderTime || '';
-                googleSheetIdInput.value = data.googleSheetId || '';
-                reminderGuildIdInput.value = data.reminderGuildId || '';
-                reminderRoleIdInput.value = data.reminderRoleId || '';
-            } else if (scheduleRes.status !== 404) {
-                const errData = await scheduleRes.json();
-                throw new Error(errData.message || 'スケジュール設定の読み込みに失敗');
-            }
-        } catch (err) {
-            finalStatusMessage = tokaDataLoaded ? `${finalStatusMessage}\n${err.message}` : `エラー: ${err.message}`;
+
+        if (tokaRes.ok) {
+            const data = await tokaRes.json();
+            baseUserIdInput.value = data.baseUserId || '';
+            promptTextarea.value = data.systemPrompt || '';
+            nameRecognitionCheckbox.checked = data.enableNameRecognition ?? true;
+            tokaModelModeSelect.value = data.modelMode || 'hybrid';
+            renderNicknameList(data.userNicknames || {});
+            
+            const currentUserAdminInfo = (data.admins || []).find(admin => admin.email === user.email);
+            userEmailEl.textContent = (currentUserAdminInfo && currentUserAdminInfo.name) ? currentUserAdminInfo.name : user.email;
+            
+            state.admins = data.admins || [];
+            state.isSuperAdmin = data.currentUser && data.currentUser.isSuperAdmin;
+            
+            adminNavItem.style.display = 'block';
+            renderAdminList();
+            document.querySelectorAll('#panel-admins input, #panel-admins button').forEach(el => el.disabled = !state.isSuperAdmin);
+            inviteCodeGeneratorSection.style.display = state.isSuperAdmin ? 'block' : 'none';
+
+        } else if (tokaRes.status === 404) {
+            userEmailEl.textContent = user.displayName || user.email;
+            state.admins = [{ name: user.displayName || '管理者', email: user.email }];
+            state.isSuperAdmin = true;
+            adminNavItem.style.display = 'block';
+            renderAdminList();
+        } else {
+            const errData = await tokaRes.json().catch(() => ({}));
+            throw new Error(errData.message || 'とーか設定の読み込みに失敗');
         }
-        
-        statusMessage.textContent = finalStatusMessage;
+        tokaDataLoaded = true;
+    } catch (err) {
+        console.error('とーか設定の読み込みエラー:', err);
+        finalStatusMessage = `エラー: ${err.message}`;
     }
-    
-    async function fetchScheduleItems() {
-        const user = auth.currentUser;
-        if (!user) return;
-        statusMessage.textContent = '予定リストを読み込み中...';
-        try {
-            const token = await user.getIdToken();
-            const res = await fetch('/api/schedule/items', { headers: { 'Authorization': `Bearer ${token}` } });
-            if (!res.ok) {
-                const errorData = await res.json().catch(() => ({ message: '予定リストの読み込みに失敗しました。' }));
-                throw new Error(errorData.message);
-            }
-            const items = await res.json();
-            state.scheduleItems = items;
-            renderScheduleList();
-            statusMessage.textContent = '予定リストを読み込みました。';
-        } catch (err) {
-            statusMessage.textContent = `エラー: ${err.message}`;
+
+    // --- スケジュール設定を読み込み ---
+    try {
+        const scheduleRes = await fetch('/api/settings/schedule', { headers: { 'Authorization': `Bearer ${token}` } });
+        if (scheduleRes.ok) {
+            const data = await scheduleRes.json();
+            remindersEnabledCheckbox.checked = data.remindersEnabled ?? false;
+            reminderTimeInput.value = data.reminderTime || '';
+            googleSheetIdInput.value = data.googleSheetId || '';
+            reminderGuildIdInput.value = data.reminderGuildId || '';
+            reminderRoleIdInput.value = data.reminderRoleId || '';
+        } else if (scheduleRes.status !== 404) {
+            const errData = await scheduleRes.json().catch(() => ({}));
+            throw new Error(errData.message || 'スケジュール設定の読み込みに失敗');
         }
+    } catch (err) {
+        console.error('スケジュール設定の読み込みエラー:', err);
+        // エラーメッセージを追記するが、とーかのエラーを上書きしない
+        finalStatusMessage = tokaDataLoaded ? `${finalStatusMessage}\nスケジュール設定の読み込みに失敗しました。` : `エラー: ${err.message}`;
     }
+
+    statusMessage.textContent = finalStatusMessage;
+}
 
     // --- Save Button Listeners ---
     saveTokaBtn.addEventListener('click', async () => {
