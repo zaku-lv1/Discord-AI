@@ -18,14 +18,14 @@ document.addEventListener('DOMContentLoaded', () => {
     const navLinks = document.querySelectorAll('.nav-link');
     const panels = document.querySelectorAll('.dashboard-panel');
     const adminNavItem = document.getElementById('nav-item-admin');
-    
+    const saveAllBtn = document.getElementById('save-all-btn');
+
     // Toka Panel
     const baseUserIdInput = document.getElementById('base-user-id-input');
     const promptTextarea = document.getElementById('prompt-textarea');
     const nameRecognitionCheckbox = document.getElementById('name-recognition-checkbox');
     const nicknamesListContainer = document.getElementById('nicknames-list-container');
     const addNicknameBtn = document.getElementById('add-nickname-btn');
-    const saveTokaBtn = document.getElementById('save-toka-btn');
     
     // Schedule Panel
     const remindersEnabledCheckbox = document.getElementById('reminders-enabled-checkbox');
@@ -33,7 +33,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const googleSheetIdInput = document.getElementById('google-sheet-id-input');
     const reminderGuildIdInput = document.getElementById('reminder-guild-id-input');
     const reminderRoleIdInput = document.getElementById('reminder-role-id-input');
-    const saveScheduleSettingsBtn = document.getElementById('save-schedule-settings-btn');
     const scheduleItemsContainer = document.getElementById('schedule-items-container');
     const addScheduleItemBtn = document.getElementById('add-schedule-item-btn');
     const saveScheduleItemsBtn = document.getElementById('save-schedule-items-btn');
@@ -47,16 +46,15 @@ document.addEventListener('DOMContentLoaded', () => {
     const copyInviteCodeBtn = document.getElementById('copy-invite-code-btn');
     const adminsListContainer = document.getElementById('admins-list-container');
     const addAdminBtn = document.getElementById('add-admin-btn');
-    const saveAdminsBtn = document.getElementById('save-admins-btn');
 
-    // UIの状態を管理するための変数
+    // --- UI State ---
     let state = {
         admins: [],
         isSuperAdmin: false,
         scheduleItems: []
     };
 
-    // --- ナビゲーションロジック ---
+    // --- Navigation Logic ---
     navLinks.forEach(link => {
         link.addEventListener('click', (e) => {
             e.preventDefault();
@@ -65,16 +63,14 @@ document.addEventListener('DOMContentLoaded', () => {
             panels.forEach(p => p.style.display = 'none');
             link.classList.add('active');
             const targetPanel = document.getElementById(targetId);
-            if (targetPanel) {
-                targetPanel.style.display = 'block';
-            }
+            if (targetPanel) targetPanel.style.display = 'block';
             if (targetId === 'panel-schedule') {
                 fetchScheduleItems();
             }
         });
     });
 
-    // --- 認証関連 ---
+    // --- Auth & Registration Logic ---
     auth.onAuthStateChanged(user => {
         if (user) {
             authContainer.style.display = 'none';
@@ -91,7 +87,6 @@ document.addEventListener('DOMContentLoaded', () => {
     loginBtn.addEventListener('click', () => {
         const email = document.getElementById('login-email').value;
         const password = document.getElementById('login-password').value;
-        statusMessage.textContent = "";
         auth.signInWithEmailAndPassword(email, password).catch(err => { statusMessage.textContent = `ログインエラー: ${err.message}`; });
     });
 
@@ -101,13 +96,11 @@ document.addEventListener('DOMContentLoaded', () => {
         e.preventDefault();
         const email = document.getElementById('login-email').value;
         if (!email) { statusMessage.textContent = 'メールアドレスを入力してください。'; return; }
-        statusMessage.textContent = '送信中...';
         auth.sendPasswordResetEmail(email)
             .then(() => { statusMessage.textContent = `${email} にパスワード再設定用のメールを送信しました。`; })
             .catch(err => { statusMessage.textContent = `エラー: ${err.message}`; });
     });
-
-    // --- 新規登録と招待コード ---
+    
     showRegisterFormLink.addEventListener('click', (e) => { e.preventDefault(); loginForm.style.display = 'none'; registerForm.style.display = 'block'; statusMessage.textContent = ''; });
     showLoginFormLink.addEventListener('click', (e) => { e.preventDefault(); registerForm.style.display = 'none'; loginForm.style.display = 'block'; statusMessage.textContent = ''; });
 
@@ -161,8 +154,7 @@ document.addEventListener('DOMContentLoaded', () => {
         statusMessage.textContent = '招待コードをコピーしました！';
     });
 
-
-    // --- 動的リストのUI関数 ---
+    // --- Dynamic List UI Functions ---
     function renderNicknameList(nicknames = {}) {
         nicknamesListContainer.innerHTML = '';
         Object.entries(nicknames).forEach(([id, name]) => createNicknameEntry(id, name));
@@ -279,7 +271,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-
     // --- Data Fetching ---
     async function fetchSettings(user) {
         statusMessage.textContent = '読込中...';
@@ -295,10 +286,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (res.status === 404) {
                 userEmailEl.textContent = user.displayName || user.email;
-                state.admins = [{ name: user.displayName || '管理者', email: user.email }];
                 state.isSuperAdmin = true;
                 adminNavItem.style.display = 'block';
-                renderAdminList();
                 statusMessage.textContent = '設定はまだありません。「保存」を押すと初期設定が作成されます。';
                 return;
             }
@@ -313,7 +302,8 @@ document.addEventListener('DOMContentLoaded', () => {
             renderNicknameList(tokaData.userNicknames || {});
             
             const currentUserAdminInfo = (tokaData.admins || []).find(admin => admin.email === user.email);
-            userEmailEl.textContent = (currentUserAdminInfo && currentUserAdminInfo.name) ? currentUserAdminInfo.name : user.email;
+            const displayName = currentUserAdminInfo ? (currentUserAdminInfo.name || user.email) : user.email;
+            userEmailEl.textContent = displayName;
             
             state.admins = tokaData.admins || [];
             state.isSuperAdmin = tokaData.currentUser && tokaData.currentUser.isSuperAdmin;
@@ -322,13 +312,13 @@ document.addEventListener('DOMContentLoaded', () => {
             renderAdminList();
             if(!state.isSuperAdmin) {
                  document.querySelectorAll('#panel-admins input, #panel-admins button').forEach(el => el.disabled = true);
-                 document.querySelectorAll('.admin-entry').forEach(el => el.draggable = false);
                  inviteCodeGeneratorSection.style.display = 'none';
+                 adminsListContainer.querySelectorAll('.admin-entry').forEach(entry => entry.draggable = false);
             } else {
                  document.querySelectorAll('#panel-admins input, #panel-admins button').forEach(el => el.disabled = false);
                  inviteCodeGeneratorSection.style.display = 'block';
             }
-
+            
             const scheduleData = data.schedule || {};
             remindersEnabledCheckbox.checked = scheduleData.remindersEnabled ?? false;
             reminderTimeInput.value = scheduleData.reminderTime || '';
@@ -350,14 +340,8 @@ document.addEventListener('DOMContentLoaded', () => {
             const token = await user.getIdToken();
             const res = await fetch('/api/schedule/items', { headers: { 'Authorization': `Bearer ${token}` } });
             if (!res.ok) {
-                if(res.status === 404) {
-                    state.scheduleItems = [];
-                    renderScheduleList();
-                    statusMessage.textContent = 'スケジュールシートが未設定か、データがありません。';
-                    return;
-                }
-                const errorData = await res.json();
-                throw new Error(errorData.message || '予定リストの読み込みに失敗しました。');
+                const errorData = await res.json().catch(() => ({ message: '予定リストの読み込みに失敗しました。' }));
+                throw new Error(errorData.message);
             }
             const items = await res.json();
             state.scheduleItems = items;
@@ -368,7 +352,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // --- 保存ボタンのイベントリスナー ---
+    // --- 保存ボタンの処理 ---
     saveAllBtn.addEventListener('click', async () => {
         const user = auth.currentUser;
         if (!user || saveAllBtn.disabled) return;
