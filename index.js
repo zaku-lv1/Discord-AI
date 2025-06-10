@@ -142,7 +142,7 @@ adminRouter.get('/api/settings/toka', verifyFirebaseToken, async (req, res) => {
         const data = doc.data();
         const admins = data.admins || [];
         let isSuperAdmin = admins.length > 0 ? (req.user.email === admins[0].email) : true;
-        res.status(200).json({ baseUserId: data.baseUserId || null, systemPrompt: data.systemPrompt || '', enableNameRecognition: data.enableNameRecognition ?? true, userNicknames: data.userNicknames || {}, admins: admins, currentUser: { isSuperAdmin: isSuperAdmin }});
+        res.status(200).json({ baseUserId: data.baseUserId || null, systemPrompt: data.systemPrompt || '', enableNameRecognition: data.enableNameRecognition ?? true, userNicknames: data.userNicknames || {}, admins: admins, currentUser: { isSuperAdmin: isSuperAdmin } });
     } catch (error) { res.status(500).json({ message: 'サーバーエラー' }); }
 });
 
@@ -162,7 +162,10 @@ adminRouter.get('/api/schedule/items', verifyFirebaseToken, async (req, res) => 
         const sheetsClient = await getSheetsClient();
         const response = await sheetsClient.spreadsheets.values.get({ spreadsheetId: googleSheetId, range: 'シート1!A2:C' });
         res.status(200).json(response.data.values || []);
-    } catch (error) { res.status(500).json({ message: 'スプレッドシートの予定読み込みに失敗しました。' }); }
+    } catch (error) {
+        console.error('GET /api/schedule/items エラー:', error);
+        res.status(500).json({ message: 'スプレッドシートの予定読み込みに失敗しました。' });
+    }
 });
 
 adminRouter.post('/api/settings/toka', verifyFirebaseToken, async (req, res) => {
@@ -251,7 +254,7 @@ adminRouter.post('/api/register-with-invite', async (req, res) => {
             transaction.set(settingsRef, { admins }, { merge: true });
         });
         await inviteCodeRef.update({ used: true, usedBy: email, usedAt: admin.firestore.FieldValue.serverTimestamp() });
-        res.status(201).json({ message: `ようこそ、${displayName}さん！アカウントが作成されました。ログインしてください。` });
+        res.status(201).json({ message: `ようこそ、${displayName}さん！アカウントが正常に作成されました。ログインしてください。` });
     } catch (error) {
         if (error.code === 'auth/email-already-exists') return res.status(400).json({ message: 'このメールアドレスは既に使用されています。' });
         res.status(500).json({ message: 'アカウントの作成に失敗しました。' });
