@@ -67,13 +67,42 @@
 
                 <main id="dashboard-content">
                     <div id="panel-toka" class="dashboard-panel">
-                        <h2>とーか 設定</h2>
-                        <div class="form-group"><label for="toka-model-mode">AIモデルモード</label><select id="toka-model-mode"><option value="hybrid">ハイブリッド (高品質)</option><option value="flash_only">Flash (高速)</option></select><small>使用するAIモデルを選択します。</small></div>
-                        <div class="form-group"><label for="base-user-id-input">ベースユーザーID</label><input type="text" id="base-user-id-input" placeholder="とーかの見た目と名前の元になるDiscordユーザーID"></div>
-                        <div class="form-group"><div class="toggle-container"><label for="name-recognition-checkbox" class="toggle-label">個別の名前認識を有効にする</label><label class="toggle-switch"><input type="checkbox" id="name-recognition-checkbox"><span class="slider"></span></label></div></div>
-                        <div class="form-group"><label for="prompt-textarea">システムプロンプト (キャラクター設定)</label><textarea id="prompt-textarea" rows="10" placeholder="ここにキャラクター設定を入力..."></textarea></div>
-                        <div class="form-group"><label>ニックネーム設定</label><div id="nicknames-list-container"></div><button type="button" id="add-nickname-btn" class="secondary-btn">＋ ニックネームを追加</button></div>
-                    </div>
+    <h2>とーか 設定</h2>
+    <div class="form-group">
+        <label for="toka-model-mode">AIモデルモード</label>
+        <select id="toka-model-mode">
+            <option value="hybrid">ハイブリッド (高品質)</option>
+            <option value="flash_only">Flash (高速)</option>
+        </select>
+        <small>使用するAIモデルを選択します。</small>
+    </div>
+    <div class="form-group">
+        <label for="base-user-id-input">ベースユーザーID</label>
+        <input type="text" id="base-user-id-input" placeholder="とーかの見た目と名前の元になるDiscordユーザーID">
+    </div>
+    <div class="form-group">
+        <div class="toggle-container">
+            <label for="name-recognition-checkbox" class="toggle-label">個別の名前認識を有効にする</label>
+            <label class="toggle-switch">
+                <input type="checkbox" id="name-recognition-checkbox">
+                <span class="slider"></span>
+            </label>
+        </div>
+    </div>
+    <div class="form-group">
+        <label for="prompt-textarea">システムプロンプト (キャラクター設定)</label>
+        <textarea id="prompt-textarea" rows="10" placeholder="ここにキャラクター設定を入力..."></textarea>
+    </div>
+    <div class="form-group">
+        <label>ニックネーム設定</label>
+        <div id="nicknames-list-container"></div>
+        <button type="button" id="add-nickname-btn" class="secondary-btn">＋ ニックネームを追加</button>
+    </div>
+    <!-- ここに保存ボタンを追加 -->
+    <div class="button-group">
+        <button id="save-toka-btn" class="save-btn">とーか設定を保存</button>
+    </div>
+</div>
 
                     <div id="panel-schedule" class="dashboard-panel" style="display: none;">
                         <h2>スケジュール設定</h2>
