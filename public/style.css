@@ -286,3 +286,38 @@ input:checked + .slider:before { transform: translateX(24px); }
         width: 100%;
     }
 }
+
+/* 管理者設定パネルの保存ボタン用スタイル */
+#save-admins-btn {
+    margin-top: 2rem;
+    background-image: linear-gradient(to right, #64b5f6, #42a5f5, #2196f3);
+    background-size: 200% auto;
+    color: white;
+    box-shadow: 0 4px 15px 0 rgba(65, 132, 234, 0.4);
+    transition: all 0.3s ease;
+}
+
+#save-admins-btn:hover:not(:disabled) {
+    background-position: right center;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px 0 rgba(65, 132, 234, 0.5);
+}
+
+/* パネル内のボタングループのスタイル調整 */
+#panel-admins .button-group {
+    border-top: 1px solid rgba(0, 0, 0, 0.1);
+    padding-top: 2rem;
+    margin-top: 2.5rem;
+}
+
+/* レスポンシブ対応 */
+@media (max-width: 768px) {
+    #save-admins-btn {
+        width: 100%;
+    }
+    
+    #panel-admins .button-group {
+        padding-top: 1.5rem;
+        margin-top: 2rem;
+    }
+}
