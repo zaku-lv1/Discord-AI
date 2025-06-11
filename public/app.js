@@ -260,20 +260,11 @@ document.addEventListener("DOMContentLoaded", () => {
 
     try {
       const newDisplayName = profileDisplayNameInput.value.trim();
+      const newEmail = profileEmailInput.value.trim();
+      const currentEmail = user.email;
 
-      // 入力値の検証
-      if (!newDisplayName) {
-        throw new Error("表示名を入力してください。");
-      }
-
-      console.log("送信するデータ:", {
-        displayName: newDisplayName,
-      });
-
-      // 新しいトークンを取得
+      // 表示名の更新
       const token = await user.getIdToken(true);
-
-      // プロファイル更新リクエスト
       const res = await fetch("/api/update-profile", {
         method: "POST",
         headers: {
@@ -285,23 +276,34 @@ document.addEventListener("DOMContentLoaded", () => {
         }),
       });
 
-      // レスポンスの解析
-      const data = await res.json().catch((e) => {
-        console.error("JSONパースエラー:", e);
-        return { message: "レスポンスの解析に失敗しました。" };
-      });
+      const result = await res.json();
+      if (!res.ok) throw new Error(result.message);
 
-      if (!res.ok) {
-        console.error("サーバーエラー:", {
-          status: res.status,
-          statusText: res.statusText,
-          data,
-        });
-        throw new Error(data.message || data.details || "更新に失敗しました。");
+      // メールアドレスの更新（変更がある場合のみ）
+      if (newEmail && newEmail !== currentEmail) {
+        try {
+          // まず新しいメールアドレスに確認メールを送信
+          await user.verifyBeforeUpdateEmail(newEmail);
+          statusMessage.textContent =
+            "プロファイルを更新しました。新しいメールアドレスの確認メールを送信しました。確認メールのリンクをクリックした後、メールアドレスが更新されます。";
+        } catch (emailError) {
+          if (emailError.code === "auth/requires-recent-login") {
+            throw new Error(
+              "メールアドレスの更新には再ログインが必要です。一度ログアウトしてから、もう一度お試しください。"
+            );
+          } else if (emailError.code === "auth/invalid-email") {
+            throw new Error("無効なメールアドレス形式です。");
+          } else if (emailError.code === "auth/email-already-in-use") {
+            throw new Error("このメールアドレスは既に使用されています。");
+          } else {
+            throw emailError;
+          }
+        }
+      } else {
+        statusMessage.textContent = "プロファイルを更新しました。";
       }
 
-      statusMessage.textContent =
-        data.message || "プロファイルを更新しました。";
+      // 設定を再読み込み
       await fetchSettings(user);
     } catch (err) {
       console.error("プロファイル更新エラー:", err);
