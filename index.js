@@ -400,10 +400,17 @@ adminRouter.post(
   }
 );
 
+// index.js
 app.post("/api/update-profile", verifyFirebaseToken, async (req, res) => {
   try {
     const { displayName } = req.body;
     const userEmail = req.user.email;
+
+    console.log("プロファイル更新リクエスト:", {
+      userEmail,
+      displayName,
+      timestamp: new Date().toISOString(),
+    });
 
     // 入力値の検証
     if (!displayName || typeof displayName !== "string") {
@@ -412,84 +419,82 @@ app.post("/api/update-profile", verifyFirebaseToken, async (req, res) => {
       });
     }
 
-    // データベースへの参照を取得
-    const botSettingsRef = db.collection("bot_settings");
+    // bot_settingsコレクションのtoka_profileドキュメントを取得
+    const settingsRef = db.collection("bot_settings").doc("toka_profile");
+    const settingsDoc = await settingsRef.get();
 
-    // トランザクションを使用してデータを更新
-    await db.runTransaction(async (transaction) => {
-      // 現在の設定を取得
-      const settingsDoc = await transaction.get(
-        botSettingsRef.doc("toka_profile")
-      );
+    console.log("設定ドキュメントの存在:", settingsDoc.exists);
 
-      if (!settingsDoc.exists) {
-        // 設定が存在しない場合は新規作成
-        const initialData = {
-          admins: [
-            {
-              email: userEmail,
-              name: displayName,
-            },
-          ],
-          createdAt: admin.firestore.FieldValue.serverTimestamp(),
-          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-        };
-
-        transaction.set(botSettingsRef.doc("toka_profile"), initialData);
-        return;
-      }
-
-      // 既存のデータを取得
+    let admins = [];
+    if (settingsDoc.exists) {
       const data = settingsDoc.data();
-      const admins = Array.isArray(data.admins) ? data.admins : [];
+      admins = Array.isArray(data.admins) ? data.admins : [];
+    }
 
-      // 現在のユーザーのインデックスを検索
-      const adminIndex = admins.findIndex((admin) => admin.email === userEmail);
+    console.log("現在の管理者リスト:", admins);
 
-      let updatedAdmins;
-      if (adminIndex === -1) {
-        // ユーザーが存在しない場合は追加
-        updatedAdmins = [
-          ...admins,
-          {
-            email: userEmail,
+    // 管理者リストの更新
+    let updatedAdmins;
+    const adminIndex = admins.findIndex((admin) => admin.email === userEmail);
+
+    if (adminIndex === -1) {
+      // 新規ユーザーの場合は追加
+      updatedAdmins = [
+        ...admins,
+        {
+          email: userEmail,
+          name: displayName,
+          updatedAt: new Date().toISOString(),
+        },
+      ];
+    } else {
+      // 既存ユーザーの場合は更新
+      updatedAdmins = admins.map((admin, index) => {
+        if (index === adminIndex) {
+          return {
+            ...admin,
             name: displayName,
-          },
-        ];
-      } else {
-        // 既存のユーザーを更新
-        updatedAdmins = admins.map((admin, index) =>
-          index === adminIndex ? { ...admin, name: displayName } : admin
-        );
-      }
+            updatedAt: new Date().toISOString(),
+          };
+        }
+        return admin;
+      });
+    }
 
-      // データを更新
-      transaction.update(botSettingsRef.doc("toka_profile"), {
+    console.log("更新する管理者リスト:", updatedAdmins);
+
+    // Firestoreの更新
+    await settingsRef.set(
+      {
         admins: updatedAdmins,
         updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-      });
-    });
+      },
+      { merge: true }
+    );
+
+    console.log("データベース更新完了");
 
     // 成功レスポンス
     res.json({
       message: "プロファイルを更新しました。",
       displayName,
+      email: userEmail,
       timestamp: new Date().toISOString(),
     });
   } catch (error) {
-    // エラーログの出力
+    // エラーの詳細をログに記録
     console.error("プロファイル更新エラー:", {
-      error: error.message,
+      message: error.message,
       stack: error.stack,
       userEmail: req.user?.email,
       timestamp: new Date().toISOString(),
     });
 
-    // クライアントへのエラー応答
+    // クライアントへのエラーレスポンス
     res.status(500).json({
       message: "プロファイルの更新中にエラーが発生しました。",
-      details:
-        process.env.NODE_ENV === "development" ? error.message : undefined,
+      details: error.message,
+      timestamp: new Date().toISOString(),
     });
   }
 });

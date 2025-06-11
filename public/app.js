@@ -260,12 +260,16 @@ document.addEventListener("DOMContentLoaded", () => {
 
     try {
       const newDisplayName = profileDisplayNameInput.value.trim();
+
+      // 入力値の検証
       if (!newDisplayName) {
         throw new Error("表示名を入力してください。");
       }
 
-      const token = await user.getIdToken(true); // トークンを強制的に更新
+      // 新しいトークンを取得
+      const token = await user.getIdToken(true);
 
+      // プロファイル更新リクエスト
       const res = await fetch("/api/update-profile", {
         method: "POST",
         headers: {
@@ -277,18 +281,19 @@ document.addEventListener("DOMContentLoaded", () => {
         }),
       });
 
+      // レスポンスの解析
+      const data = await res.json();
+
       if (!res.ok) {
-        const errorData = await res.json();
-        throw new Error(
-          errorData.message || errorData.details || "更新に失敗しました。"
-        );
+        console.error("サーバーエラー:", data);
+        throw new Error(data.message || data.details || "更新に失敗しました。");
       }
 
-      const result = await res.json();
+      // 成功メッセージの表示
       statusMessage.textContent =
-        result.message || "プロファイルを更新しました。";
+        data.message || "プロファイルを更新しました。";
 
-      // メールアドレスの更新は別途処理
+      // メールアドレスの更新処理
       const newEmail = profileEmailInput.value.trim();
       if (newEmail && newEmail !== user.email) {
         try {
@@ -297,12 +302,13 @@ document.addEventListener("DOMContentLoaded", () => {
           statusMessage.textContent +=
             " 新しいメールアドレスの確認メールを送信しました。";
         } catch (emailError) {
+          console.error("メールアドレス更新エラー:", emailError);
           if (emailError.code === "auth/requires-recent-login") {
-            statusMessage.textContent +=
-              " メールアドレスの更新には再ログインが必要です。";
-          } else {
-            throw emailError;
+            throw new Error(
+              "メールアドレスの更新には再ログインが必要です。一度ログアウトしてから、もう一度お試しください。"
+            );
           }
+          throw emailError;
         }
       }
 
