@@ -259,12 +259,43 @@ document.addEventListener("DOMContentLoaded", () => {
     statusMessage.textContent = "プロファイルを更新中...";
 
     try {
+      // 現在のユーザー情報をログ出力
+      console.log("現在のユーザー情報:", {
+        currentUser: {
+          email: user.email,
+          displayName: user.displayName,
+          emailVerified: user.emailVerified,
+          uid: user.uid,
+          metadata: {
+            lastSignInTime: user.metadata.lastSignInTime,
+            creationTime: user.metadata.creationTime,
+          },
+        },
+      });
+
       const newDisplayName = profileDisplayNameInput.value.trim();
       const newEmail = profileEmailInput.value.trim();
       const currentEmail = user.email;
 
-      // 表示名の更新
+      // 入力値の検証
+      if (newEmail && newEmail !== currentEmail) {
+        console.log("メールアドレス更新の試行:", {
+          currentEmail,
+          newEmail,
+          timestamp: new Date().toISOString(),
+        });
+
+        // メールアドレスの形式チェック
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(newEmail)) {
+          throw new Error("無効なメールアドレス形式です。");
+        }
+      }
+
+      // まず最新のトークンを取得
       const token = await user.getIdToken(true);
+
+      // 表示名の更新
       const res = await fetch("/api/update-profile", {
         method: "POST",
         headers: {
@@ -276,38 +307,58 @@ document.addEventListener("DOMContentLoaded", () => {
         }),
       });
 
+      const result = await res.json();
       if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.message || "更新に失敗しました");
+        throw new Error(result.message || "更新に失敗しました");
       }
 
-      // メールアドレスの変更がある場合
+      // メールアドレスの変更処理
       if (newEmail && newEmail !== currentEmail) {
-        // まず再認証が必要かチェック
         try {
-          // 新しいメールアドレスの確認メールを送信
-          await user.verifyBeforeUpdateEmail(newEmail);
-          statusMessage.textContent = `プロファイルを更新しました。
-                    新しいメールアドレス（${newEmail}）に確認メールを送信しました。
-                    確認メールのリンクをクリックしてメールアドレスの変更を完了してください。
-                    メールが届かない場合は、スパムフォルダもご確認ください。`;
+          // 再認証が必要かどうかを確認
+          const credential = firebase.auth.EmailAuthProvider.credential(
+            user.email,
+            prompt("セキュリティのため、現在のパスワードを入力してください:")
+          );
 
-          // 確認用のポップアップ表示
-          alert(`新しいメールアドレス（${newEmail}）に確認メールを送信しました。
-                    メールを確認してリンクをクリックしてください。
-                    ※メールが届かない場合は、スパムフォルダもご確認ください。`);
+          // 再認証を実行
+          await user.reauthenticateWithCredential(credential);
+          console.log("再認証成功");
+
+          // メールアドレス更新を試行
+          await user.updateEmail(newEmail);
+          console.log("メールアドレス更新成功");
+
+          // 確認メールを送信
+          await user.sendEmailVerification();
+          console.log("確認メール送信成功");
+
+          statusMessage.textContent = `プロファイルを更新し、新しいメールアドレス(${newEmail})に確認メールを送信しました。`;
+          alert(
+            `新しいメールアドレス(${newEmail})に確認メールを送信しました。\nメールを確認してリンクをクリックしてください。`
+          );
         } catch (emailError) {
-          console.error("メール更新エラー:", emailError);
+          console.error("メールアドレス更新エラー:", {
+            code: emailError.code,
+            message: emailError.message,
+            stack: emailError.stack,
+          });
+
           if (emailError.code === "auth/requires-recent-login") {
+            // 再認証が必要な場合
             await auth.signOut();
             alert(
-              "セキュリティ保護のため、メールアドレスを変更するには再ログインが必要です。\nログアウトしましたので、再度ログインしてからお試しください。"
+              "セキュリティ保護のため再ログインが必要です。\nログアウトしましたので、再度ログインしてから試してください。"
             );
-            window.location.reload();
+            window.location.href = "/";
             return;
+          } else if (emailError.code === "auth/invalid-email") {
+            throw new Error("無効なメールアドレス形式です。");
+          } else if (emailError.code === "auth/email-already-in-use") {
+            throw new Error("このメールアドレスは既に使用されています。");
           } else {
             throw new Error(
-              `メールアドレスの更新に失敗しました。エラー: ${emailError.message}`
+              `メールアドレスの更新に失敗しました: ${emailError.message}`
             );
           }
         }
@@ -318,7 +369,12 @@ document.addEventListener("DOMContentLoaded", () => {
       // 設定を再読み込み
       await fetchSettings(user);
     } catch (err) {
-      console.error("プロファイル更新エラー:", err);
+      console.error("プロファイル更新エラー:", {
+        error: err,
+        message: err.message,
+        code: err.code,
+        stack: err.stack,
+      });
       statusMessage.textContent = `エラー: ${err.message}`;
       alert(`エラーが発生しました: ${err.message}`);
     } finally {
