@@ -132,6 +132,11 @@ async function setupReminderSchedule() {
 const app = express();
 const port = process.env.PORT || 80;
 const adminRouter = express.Router();
+
+// ボディパーサーミドルウェアの設定
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
 app.set("view engine", "ejs");
 app.set("views", path.join(__dirname, "views"));
 adminRouter.use(express.static(path.join(__dirname, "public")));
@@ -400,7 +405,7 @@ adminRouter.post(
   }
 );
 
-// index.js
+// プロファイル更新API
 app.post("/api/update-profile", verifyFirebaseToken, async (req, res) => {
   try {
     const { displayName } = req.body;
