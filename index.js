@@ -405,6 +405,53 @@ adminRouter.post(
   }
 );
 
+// メールアドレス更新用のエンドポイント
+app.post("/api/update-email", verifyFirebaseToken, async (req, res) => {
+  try {
+    const { oldEmail, newEmail } = req.body;
+    const userEmail = req.user.email;
+
+    // 権限チェック
+    if (userEmail !== oldEmail) {
+      return res.status(403).json({
+        message: "他のユーザーのメールアドレスは更新できません。",
+      });
+    }
+
+    // Firestoreでのメールアドレス更新
+    const settingsRef = db.collection("bot_settings").doc("toka_profile");
+    const settingsDoc = await settingsRef.get();
+
+    if (settingsDoc.exists) {
+      const data = settingsDoc.data();
+      const admins = Array.isArray(data.admins) ? data.admins : [];
+
+      const updatedAdmins = admins.map((admin) => {
+        if (admin.email === oldEmail) {
+          return { ...admin, email: newEmail };
+        }
+        return admin;
+      });
+
+      await settingsRef.update({
+        admins: updatedAdmins,
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+    }
+
+    res.json({
+      message: "メールアドレスを更新しました。",
+      email: newEmail,
+    });
+  } catch (error) {
+    console.error("メールアドレス更新エラー:", error);
+    res.status(500).json({
+      message: "メールアドレスの更新中にエラーが発生しました。",
+      details: error.message,
+    });
+  }
+});
+
 // プロファイル更新API
 app.post("/api/update-profile", verifyFirebaseToken, async (req, res) => {
   try {

@@ -263,6 +263,14 @@ document.addEventListener("DOMContentLoaded", () => {
       const newEmail = profileEmailInput.value.trim();
       const currentEmail = user.email;
 
+      // メールアドレスのバリデーション
+      if (newEmail && newEmail !== currentEmail) {
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(newEmail)) {
+          throw new Error("メールアドレスの形式が正しくありません。");
+        }
+      }
+
       // 表示名の更新
       const token = await user.getIdToken(true);
       const res = await fetch("/api/update-profile", {
@@ -273,30 +281,50 @@ document.addEventListener("DOMContentLoaded", () => {
         },
         body: JSON.stringify({
           displayName: newDisplayName,
+          newEmail: newEmail, // サーバーサイドでもメール更新を処理
         }),
       });
 
       const result = await res.json();
-      if (!res.ok) throw new Error(result.message);
+      if (!res.ok) throw new Error(result.message || "更新に失敗しました");
 
       // メールアドレスの更新（変更がある場合のみ）
       if (newEmail && newEmail !== currentEmail) {
         try {
-          // まず新しいメールアドレスに確認メールを送信
-          await user.verifyBeforeUpdateEmail(newEmail);
+          // 再認証が必要な可能性があるため、先に確認
+          await user.reload();
+
+          // メールアドレス更新処理
+          await user.updateEmail(newEmail);
+          await user.sendEmailVerification();
+
           statusMessage.textContent =
-            "プロファイルを更新しました。新しいメールアドレスの確認メールを送信しました。確認メールのリンクをクリックした後、メールアドレスが更新されます。";
+            "プロファイルとメールアドレスを更新しました。新しいメールアドレス宛に確認メールを送信しました。";
+
+          // Firestore内のメールアドレスも更新
+          await fetch("/api/update-email", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${await user.getIdToken(true)}`,
+            },
+            body: JSON.stringify({
+              oldEmail: currentEmail,
+              newEmail: newEmail,
+            }),
+          });
         } catch (emailError) {
+          console.error("メール更新エラー:", emailError);
           if (emailError.code === "auth/requires-recent-login") {
+            // 再認証が必要な場合
+            await auth.signOut();
             throw new Error(
-              "メールアドレスの更新には再ログインが必要です。一度ログアウトしてから、もう一度お試しください。"
+              "セキュリティのため再ログインが必要です。一度ログアウトしました。再度ログインして更新してください。"
             );
-          } else if (emailError.code === "auth/invalid-email") {
-            throw new Error("無効なメールアドレス形式です。");
-          } else if (emailError.code === "auth/email-already-in-use") {
-            throw new Error("このメールアドレスは既に使用されています。");
           } else {
-            throw emailError;
+            throw new Error(
+              `メールアドレスの更新に失敗しました: ${emailError.message}`
+            );
           }
         }
       } else {
