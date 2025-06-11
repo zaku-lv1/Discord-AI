@@ -594,6 +594,59 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
+  // --- プロファイル関連 ---
+  saveProfileBtn.addEventListener("click", async () => {
+    const user = auth.currentUser;
+    if (!user || saveProfileBtn.disabled) return;
+
+    saveProfileBtn.disabled = true;
+    statusMessage.textContent = "プロファイルを更新中...";
+
+    try {
+      const token = await user.getIdToken();
+      const newDisplayName = profileDisplayNameInput.value.trim();
+      const newEmail = profileEmailInput.value.trim();
+      const currentEmail = user.email;
+
+      // 表示名の更新
+      const res = await fetch("/api/update-profile", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          displayName: newDisplayName,
+        }),
+      });
+
+      const result = await res.json();
+      if (!res.ok) throw new Error(result.message);
+
+      // メールアドレスの更新（変更がある場合のみ）
+      if (newEmail !== currentEmail) {
+        await user.updateEmail(newEmail);
+        await user.sendEmailVerification();
+        statusMessage.textContent =
+          "プロファイルを更新しました。新しいメールアドレスの確認メールを送信しました。";
+      } else {
+        statusMessage.textContent = "プロファイルを更新しました。";
+      }
+
+      // 設定を再読み込み
+      await fetchSettings(user);
+    } catch (err) {
+      if (err.code === "auth/requires-recent-login") {
+        statusMessage.textContent =
+          "セキュリティのため、再度ログインが必要です。一度ログアウトしてから、もう一度お試しください。";
+      } else {
+        statusMessage.textContent = `エラー: ${err.message}`;
+      }
+    } finally {
+      saveProfileBtn.disabled = false;
+    }
+  });
+
   // --- 管理者パネル ---
   addAdminBtn.addEventListener("click", () => {
     if (!state.isSuperAdmin) return;
