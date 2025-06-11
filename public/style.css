@@ -258,3 +258,31 @@ input:checked + .slider:before { transform: translateX(24px); }
         margin-top: 1.5rem;
     }
 }
+
+/* スケジュール設定パネルの保存ボタン用スタイル */
+#save-schedule-settings-btn {
+    margin-top: 1.5rem;
+    background-image: linear-gradient(to right, #64b5f6, #42a5f5, #2196f3);
+    background-size: 200% auto;
+    color: white;
+    box-shadow: 0 4px 15px 0 rgba(65, 132, 234, 0.4);
+    transition: all 0.3s ease;
+}
+
+#save-schedule-settings-btn:hover:not(:disabled) {
+    background-position: right center;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px 0 rgba(65, 132, 234, 0.5);
+}
+
+/* 入力フィールドグループのスタイル */
+#panel-schedule .form-group {
+    margin-bottom: 1.5rem;
+}
+
+/* レスポンシブ対応 */
+@media (max-width: 768px) {
+    #save-schedule-settings-btn {
+        width: 100%;
+    }
+}
