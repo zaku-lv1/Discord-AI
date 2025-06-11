@@ -1,5 +1,5 @@
 const { SlashCommandBuilder } = require('discord.js');
-const fetch = require('node-fetch');
+const { default: fetch } = require('node-fetch'); // このように修正
 
 const API_BASE_URL = `http://localhost:${process.env.PORT || 80}`;
 
@@ -15,25 +15,27 @@ module.exports = {
         try {
             console.log(`[テストリマインダー] ${interaction.user.tag} がリマインダーテストを開始しました。`);
 
-            // 公開APIからスケジュール情報を取得
-            const response = await fetch(`${API_BASE_URL}/api/schedule/public`);
-            if (!response.ok) {
-                throw new Error(`API response was not ok: ${response.status}`);
+            let response;
+            try {
+                response = await fetch(`${API_BASE_URL}/api/schedule/public`);
+                if (!response.ok) {
+                    throw new Error(`API response was not ok: ${response.status}`);
+                }
+            } catch (fetchError) {
+                console.error('[テストリマインダー] APIフェッチエラー:', fetchError);
+                throw new Error('スケジュールデータの取得に失敗しました。');
             }
 
             const { items: allSchedules, settings } = await response.json();
             
-            // 設定チェック
             if (!settings.remindersEnabled) {
                 return await interaction.editReply('❌ リマインダー機能は現在無効になっています。');
             }
 
-            // 明日の日付を取得
             const tomorrow = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Tokyo" }));
             tomorrow.setDate(tomorrow.getDate() + 1);
             const tomorrowStr = tomorrow.toISOString().slice(0, 10);
 
-            // スケジュールの処理
             const cleanedSchedules = allSchedules.map(row => ({
                 type: (row[0] || '').trim(),
                 task: (row[1] || '').trim(),
@@ -44,12 +46,10 @@ module.exports = {
                 s.due === tomorrowStr && s.type === '課題'
             );
 
-            // 明日提出の課題がない場合
             if (homeworkDueTomorrow.length === 0) {
                 return await interaction.editReply('ℹ️ 明日の提出期限の宿題は見つかりませんでした。');
             }
 
-            // Embedの作成
             const { EmbedBuilder } = require('discord.js');
             const reminderEmbed = new EmbedBuilder()
                 .setTitle(`📢 明日提出の宿題リマインダー (${tomorrowStr})`)
@@ -62,7 +62,6 @@ module.exports = {
                 })));
 
             try {
-                // テストモードではコマンド実行者にのみDMを送信
                 await interaction.user.send({ embeds: [reminderEmbed] });
                 await interaction.editReply('✅ テストDMを送信しました。DMを確認してください！');
             } catch (dmError) {
