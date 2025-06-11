@@ -1,4 +1,3 @@
-
 // =================================================================================
 // モジュールのインポート
 // =================================================================================
@@ -450,6 +449,185 @@ app.post("/api/update-email", verifyFirebaseToken, async (req, res) => {
       message: "メールアドレスの更新中にエラーが発生しました。",
       details: error.message,
     });
+  }
+});
+
+// 公開APIエンドポイント
+app.get("/api/schedule/public", async (req, res) => {
+  try {
+    const settingsDoc = await db
+      .collection("bot_settings")
+      .doc("schedule_settings")
+      .get();
+
+    if (!settingsDoc.exists || !settingsDoc.data().googleSheetId) {
+      return res.status(404).json({
+        items: [],
+        settings: {},
+      });
+    }
+
+    const settings = settingsDoc.data();
+    const sheets = await getSheetsClient();
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId: settings.googleSheetId,
+      range: "シート1!A2:C",
+    });
+
+    res.status(200).json({
+      items: response.data.values || [],
+      settings: {
+        googleSheetId: settings.googleSheetId,
+        remindersEnabled: settings.remindersEnabled,
+        reminderTime: settings.reminderTime,
+        reminderGuildId: settings.reminderGuildId,
+        reminderRoleId: settings.reminderRoleId,
+      },
+    });
+  } catch (error) {
+    console.error("GET /api/schedule/public エラー:", error);
+    res.status(500).json({
+      message: "スケジュール情報の取得に失敗しました。",
+      error: error.message,
+    });
+  }
+});
+
+app.post("/api/schedule/public/add", async (req, res) => {
+  try {
+    const { items } = req.body;
+    if (!Array.isArray(items)) {
+      return res.status(400).json({ message: "無効なデータ形式です。" });
+    }
+
+    const settingsDoc = await db
+      .collection("bot_settings")
+      .doc("schedule_settings")
+      .get();
+
+    if (!settingsDoc.exists || !settingsDoc.data().googleSheetId) {
+      return res
+        .status(404)
+        .json({ message: "スケジュール設定が見つかりません。" });
+    }
+
+    const { googleSheetId } = settingsDoc.data();
+    const sheets = await getSheetsClient();
+
+    await sheets.spreadsheets.values.append({
+      spreadsheetId: googleSheetId,
+      range: "シート1",
+      valueInputOption: "USER_ENTERED",
+      resource: { values: items },
+    });
+
+    res.status(200).json({
+      message: "予定を追加しました。",
+      count: items.length,
+    });
+  } catch (error) {
+    console.error("POST /api/schedule/public/add エラー:", error);
+    res.status(500).json({ message: "予定の追加に失敗しました。" });
+  }
+});
+
+app.post("/api/schedule/public/update", async (req, res) => {
+  try {
+    const { index, item } = req.body;
+    if (!Array.isArray(item) || typeof index !== "number") {
+      return res.status(400).json({ message: "無効なデータ形式です。" });
+    }
+
+    const settingsDoc = await db
+      .collection("bot_settings")
+      .doc("schedule_settings")
+      .get();
+
+    if (!settingsDoc.exists || !settingsDoc.data().googleSheetId) {
+      return res
+        .status(404)
+        .json({ message: "スケジュール設定が見つかりません。" });
+    }
+
+    const { googleSheetId } = settingsDoc.data();
+    const sheets = await getSheetsClient();
+
+    await sheets.spreadsheets.values.update({
+      spreadsheetId: googleSheetId,
+      range: `シート1!A${index + 2}:C${index + 2}`,
+      valueInputOption: "USER_ENTERED",
+      resource: { values: [item] },
+    });
+
+    res.status(200).json({ message: "予定を更新しました。" });
+  } catch (error) {
+    console.error("POST /api/schedule/public/update エラー:", error);
+    res.status(500).json({ message: "予定の更新に失敗しました。" });
+  }
+});
+
+app.post("/api/schedule/public/delete", async (req, res) => {
+  try {
+    const { indices } = req.body;
+    if (!Array.isArray(indices)) {
+      return res.status(400).json({ message: "無効なデータ形式です。" });
+    }
+
+    const settingsDoc = await db
+      .collection("bot_settings")
+      .doc("schedule_settings")
+      .get();
+
+    if (!settingsDoc.exists || !settingsDoc.data().googleSheetId) {
+      return res
+        .status(404)
+        .json({ message: "スケジュール設定が見つかりません。" });
+    }
+
+    const { googleSheetId } = settingsDoc.data();
+    const sheets = await getSheetsClient();
+
+    // スプレッドシート情報の取得
+    const spreadsheetInfo = await sheets.spreadsheets.get({
+      spreadsheetId: googleSheetId,
+    });
+
+    const sheet1 = spreadsheetInfo.data.sheets.find(
+      (s) => s.properties.title === "シート1"
+    );
+
+    if (!sheet1) {
+      throw new Error("シート1が見つかりません。");
+    }
+
+    const deleteRequests = indices
+      .filter((idx) => typeof idx === "number" && idx >= 0)
+      .sort((a, b) => b - a)
+      .map((index) => ({
+        deleteDimension: {
+          range: {
+            sheetId: sheet1.properties.sheetId,
+            dimension: "ROWS",
+            startIndex: index + 1,
+            endIndex: index + 2,
+          },
+        },
+      }));
+
+    if (deleteRequests.length > 0) {
+      await sheets.spreadsheets.batchUpdate({
+        spreadsheetId: googleSheetId,
+        resource: { requests: deleteRequests },
+      });
+    }
+
+    res.status(200).json({
+      message: "予定を削除しました。",
+      count: deleteRequests.length,
+    });
+  } catch (error) {
+    console.error("POST /api/schedule/public/delete エラー:", error);
+    res.status(500).json({ message: "予定の削除に失敗しました。" });
   }
 });
 
