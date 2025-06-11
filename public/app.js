@@ -309,6 +309,10 @@ document.addEventListener('DOMContentLoaded', () => {
             promptTextarea.value = tokaData.systemPrompt || '';
             nameRecognitionCheckbox.checked = tokaData.enableNameRecognition ?? true;
             renderNicknameList(tokaData.userNicknames || {});
+            if (Object.keys(tokaData.userNicknames || {}).length === 0) {
+                createNicknameEntry(); // 空の入力欄を1個追加
+            }
+
             const currentUserAdminInfo = (tokaData.admins || []).find(admin => admin.email === user.email);
             const displayName = currentUserAdminInfo ? (currentUserAdminInfo.name || user.email) : user.email;
             userEmailEl.textContent = displayName;
@@ -361,11 +365,19 @@ document.addEventListener('DOMContentLoaded', () => {
             const token = await user.getIdToken();
             
             const nicknamesObject = {};
-            document.querySelectorAll('.nickname-entry').forEach(entry => {
-                const id = entry.querySelector('.nickname-id').value.trim();
-                const name = entry.querySelector('.nickname-name').value.trim();
-                if (id) nicknamesObject[id] = name;
-            });
+document.querySelectorAll('.nickname-entry').forEach(entry => {
+    const idInput = entry.querySelector('.nickname-id');
+    const nameInput = entry.querySelector('.nickname-name');
+
+    if (!idInput || !nameInput) return; // 要素がなければ無視
+
+    const id = idInput.value.trim();
+    const name = nameInput.value.trim();
+
+    if (id) {
+        nicknamesObject[id] = name;
+    }
+});
             const adminsArray = state.admins.filter(admin => admin.email && admin.name);
             const tokaSettings = {
                 modelMode: tokaModelModeSelect.value,
