@@ -402,41 +402,50 @@ adminRouter.post(
   }
 );
 
-// サーバーサイドのコード（例：Express）
-app.post("/api/update-profile", authenticateUser, async (req, res) => {
-  try {
-    const { displayName } = req.body;
-    const userId = req.user.uid;
+// プロファイル更新API
+app.post("/api/update-profile", verifyFirebaseToken, async (req, res) => {
+    try {
+        const { displayName } = req.body;
+        const userEmail = req.user.email;
 
-    // 現在の設定を取得
-    const tokaSettings = await db.collection("settings").doc("toka").get();
-    const data = tokaSettings.exists ? tokaSettings.data() : {};
-    const admins = data.admins || [];
+        // bot_settingsコレクションからtoka_profileドキュメントを取得
+        const settingsDoc = await db
+            .collection("bot_settings")
+            .doc("toka_profile")
+            .get();
 
-    // 該当ユーザーの表示名を更新
-    const updatedAdmins = admins.map((admin) => {
-      if (admin.email === req.user.email) {
-        return { ...admin, name: displayName };
-      }
-      return admin;
-    });
+        if (!settingsDoc.exists) {
+            return res.status(404).json({ message: '設定が見つかりません。' });
+        }
 
-    // 設定を保存
-    await db.collection("settings").doc("toka").update({
-      admins: updatedAdmins,
-      updatedAt: new Date(),
-    });
+        const data = settingsDoc.data();
+        const admins = Array.isArray(data.admins) ? data.admins : [];
 
-    res.json({
-      message: "プロファイルを更新しました。",
-      displayName,
-    });
-  } catch (error) {
-    console.error("プロファイル更新エラー:", error);
-    res
-      .status(500)
-      .json({ message: "プロファイルの更新中にエラーが発生しました。" });
-  }
+        // 該当ユーザーの表示名を更新
+        const updatedAdmins = admins.map(admin => {
+            if (admin.email === userEmail) {
+                return { ...admin, name: displayName };
+            }
+            return admin;
+        });
+
+        // 設定を保存
+        await db
+            .collection("bot_settings")
+            .doc("toka_profile")
+            .update({
+                admins: updatedAdmins,
+                updatedAt: admin.firestore.FieldValue.serverTimestamp()
+            });
+
+        res.json({ 
+            message: 'プロファイルを更新しました。',
+            displayName 
+        });
+    } catch (error) {
+        console.error('プロファイル更新エラー:', error);
+        res.status(500).json({ message: 'プロファイルの更新中にエラーが発生しました。' });
+    }
 });
 
 // --- 招待コード・登録API ---
