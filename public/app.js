@@ -594,7 +594,6 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
-  // --- プロファイル関連 ---
   saveProfileBtn.addEventListener("click", async () => {
     const user = auth.currentUser;
     if (!user || saveProfileBtn.disabled) return;
@@ -607,6 +606,11 @@ document.addEventListener("DOMContentLoaded", () => {
       const newDisplayName = profileDisplayNameInput.value.trim();
       const newEmail = profileEmailInput.value.trim();
       const currentEmail = user.email;
+
+      console.log("プロファイル更新リクエスト:", {
+        displayName: newDisplayName,
+        currentEmail,
+      });
 
       // 表示名の更新
       const res = await fetch("/api/update-profile", {
@@ -621,7 +625,13 @@ document.addEventListener("DOMContentLoaded", () => {
       });
 
       const result = await res.json();
-      if (!res.ok) throw new Error(result.message);
+
+      if (!res.ok) {
+        console.error("プロファイル更新エラー:", result);
+        throw new Error(
+          result.message || result.details || "不明なエラーが発生しました。"
+        );
+      }
 
       // メールアドレスの更新（変更がある場合のみ）
       if (newEmail !== currentEmail) {
@@ -636,6 +646,8 @@ document.addEventListener("DOMContentLoaded", () => {
       // 設定を再読み込み
       await fetchSettings(user);
     } catch (err) {
+      console.error("プロファイル更新エラーの詳細:", err);
+
       if (err.code === "auth/requires-recent-login") {
         statusMessage.textContent =
           "セキュリティのため、再度ログインが必要です。一度ログアウトしてから、もう一度お試しください。";

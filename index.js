@@ -339,12 +339,10 @@ adminRouter.post(
         superAdminEmail &&
         req.user.email !== superAdminEmail
       ) {
-        return res
-          .status(403)
-          .json({
-            message:
-              "エラー: 管理者リストの変更は最高管理者のみ許可されています。",
-          });
+        return res.status(403).json({
+          message:
+            "エラー: 管理者リストの変更は最高管理者のみ許可されています。",
+        });
       }
 
       let finalAdmins = newAdminsList || [];
@@ -402,50 +400,84 @@ adminRouter.post(
   }
 );
 
-// プロファイル更新API
 app.post("/api/update-profile", verifyFirebaseToken, async (req, res) => {
-    try {
-        const { displayName } = req.body;
-        const userEmail = req.user.email;
+  try {
+    const { displayName } = req.body;
+    const userEmail = req.user.email;
 
-        // bot_settingsコレクションからtoka_profileドキュメントを取得
-        const settingsDoc = await db
-            .collection("bot_settings")
-            .doc("toka_profile")
-            .get();
+    console.log("更新リクエスト:", {
+      displayName,
+      userEmail,
+      timestamp: new Date().toISOString(),
+    });
 
-        if (!settingsDoc.exists) {
-            return res.status(404).json({ message: '設定が見つかりません。' });
-        }
+    // bot_settingsコレクションからtoka_profileドキュメントを取得
+    const settingsDoc = await db
+      .collection("bot_settings")
+      .doc("toka_profile")
+      .get();
 
-        const data = settingsDoc.data();
-        const admins = Array.isArray(data.admins) ? data.admins : [];
+    console.log("設定ドキュメントの存在:", settingsDoc.exists);
 
-        // 該当ユーザーの表示名を更新
-        const updatedAdmins = admins.map(admin => {
-            if (admin.email === userEmail) {
-                return { ...admin, name: displayName };
-            }
-            return admin;
-        });
-
-        // 設定を保存
-        await db
-            .collection("bot_settings")
-            .doc("toka_profile")
-            .update({
-                admins: updatedAdmins,
-                updatedAt: admin.firestore.FieldValue.serverTimestamp()
-            });
-
-        res.json({ 
-            message: 'プロファイルを更新しました。',
-            displayName 
-        });
-    } catch (error) {
-        console.error('プロファイル更新エラー:', error);
-        res.status(500).json({ message: 'プロファイルの更新中にエラーが発生しました。' });
+    if (!settingsDoc.exists) {
+      return res.status(404).json({
+        message: "設定が見つかりません。",
+        details: "toka_profileドキュメントが存在しません。",
+      });
     }
+
+    const data = settingsDoc.data();
+    const admins = Array.isArray(data.admins) ? data.admins : [];
+
+    console.log("現在の管理者リスト:", admins);
+
+    // 該当ユーザーが管理者リストに存在するか確認
+    const existingAdminIndex = admins.findIndex(
+      (admin) => admin.email === userEmail
+    );
+
+    if (existingAdminIndex === -1) {
+      return res.status(400).json({
+        message: "ユーザーが管理者リストに見つかりません。",
+        userEmail,
+      });
+    }
+
+    // 該当ユーザーの表示名を更新
+    const updatedAdmins = [...admins];
+    updatedAdmins[existingAdminIndex] = {
+      ...updatedAdmins[existingAdminIndex],
+      name: displayName,
+    };
+
+    console.log("更新後の管理者リスト:", updatedAdmins);
+
+    // 設定を保存
+    await db.collection("bot_settings").doc("toka_profile").update({
+      admins: updatedAdmins,
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+
+    console.log("更新完了");
+
+    res.json({
+      message: "プロファイルを更新しました。",
+      displayName,
+      timestamp: new Date().toISOString(),
+    });
+  } catch (error) {
+    console.error("プロファイル更新エラーの詳細:", {
+      error: error.message,
+      stack: error.stack,
+      userEmail: req.user?.email,
+      timestamp: new Date().toISOString(),
+    });
+
+    res.status(500).json({
+      message: "プロファイルの更新中にエラーが発生しました。",
+      details: error.message,
+    });
+  }
 });
 
 // --- 招待コード・登録API ---
@@ -464,23 +496,18 @@ adminRouter.post(
           : [];
       const superAdminEmail = admins.length > 0 ? admins[0].email : null;
       if (!superAdminEmail || req.user.email !== superAdminEmail)
-        return res
-          .status(403)
-          .json({
-            message: "招待コードの発行は最高管理者のみ許可されています。",
-          });
-      const newCode = uuidv4().split("-")[0].toUpperCase();
-      await db
-        .collection("invitation_codes")
-        .doc(newCode)
-        .set({
-          code: newCode,
-          createdAt: admin.firestore.FieldValue.serverTimestamp(),
-          createdBy: req.user.email,
-          used: false,
-          usedBy: null,
-          usedAt: null,
+        return res.status(403).json({
+          message: "招待コードの発行は最高管理者のみ許可されています。",
         });
+      const newCode = uuidv4().split("-")[0].toUpperCase();
+      await db.collection("invitation_codes").doc(newCode).set({
+        code: newCode,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        createdBy: req.user.email,
+        used: false,
+        usedBy: null,
+        usedAt: null,
+      });
       res.status(201).json({ code: newCode });
     } catch (error) {
       res.status(500).json({ message: "招待コードの生成に失敗しました。" });
@@ -519,11 +546,9 @@ adminRouter.post("/api/register-with-invite", async (req, res) => {
       usedBy: email,
       usedAt: admin.firestore.FieldValue.serverTimestamp(),
     });
-    res
-      .status(201)
-      .json({
-        message: `ようこそ、${displayName}さん！アカウントが正常に作成されました。ログインしてください。`,
-      });
+    res.status(201).json({
+      message: `ようこそ、${displayName}さん！アカウントが正常に作成されました。ログインしてください。`,
+    });
   } catch (error) {
     if (error.code === "auth/email-already-exists")
       return res
