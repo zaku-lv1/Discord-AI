@@ -20,9 +20,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const navLinks = document.querySelectorAll('.nav-link');
     const panels = document.querySelectorAll('.dashboard-panel');
     const adminNavItem = document.getElementById('nav-item-admin');
-    const saveAllBtn = document.getElementById('save-all-btn');
+    const saveAllBtn = document.getElementById('save-all-btn'); // 総合保存ボタン
     
-    // Toka Panel Elements
+    // Toka Panel
     const tokaModelModeSelect = document.getElementById('toka-model-mode');
     const baseUserIdInput = document.getElementById('base-user-id-input');
     const promptTextarea = document.getElementById('prompt-textarea');
@@ -30,7 +30,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const nicknamesListContainer = document.getElementById('nicknames-list-container');
     const addNicknameBtn = document.getElementById('add-nickname-btn');
     
-    // Schedule Panel Elements
+    // Schedule Panel
     const remindersEnabledCheckbox = document.getElementById('reminders-enabled-checkbox');
     const reminderTimeInput = document.getElementById('reminder-time-input');
     const googleSheetIdInput = document.getElementById('google-sheet-id-input');
@@ -40,7 +40,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const addScheduleItemBtn = document.getElementById('add-schedule-item-btn');
     const saveScheduleItemsBtn = document.getElementById('save-schedule-items-btn');
 
-    // Admin Panel Elements
+    // Admin Panel
     const adminSettingsSection = document.getElementById('panel-admins');
     const inviteCodeGeneratorSection = document.getElementById('invite-code-generator-section');
     const generateInviteCodeBtn = document.getElementById('generate-invite-code-btn');
@@ -50,7 +50,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const adminsListContainer = document.getElementById('admins-list-container');
     const addAdminBtn = document.getElementById('add-admin-btn');
 
-    // UI State
+    // --- UI State ---
     let state = {
         admins: [],
         isSuperAdmin: false,
@@ -129,6 +129,7 @@ document.addEventListener('DOMContentLoaded', () => {
             await auth.signInWithEmailAndPassword(email, password);
         } catch (err) {
             statusMessage.textContent = `エラー: ${err.message}`;
+        } finally {
             registerBtn.disabled = false;
         }
     });
@@ -275,46 +276,48 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
+
     // --- Data Fetching & Saving ---
     async function fetchSettings(user) {
         statusMessage.textContent = '読込中...';
         const token = await user.getIdToken();
         try {
             const res = await fetch('/api/settings', { headers: { 'Authorization': `Bearer ${token}` } });
-            
             if (res.status === 403 || res.status === 401) {
                 mainContent.innerHTML = `<h2>アクセスが拒否されました</h2><p>あなたのアカウント(${user.email})には権限がありません。</p><button id="logout-btn-fallback">ログアウト</button>`;
                 document.getElementById('logout-btn-fallback').addEventListener('click', () => auth.signOut());
                 return;
             }
-
-            if (res.status === 404) {
-                userEmailEl.textContent = user.displayName || user.email;
-                state.admins = [{ name: user.displayName || '管理者', email: user.email }];
-                state.isSuperAdmin = true;
-                adminNavItem.style.display = 'block';
-                renderAdminList();
-                statusMessage.textContent = '設定はまだありません。「保存」を押すと初期設定が作成されます。';
-                return;
+            if (!res.ok && res.status !== 404) {
+                const errData = await res.json().catch(() => ({}));
+                throw new Error(errData.message || '設定の読み込みに失敗しました');
             }
-            if (!res.ok) throw new Error('設定の読み込みに失敗しました');
 
             const data = await res.json();
             
+            if (res.status === 404) {
+                userEmailEl.textContent = user.displayName || user.email;
+                state.isSuperAdmin = true;
+                adminNavItem.style.display = 'block';
+                statusMessage.textContent = '設定はまだありません。「保存」を押すと初期設定が作成されます。';
+                return;
+            }
+            
             const tokaData = data.toka || {};
+            tokaModelModeSelect.value = tokaData.modelMode || 'hybrid';
             baseUserIdInput.value = tokaData.baseUserId || '';
             promptTextarea.value = tokaData.systemPrompt || '';
             nameRecognitionCheckbox.checked = tokaData.enableNameRecognition ?? true;
-            tokaModelModeSelect.value = tokaData.modelMode || 'hybrid';
             renderNicknameList(tokaData.userNicknames || {});
             const currentUserAdminInfo = (tokaData.admins || []).find(admin => admin.email === user.email);
             const displayName = currentUserAdminInfo ? (currentUserAdminInfo.name || user.email) : user.email;
             userEmailEl.textContent = displayName;
             state.admins = tokaData.admins || [];
             state.isSuperAdmin = tokaData.currentUser && tokaData.currentUser.isSuperAdmin;
-            
-            adminNavItem.style.display = state.isSuperAdmin ? 'block' : 'none';
+            adminNavItem.style.display = 'block';
             renderAdminList();
+            document.querySelectorAll('#panel-admins input, #panel-admins button').forEach(el => el.disabled = !state.isSuperAdmin);
+            inviteCodeGeneratorSection.style.display = state.isSuperAdmin ? 'block' : 'none';
             
             const scheduleData = data.schedule || {};
             remindersEnabledCheckbox.checked = scheduleData.remindersEnabled ?? false;
@@ -372,6 +375,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 userNicknames: nicknamesObject,
                 admins: adminsArray
             };
+
             const scheduleSettings = {
                 remindersEnabled: remindersEnabledCheckbox.checked,
                 reminderTime: reminderTimeInput.value,
@@ -385,6 +389,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
                 body: JSON.stringify({ toka: tokaSettings, schedule: scheduleSettings })
             });
+
             const result = await res.json();
             if (!res.ok) throw new Error(result.message);
             statusMessage.textContent = result.message;
