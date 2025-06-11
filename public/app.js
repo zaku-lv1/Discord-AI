@@ -263,14 +263,6 @@ document.addEventListener("DOMContentLoaded", () => {
       const newEmail = profileEmailInput.value.trim();
       const currentEmail = user.email;
 
-      // メールアドレスのバリデーション
-      if (newEmail && newEmail !== currentEmail) {
-        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        if (!emailRegex.test(newEmail)) {
-          throw new Error("メールアドレスの形式が正しくありません。");
-        }
-      }
-
       // 表示名の更新
       const token = await user.getIdToken(true);
       const res = await fetch("/api/update-profile", {
@@ -281,49 +273,41 @@ document.addEventListener("DOMContentLoaded", () => {
         },
         body: JSON.stringify({
           displayName: newDisplayName,
-          newEmail: newEmail, // サーバーサイドでもメール更新を処理
         }),
       });
 
-      const result = await res.json();
-      if (!res.ok) throw new Error(result.message || "更新に失敗しました");
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.message || "更新に失敗しました");
+      }
 
-      // メールアドレスの更新（変更がある場合のみ）
+      // メールアドレスの変更がある場合
       if (newEmail && newEmail !== currentEmail) {
+        // まず再認証が必要かチェック
         try {
-          // 再認証が必要な可能性があるため、先に確認
-          await user.reload();
+          // 新しいメールアドレスの確認メールを送信
+          await user.verifyBeforeUpdateEmail(newEmail);
+          statusMessage.textContent = `プロファイルを更新しました。
+                    新しいメールアドレス（${newEmail}）に確認メールを送信しました。
+                    確認メールのリンクをクリックしてメールアドレスの変更を完了してください。
+                    メールが届かない場合は、スパムフォルダもご確認ください。`;
 
-          // メールアドレス更新処理
-          await user.updateEmail(newEmail);
-          await user.sendEmailVerification();
-
-          statusMessage.textContent =
-            "プロファイルとメールアドレスを更新しました。新しいメールアドレス宛に確認メールを送信しました。";
-
-          // Firestore内のメールアドレスも更新
-          await fetch("/api/update-email", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${await user.getIdToken(true)}`,
-            },
-            body: JSON.stringify({
-              oldEmail: currentEmail,
-              newEmail: newEmail,
-            }),
-          });
+          // 確認用のポップアップ表示
+          alert(`新しいメールアドレス（${newEmail}）に確認メールを送信しました。
+                    メールを確認してリンクをクリックしてください。
+                    ※メールが届かない場合は、スパムフォルダもご確認ください。`);
         } catch (emailError) {
           console.error("メール更新エラー:", emailError);
           if (emailError.code === "auth/requires-recent-login") {
-            // 再認証が必要な場合
             await auth.signOut();
-            throw new Error(
-              "セキュリティのため再ログインが必要です。一度ログアウトしました。再度ログインして更新してください。"
+            alert(
+              "セキュリティ保護のため、メールアドレスを変更するには再ログインが必要です。\nログアウトしましたので、再度ログインしてからお試しください。"
             );
+            window.location.reload();
+            return;
           } else {
             throw new Error(
-              `メールアドレスの更新に失敗しました: ${emailError.message}`
+              `メールアドレスの更新に失敗しました。エラー: ${emailError.message}`
             );
           }
         }
@@ -336,6 +320,7 @@ document.addEventListener("DOMContentLoaded", () => {
     } catch (err) {
       console.error("プロファイル更新エラー:", err);
       statusMessage.textContent = `エラー: ${err.message}`;
+      alert(`エラーが発生しました: ${err.message}`);
     } finally {
       saveProfileBtn.disabled = false;
     }
