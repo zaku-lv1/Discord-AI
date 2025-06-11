@@ -51,6 +51,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const adminsListContainer = document.getElementById('admins-list-container');
     const addAdminBtn = document.getElementById('add-admin-btn');
     const saveAdminsBtn = document.getElementById('save-admins-btn');
+    const saveAllBtn = document.getElementById('save-all-btn')
 
     // UI State
     let state = {
@@ -435,6 +436,105 @@ document.addEventListener('DOMContentLoaded', () => {
             saveAdminsBtn.disabled = false;
         }
     });
+
+    // イベントリスナーセクションに以下を追加
+saveAllBtn.addEventListener('click', async () => {
+    const user = auth.currentUser;
+    if (!user || saveAllBtn.disabled) return;
+    
+    saveAllBtn.disabled = true;
+    statusMessage.textContent = 'すべての設定を保存中...';
+    
+    try {
+        // とーか設定の保存
+        const token = await user.getIdToken();
+        
+        // とーか設定
+        const nicknamesObject = {};
+        document.querySelectorAll('.nickname-entry').forEach(entry => {
+            const id = entry.querySelector('.nickname-id').value.trim();
+            const name = entry.querySelector('.nickname-name').value.trim();
+            if (id) nicknamesObject[id] = name;
+        });
+        
+        const tokaSettings = {
+            baseUserId: baseUserIdInput.value,
+            systemPrompt: promptTextarea.value,
+            enableNameRecognition: nameRecognitionCheckbox.checked,
+            userNicknames: nicknamesObject,
+            modelMode: tokaModelModeSelect.value,
+        };
+        
+        // スケジュール設定
+        const scheduleSettings = {
+            remindersEnabled: remindersEnabledCheckbox.checked,
+            reminderTime: reminderTimeInput.value,
+            googleSheetId: googleSheetIdInput.value,
+            reminderGuildId: reminderGuildIdInput.value,
+            reminderRoleId: reminderRoleIdInput.value,
+        };
+        
+        // 管理者設定
+        const adminsArray = state.admins.filter(admin => admin.email && admin.name);
+        
+        // 各設定の保存を並行して実行
+        const savePromises = [
+            fetch('/api/settings/toka', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify(tokaSettings)
+            }),
+            fetch('/api/settings/schedule', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify(scheduleSettings)
+            })
+        ];
+        
+        // 管理者の場合のみ管理者設定を保存
+        if (state.isSuperAdmin) {
+            savePromises.push(
+                fetch('/api/settings/admins', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({ admins: adminsArray })
+                })
+            );
+        }
+        
+        // すべての保存処理を実行
+        const responses = await Promise.all(savePromises);
+        
+        // エラーチェック
+        for (const res of responses) {
+            if (!res.ok) {
+                const error = await res.json();
+                throw new Error(error.message || '設定の保存中にエラーが発生しました。');
+            }
+        }
+        
+        // 設定を再読み込み
+        await fetchSettings(user);
+        await fetchScheduleItems();
+        
+        statusMessage.textContent = 'すべての設定を保存しました。';
+        
+    } catch (err) {
+        console.error('設定の保存エラー:', err);
+        statusMessage.textContent = `エラー: ${err.message}`;
+    } finally {
+        saveAllBtn.disabled = false;
+    }
+});
     
     saveScheduleItemsBtn.addEventListener('click', async () => {
         const user = auth.currentUser;
