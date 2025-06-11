@@ -243,6 +243,40 @@ adminRouter.post('/api/schedule/items', verifyFirebaseToken, async (req, res) =>
     } catch (error) { res.status(500).json({ message: '予定リストの保存に失敗しました。' }); }
 });
 
+// サーバーサイドのコード（例：Express）
+app.post('/api/update-profile', authenticateUser, async (req, res) => {
+    try {
+        const { displayName } = req.body;
+        const userId = req.user.uid;
+
+        // 現在の設定を取得
+        const tokaSettings = await db.collection('settings').doc('toka').get();
+        const data = tokaSettings.exists ? tokaSettings.data() : {};
+        const admins = data.admins || [];
+
+        // 該当ユーザーの表示名を更新
+        const updatedAdmins = admins.map(admin => {
+            if (admin.email === req.user.email) {
+                return { ...admin, name: displayName };
+            }
+            return admin;
+        });
+
+        // 設定を保存
+        await db.collection('settings').doc('toka').update({
+            admins: updatedAdmins,
+            updatedAt: new Date()
+        });
+
+        res.json({ 
+            message: 'プロファイルを更新しました。',
+            displayName 
+        });
+    } catch (error) {
+        console.error('プロファイル更新エラー:', error);
+        res.status(500).json({ message: 'プロファイルの更新中にエラーが発生しました。' });
+    }
+});
 
 // --- 招待コード・登録API ---
 adminRouter.post('/api/generate-invite-code', verifyFirebaseToken, async (req, res) => {

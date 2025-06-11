@@ -369,3 +369,27 @@ input:checked + .slider:before { transform: translateX(24px); }
         padding: 0.875rem 1.5rem;
     }
 }
+
+/* プロファイル設定パネルのスタイル */
+#panel-profile .form-group {
+    margin-bottom: 2rem;
+}
+
+#panel-profile input {
+    margin-bottom: 0.5rem;
+}
+
+#panel-profile small {
+    color: #666;
+    font-size: 0.85rem;
+}
+
+#save-profile-btn {
+    background-image: linear-gradient(to right, #4CAF50, #45a049, #388E3C);
+}
+
+#save-profile-btn:hover:not(:disabled) {
+    background-position: right center;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px 0 rgba(76, 175, 80, 0.5);
+}
