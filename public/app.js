@@ -251,7 +251,6 @@ document.addEventListener("DOMContentLoaded", () => {
     statusMessage.textContent = finalStatusMessage;
   }
 
-  // プロファイル設定の保存処理
   saveProfileBtn.addEventListener("click", async () => {
     const user = auth.currentUser;
     if (!user || saveProfileBtn.disabled) return;
@@ -260,12 +259,13 @@ document.addEventListener("DOMContentLoaded", () => {
     statusMessage.textContent = "プロファイルを更新中...";
 
     try {
-      const token = await user.getIdToken();
       const newDisplayName = profileDisplayNameInput.value.trim();
-      const newEmail = profileEmailInput.value.trim();
-      const currentEmail = user.email;
+      if (!newDisplayName) {
+        throw new Error("表示名を入力してください。");
+      }
 
-      // 表示名の更新
+      const token = await user.getIdToken(true); // トークンを強制的に更新
+
       const res = await fetch("/api/update-profile", {
         method: "POST",
         headers: {
@@ -277,28 +277,40 @@ document.addEventListener("DOMContentLoaded", () => {
         }),
       });
 
-      const result = await res.json();
-      if (!res.ok) throw new Error(result.message);
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(
+          errorData.message || errorData.details || "更新に失敗しました。"
+        );
+      }
 
-      // メールアドレスの更新（変更がある場合のみ）
-      if (newEmail !== currentEmail) {
-        await user.updateEmail(newEmail);
-        await user.sendEmailVerification();
-        statusMessage.textContent =
-          "プロファイルを更新しました。新しいメールアドレスの確認メールを送信しました。";
-      } else {
-        statusMessage.textContent = "プロファイルを更新しました。";
+      const result = await res.json();
+      statusMessage.textContent =
+        result.message || "プロファイルを更新しました。";
+
+      // メールアドレスの更新は別途処理
+      const newEmail = profileEmailInput.value.trim();
+      if (newEmail && newEmail !== user.email) {
+        try {
+          await user.updateEmail(newEmail);
+          await user.sendEmailVerification();
+          statusMessage.textContent +=
+            " 新しいメールアドレスの確認メールを送信しました。";
+        } catch (emailError) {
+          if (emailError.code === "auth/requires-recent-login") {
+            statusMessage.textContent +=
+              " メールアドレスの更新には再ログインが必要です。";
+          } else {
+            throw emailError;
+          }
+        }
       }
 
       // 設定を再読み込み
       await fetchSettings(user);
     } catch (err) {
-      if (err.code === "auth/requires-recent-login") {
-        statusMessage.textContent =
-          "セキュリティのため、再度ログインが必要です。一度ログアウトしてから、もう一度お試しください。";
-      } else {
-        statusMessage.textContent = `エラー: ${err.message}`;
-      }
+      console.error("プロファイル更新エラー:", err);
+      statusMessage.textContent = `エラー: ${err.message}`;
     } finally {
       saveProfileBtn.disabled = false;
     }

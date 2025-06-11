@@ -405,77 +405,91 @@ app.post("/api/update-profile", verifyFirebaseToken, async (req, res) => {
     const { displayName } = req.body;
     const userEmail = req.user.email;
 
-    console.log("更新リクエスト:", {
-      displayName,
-      userEmail,
-      timestamp: new Date().toISOString(),
-    });
-
-    // bot_settingsコレクションからtoka_profileドキュメントを取得
-    const settingsDoc = await db
-      .collection("bot_settings")
-      .doc("toka_profile")
-      .get();
-
-    console.log("設定ドキュメントの存在:", settingsDoc.exists);
-
-    if (!settingsDoc.exists) {
-      return res.status(404).json({
-        message: "設定が見つかりません。",
-        details: "toka_profileドキュメントが存在しません。",
-      });
-    }
-
-    const data = settingsDoc.data();
-    const admins = Array.isArray(data.admins) ? data.admins : [];
-
-    console.log("現在の管理者リスト:", admins);
-
-    // 該当ユーザーが管理者リストに存在するか確認
-    const existingAdminIndex = admins.findIndex(
-      (admin) => admin.email === userEmail
-    );
-
-    if (existingAdminIndex === -1) {
+    // 入力値の検証
+    if (!displayName || typeof displayName !== "string") {
       return res.status(400).json({
-        message: "ユーザーが管理者リストに見つかりません。",
-        userEmail,
+        message: "表示名が正しく指定されていません。",
       });
     }
 
-    // 該当ユーザーの表示名を更新
-    const updatedAdmins = [...admins];
-    updatedAdmins[existingAdminIndex] = {
-      ...updatedAdmins[existingAdminIndex],
-      name: displayName,
-    };
+    // データベースへの参照を取得
+    const botSettingsRef = db.collection("bot_settings");
 
-    console.log("更新後の管理者リスト:", updatedAdmins);
+    // トランザクションを使用してデータを更新
+    await db.runTransaction(async (transaction) => {
+      // 現在の設定を取得
+      const settingsDoc = await transaction.get(
+        botSettingsRef.doc("toka_profile")
+      );
 
-    // 設定を保存
-    await db.collection("bot_settings").doc("toka_profile").update({
-      admins: updatedAdmins,
-      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      if (!settingsDoc.exists) {
+        // 設定が存在しない場合は新規作成
+        const initialData = {
+          admins: [
+            {
+              email: userEmail,
+              name: displayName,
+            },
+          ],
+          createdAt: admin.firestore.FieldValue.serverTimestamp(),
+          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        };
+
+        transaction.set(botSettingsRef.doc("toka_profile"), initialData);
+        return;
+      }
+
+      // 既存のデータを取得
+      const data = settingsDoc.data();
+      const admins = Array.isArray(data.admins) ? data.admins : [];
+
+      // 現在のユーザーのインデックスを検索
+      const adminIndex = admins.findIndex((admin) => admin.email === userEmail);
+
+      let updatedAdmins;
+      if (adminIndex === -1) {
+        // ユーザーが存在しない場合は追加
+        updatedAdmins = [
+          ...admins,
+          {
+            email: userEmail,
+            name: displayName,
+          },
+        ];
+      } else {
+        // 既存のユーザーを更新
+        updatedAdmins = admins.map((admin, index) =>
+          index === adminIndex ? { ...admin, name: displayName } : admin
+        );
+      }
+
+      // データを更新
+      transaction.update(botSettingsRef.doc("toka_profile"), {
+        admins: updatedAdmins,
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
     });
 
-    console.log("更新完了");
-
+    // 成功レスポンス
     res.json({
       message: "プロファイルを更新しました。",
       displayName,
       timestamp: new Date().toISOString(),
     });
   } catch (error) {
-    console.error("プロファイル更新エラーの詳細:", {
+    // エラーログの出力
+    console.error("プロファイル更新エラー:", {
       error: error.message,
       stack: error.stack,
       userEmail: req.user?.email,
       timestamp: new Date().toISOString(),
     });
 
+    // クライアントへのエラー応答
     res.status(500).json({
       message: "プロファイルの更新中にエラーが発生しました。",
-      details: error.message,
+      details:
+        process.env.NODE_ENV === "development" ? error.message : undefined,
     });
   }
 });
