@@ -155,6 +155,7 @@ adminRouter.get('/api/settings', verifyFirebaseToken, async (req, res) => {
                 systemPrompt: tokaData.systemPrompt || '',
                 enableNameRecognition: tokaData.enableNameRecognition ?? true,
                 userNicknames: tokaData.userNicknames || {},
+                modelMode: tokaData.modelMode || 'hybrid',
                 admins: admins,
                 currentUser: { isSuperAdmin: isSuperAdmin }
             },
@@ -209,15 +210,57 @@ adminRouter.post('/api/settings', verifyFirebaseToken, async (req, res) => {
     }
 });
 
+adminRouter.get('/api/schedule/items', verifyFirebaseToken, async (req, res) => {
+    try {
+        const settingsDoc = await db.collection('bot_settings').doc('schedule_settings').get();
+        if (!settingsDoc.exists || !settingsDoc.data().googleSheetId) return res.status(404).json([]);
+        const { googleSheetId } = settingsDoc.data();
+        const sheetsClient = await getSheetsClient();
+        const response = await sheetsClient.spreadsheets.values.get({ spreadsheetId: googleSheetId, range: 'シート1!A2:C' });
+        res.status(200).json(response.data.values || []);
+    } catch (error) {
+        res.status(500).json({ message: 'スプレッドシートの予定読み込みに失敗しました。' });
+    }
+});
+
+adminRouter.post('/api/schedule/items', verifyFirebaseToken, async (req, res) => {
+    try {
+        const { items } = req.body;
+        if (!Array.isArray(items)) return res.status(400).json({ message: '無効なデータ形式です。' });
+        const settingsDoc = await db.collection('bot_settings').doc('schedule_settings').get();
+        if (!settingsDoc.exists || !settingsDoc.data().googleSheetId) return res.status(400).json({ message: 'スプレッドシートが設定されていません。' });
+        const { googleSheetId } = settingsDoc.data();
+        const sheets = await getSheetsClient();
+        const range = 'シート1!A2:C';
+        await sheets.spreadsheets.values.clear({ spreadsheetId: googleSheetId, range });
+        if (items.length > 0) {
+            await sheets.spreadsheets.values.update({ spreadsheetId: googleSheetId, range, valueInputOption: 'USER_ENTERED', resource: { values: items } });
+        }
+        res.status(200).json({ message: '予定リストをスプレッドシートに保存しました。' });
+    } catch (error) {
+        res.status(500).json({ message: '予定リストの保存に失敗しました。' });
+    }
+});
+
+adminRouter.post('/api/generate-invite-code', verifyFirebaseToken, async (req, res) => {
+    try {
+        const settingsDoc = await db.collection('bot_settings').doc('toka_profile').get();
+        const admins = (settingsDoc.exists && Array.isArray(settingsDoc.data().admins)) ? settingsDoc.data().admins : [];
+        const superAdminEmail = admins.length > 0 ? admins[0].email : null;
+        if (!superAdminEmail || req.user.email !== superAdminEmail) return res.status(403).json({ message: '招待コードの発行は最高管理者のみ許可されています。' });
+        const newCode = uuidv4().split('-')[0].toUpperCase();
+        await db.collection('invitation_codes').doc(newCode).set({ code: newCode, createdAt: admin.firestore.FieldValue.serverTimestamp(), createdBy: req.user.email, used: false, usedBy: null, usedAt: null });
+        res.status(201).json({ code: newCode });
+    } catch (error) { res.status(500).json({ message: '招待コードの生成に失敗しました。' }); }
+});
+
 adminRouter.post('/api/register-with-invite', async (req, res) => {
     try {
         const { inviteCode, displayName, email, password } = req.body;
         if (!inviteCode || !displayName || !email || !password) return res.status(400).json({ message: 'すべての項目を入力してください。' });
-        
         const inviteCodeRef = db.collection('invitation_codes').doc(inviteCode);
         const codeDoc = await inviteCodeRef.get();
         if (!codeDoc.exists || codeDoc.data().used) return res.status(400).json({ message: 'この招待コードは無効か、既に使用されています。' });
-        
         const userRecord = await admin.auth().createUser({ email, password, displayName });
         const settingsRef = db.collection('bot_settings').doc('toka_profile');
         await db.runTransaction(async (transaction) => {
@@ -227,7 +270,7 @@ adminRouter.post('/api/register-with-invite', async (req, res) => {
             transaction.set(settingsRef, { admins }, { merge: true });
         });
         await inviteCodeRef.update({ used: true, usedBy: email, usedAt: admin.firestore.FieldValue.serverTimestamp() });
-        res.status(201).json({ message: `ようこそ、${displayName}さん！アカウントが作成されました。ログインしてください。` });
+        res.status(201).json({ message: `ようこそ、${displayName}さん！アカウントが正常に作成されました。ログインしてください。` });
     } catch (error) {
         if (error.code === 'auth/email-already-exists') return res.status(400).json({ message: 'このメールアドレスは既に使用されています。' });
         res.status(500).json({ message: 'アカウントの作成に失敗しました。' });
