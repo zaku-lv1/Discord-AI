@@ -251,134 +251,101 @@ document.addEventListener("DOMContentLoaded", () => {
     statusMessage.textContent = finalStatusMessage;
   }
 
-  saveProfileBtn.addEventListener("click", async () => {
-    const user = auth.currentUser;
-    if (!user || saveProfileBtn.disabled) return;
-
-    saveProfileBtn.disabled = true;
-    statusMessage.textContent = "プロファイルを更新中...";
-
+  // プロファイル更新API
+  app.post("/api/update-profile", verifyFirebaseToken, async (req, res) => {
+    // asyncを追加
     try {
-      // 現在のユーザー情報をログ出力
-      console.log("現在のユーザー情報:", {
-        currentUser: {
-          email: user.email,
-          displayName: user.displayName,
-          emailVerified: user.emailVerified,
-          uid: user.uid,
-          metadata: {
-            lastSignInTime: user.metadata.lastSignInTime,
-            creationTime: user.metadata.creationTime,
-          },
-        },
-      });
+      const { displayName } = req.body;
+      const userEmail = req.user.email;
 
-      const newDisplayName = profileDisplayNameInput.value.trim();
-      const newEmail = profileEmailInput.value.trim();
-      const currentEmail = user.email;
+      console.log("プロファイル更新リクエスト:", {
+        userEmail,
+        displayName,
+        timestamp: new Date().toISOString(),
+      });
 
       // 入力値の検証
-      if (newEmail && newEmail !== currentEmail) {
-        console.log("メールアドレス更新の試行:", {
-          currentEmail,
-          newEmail,
-          timestamp: new Date().toISOString(),
+      if (!displayName || typeof displayName !== "string") {
+        return res.status(400).json({
+          message: "表示名が正しく指定されていません。",
         });
-
-        // メールアドレスの形式チェック
-        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        if (!emailRegex.test(newEmail)) {
-          throw new Error("無効なメールアドレス形式です。");
-        }
       }
 
-      // まず最新のトークンを取得
-      const token = await user.getIdToken(true);
+      // bot_settingsコレクションのtoka_profileドキュメントを取得
+      const settingsRef = db.collection("bot_settings").doc("toka_profile");
+      const settingsDoc = await settingsRef.get();
 
-      // 表示名の更新
-      const res = await fetch("/api/update-profile", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          displayName: newDisplayName,
-        }),
-      });
+      console.log("設定ドキュメントの存在:", settingsDoc.exists);
 
-      const result = await res.json();
-      if (!res.ok) {
-        throw new Error(result.message || "更新に失敗しました");
+      let admins = [];
+      if (settingsDoc.exists) {
+        const data = settingsDoc.data();
+        admins = Array.isArray(data.admins) ? data.admins : [];
       }
 
-      // メールアドレスの変更処理
-      if (newEmail && newEmail !== currentEmail) {
-        try {
-          // 再認証が必要かどうかを確認
-          const credential = firebase.auth.EmailAuthProvider.credential(
-            user.email,
-            prompt("セキュリティのため、現在のパスワードを入力してください:")
-          );
+      console.log("現在の管理者リスト:", admins);
 
-          // 再認証を実行
-          await user.reauthenticateWithCredential(credential);
-          console.log("再認証成功");
+      // 管理者リストの更新
+      let updatedAdmins;
+      const adminIndex = admins.findIndex((admin) => admin.email === userEmail);
 
-          // メールアドレス更新を試行
-          await user.updateEmail(newEmail);
-          console.log("メールアドレス更新成功");
-
-          // 確認メールを送信
-          await user.sendEmailVerification();
-          console.log("確認メール送信成功");
-
-          statusMessage.textContent = `プロファイルを更新し、新しいメールアドレス(${newEmail})に確認メールを送信しました。`;
-          alert(
-            `新しいメールアドレス(${newEmail})に確認メールを送信しました。\nメールを確認してリンクをクリックしてください。`
-          );
-        } catch (emailError) {
-          console.error("メールアドレス更新エラー:", {
-            code: emailError.code,
-            message: emailError.message,
-            stack: emailError.stack,
-          });
-
-          if (emailError.code === "auth/requires-recent-login") {
-            // 再認証が必要な場合
-            await auth.signOut();
-            alert(
-              "セキュリティ保護のため再ログインが必要です。\nログアウトしましたので、再度ログインしてから試してください。"
-            );
-            window.location.href = "/";
-            return;
-          } else if (emailError.code === "auth/invalid-email") {
-            throw new Error("無効なメールアドレス形式です。");
-          } else if (emailError.code === "auth/email-already-in-use") {
-            throw new Error("このメールアドレスは既に使用されています。");
-          } else {
-            throw new Error(
-              `メールアドレスの更新に失敗しました: ${emailError.message}`
-            );
-          }
-        }
+      if (adminIndex === -1) {
+        // 新規ユーザーの場合は追加
+        updatedAdmins = [
+          ...admins,
+          {
+            email: userEmail,
+            name: displayName,
+            updatedAt: new Date().toISOString(),
+          },
+        ];
       } else {
-        statusMessage.textContent = "プロファイルを更新しました。";
+        // 既存ユーザーの場合は更新
+        updatedAdmins = admins.map((admin, index) => {
+          if (index === adminIndex) {
+            return {
+              ...admin,
+              name: displayName,
+              updatedAt: new Date().toISOString(),
+            };
+          }
+          return admin;
+        });
       }
 
-      // 設定を再読み込み
-      await fetchSettings(user);
-    } catch (err) {
-      console.error("プロファイル更新エラー:", {
-        error: err,
-        message: err.message,
-        code: err.code,
-        stack: err.stack,
+      console.log("更新する管理者リスト:", updatedAdmins);
+
+      // Firestoreの更新
+      await settingsRef.set(
+        {
+          admins: updatedAdmins,
+          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        },
+        { merge: true }
+      );
+
+      console.log("データベース更新完了");
+
+      // 成功レスポンス
+      res.json({
+        message: "プロファイルを更新しました。",
+        displayName,
+        email: userEmail,
+        timestamp: new Date().toISOString(),
       });
-      statusMessage.textContent = `エラー: ${err.message}`;
-      alert(`エラーが発生しました: ${err.message}`);
-    } finally {
-      saveProfileBtn.disabled = false;
+    } catch (error) {
+      console.error("プロファイル更新エラー:", {
+        message: error.message,
+        stack: error.stack,
+        userEmail: req.user?.email,
+        timestamp: new Date().toISOString(),
+      });
+
+      res.status(500).json({
+        message: "プロファイルの更新中にエラーが発生しました。",
+        details: error.message,
+        timestamp: new Date().toISOString(),
+      });
     }
   });
 
