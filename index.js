@@ -62,7 +62,6 @@ if (fs.existsSync(commandsPath)) {
   }
 }
 
-client.user.setActivity('Pornhub', { type: 'WATCHING' })
 
 // =================================================================================
 // Google Sheets API クライアント取得ヘルパー関数
@@ -862,6 +861,7 @@ client.once(Events.ClientReady, (c) => {
   console.log(`✅ ボット起動: ${c.user.tag}`);
   c.application.commands.set(client.commands.map((cmd) => cmd.data.toJSON()));
   setupReminderSchedule();
+  client.user.setActivity('Pornhub', { type: 3 }); // type: 3 = Watching
 });
 client.on(Events.InteractionCreate, async (interaction) => {
   if (!interaction.isChatInputCommand()) return;
