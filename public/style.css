@@ -393,14 +393,3 @@ input:checked + .slider:before { transform: translateX(24px); }
     transform: translateY(-2px);
     box-shadow: 0 6px 20px 0 rgba(76, 175, 80, 0.5);
 }
-
-/* Bot反応トグルを特別に強調したい場合 */
-#bot-message-response-checkbox + .slider {
-    background-color: #ffb347; /* オレンジ系 */
-}
-#bot-message-response-checkbox:checked + .slider {
-    background-color: #ffa500;
-}
-#bot-message-response-checkbox + .slider:before {
-    border: 2px solid #ffa500;
-}

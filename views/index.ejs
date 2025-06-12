@@ -195,14 +195,6 @@
                 <small>使用するAIモデルを選択します。</small>
               </div>
               <div class="form-group">
-                <label for="base-user-id-input">ベースユーザーID</label>
-                <input
-                  type="text"
-                  id="base-user-id-input"
-                  placeholder="とーかの見た目と名前の元になるDiscordユーザーID"
-                />
-              </div>
-              <div class="form-group">
                 <div class="toggle-container">
                   <label for="name-recognition-checkbox" class="toggle-label">
                     個別の名前認識を有効にする
@@ -212,6 +204,23 @@
                     <span class="slider"></span>
                   </label>
                 </div>
+              </div>
+              <div class="form-group">
+                <div class="toggle-container">
+                  <label
+                    for="bot-message-response-checkbox"
+                    class="toggle-label"
+                  >
+                    Botユーザーのメッセージにも反応する
+                  </label>
+                  <label class="toggle-switch">
+                    <input type="checkbox" id="bot-message-response-checkbox" />
+                    <span class="slider"></span>
+                  </label>
+                </div>
+                <small
+                  >ONにするとBotユーザーの発言にもとーかが反応します。</small
+                >
               </div>
               <!-- ↓ここから追加（Botへの反応切り替え） -->
               <div class="form-group">
