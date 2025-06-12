@@ -1,4 +1,3 @@
-// stock.js
 const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
 const fetch = require('node-fetch');
 const cheerio = require('cheerio');
@@ -85,7 +84,8 @@ module.exports = {
         return;
       }
 
-      const chartUrl = `https://stooq.com/c/?s=${code}.jp&c=5m&t=c&a=lg&svg`;
+      // チャート画像はPNG形式（SVGが表示されないクライアント用）
+      const chartUrl = `https://stooq.com/c/?s=${code}.jp&c=5m&t=c&a=lg`;
 
       const embed = new EmbedBuilder()
         .setTitle(`${data.name} (${data.symbol}.JP) の株価情報`)
