@@ -2,14 +2,13 @@ const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
 const fetch = require('node-fetch');
 const cheerio = require('cheerio');
 
-let jpStockMap = new Map(); // 銘柄名 → 証券コード（起動時に一度だけ取得）
+let jpStockMap = new Map();
 
 async function fetchJapaneseStockList() {
-  const url = 'https://stooq.com/t/?i=513'; // 日本株一覧ページ（五十音順）
+  const url = 'https://stooq.com/t/?i=513';
   const res = await fetch(url);
   const html = await res.text();
   const $ = cheerio.load(html);
-
   $('table tr').each((i, row) => {
     const cells = $(row).find('td');
     if (cells.length >= 2) {
@@ -20,33 +19,17 @@ async function fetchJapaneseStockList() {
       }
     }
   });
-
-  console.log(`[INFO] 日本株銘柄数: ${jpStockMap.size}`);
 }
 
 async function fetchStockData(code) {
   const url = `https://stooq.com/q/?s=${code}.jp&f=sd2t2ohlcvn`;
   const res = await fetch(url);
   const text = await res.text();
-
-  // CSV形式：Symbol,Date,Time,Open,High,Low,Close,Volume,Name
   const lines = text.trim().split('\n');
   if (lines.length < 2) return null;
-
   const [_, dataLine] = lines;
   const [symbol, date, time, open, high, low, close, volume, name] = dataLine.split(',');
-
-  return {
-    name,
-    symbol,
-    date,
-    time,
-    open,
-    high,
-    low,
-    close,
-    volume
-  };
+  return { name, symbol, date, time, open, high, low, close, volume };
 }
 
 module.exports = {
@@ -63,6 +46,9 @@ module.exports = {
     const input = interaction.options.getString('company').trim();
 
     try {
+      // 先にdeferReplyしてタイムアウトを防ぐ
+      await interaction.deferReply();
+
       if (jpStockMap.size === 0) {
         await fetchJapaneseStockList();
       }
@@ -72,7 +58,7 @@ module.exports = {
       );
 
       if (!foundEntry) {
-        await interaction.reply({ content: `「${input}」という企業が見つかりませんでした。`, ephemeral: true });
+        await interaction.editReply({ content: `「${input}」という企業が見つかりませんでした。` });
         return;
       }
 
@@ -80,13 +66,11 @@ module.exports = {
       const data = await fetchStockData(code);
 
       if (!data) {
-        await interaction.reply({ content: `「${matchedName}（${code}）」の株価情報を取得できませんでした。`, ephemeral: true });
+        await interaction.editReply({ content: `「${matchedName}（${code}）」の株価情報を取得できませんでした。` });
         return;
       }
 
-      // チャート画像はPNG形式（SVGが表示されないクライアント用）
       const chartUrl = `https://stooq.com/c/?s=${code}.jp&c=5m&t=c&a=lg`;
-
       const embed = new EmbedBuilder()
         .setTitle(`${data.name} (${data.symbol}.JP) の株価情報`)
         .setURL(`https://stooq.com/q/?s=${code}.jp`)
@@ -101,14 +85,16 @@ module.exports = {
         .setColor(0x0099ff)
         .setFooter({ text: `Powered by Stooq.com` });
 
-      await interaction.reply({ embeds: [embed] });
+      await interaction.editReply({ embeds: [embed] });
 
     } catch (error) {
       console.error('[STOCK_CMD_ERROR]', error);
-      await interaction.reply({
-        content: '株価情報の取得中にエラーが発生しました。',
-        ephemeral: true
-      });
+      // すでにdeferReply済みなのでeditReplyでエラー通知
+      if (interaction.deferred || interaction.replied) {
+        await interaction.editReply({
+          content: '株価情報の取得中にエラーが発生しました。',
+        });
+      }
     }
   }
 };
