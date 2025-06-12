@@ -56,7 +56,7 @@ p { line-height: 1.7; }
 hr { border: none; border-top: 1px solid rgba(0, 0, 0, 0.1); margin: 2.5rem 0; }
 
 /* ▼▼▼ このセレクタに select を追加し、appearance と background関連のプロパティを追加しました ▼▼▼ */
-input[type="email"], input[type="password"], input[type="text"], input[type="time"], textarea, select {
+input[type="email"], input[type="password"], input[type="text"], input[type="time"], input[type="number"], textarea, select {
     width: 100%;
     padding: 14px;
     border: 1px solid #ddd;
