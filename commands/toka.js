@@ -83,6 +83,7 @@ const forcedInstructions = `
 `;
 
 async function getTokaResponse(userMessage, history, systemPrompt) {
+  let replyDelayMs = 0;
   const tryModels = ["gemini-1.5-pro", "gemini-1.5-flash"];
   const defaultOopsMessage =
     "うーん、なんだか今日は言葉がうまく出てこないみたいで……ごめんね、ちーくん。(；；)";
