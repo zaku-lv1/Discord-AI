@@ -83,7 +83,6 @@ const forcedInstructions = `
 `;
 
 async function getTokaResponse(userMessage, history, systemPrompt) {
-  let replyDelayMs = 0;
   const tryModels = ["gemini-1.5-pro", "gemini-1.5-flash"];
   const defaultOopsMessage =
     "うーん、なんだか今日は言葉がうまく出てこないみたいで……ごめんね、ちーくん。(；；)";
@@ -124,7 +123,7 @@ module.exports = {
     let enableNameRecognition = true;
     let userNicknames = {};
     let enableBotMessageResponse = false;
-    let replyDelayMs = 0; // ← 追加: collectorと同じスコープで宣言
+    let replyDelayMs = 0; // ← 追加
 
     try {
       const settingsDoc = await db
@@ -144,7 +143,7 @@ module.exports = {
         if (typeof settings.enableBotMessageResponse === "boolean") {
           enableBotMessageResponse = settings.enableBotMessageResponse;
         }
-        if (typeof settings.replyDelayMs === "number") {   // ← 追加
+        if (typeof settings.replyDelayMs === "number") { // ← 追加
           replyDelayMs = settings.replyDelayMs;
         }
       }
