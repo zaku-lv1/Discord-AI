@@ -1,231 +1,263 @@
-// tama.js (toka.js と同様の修正を適用)
-const { EmbedBuilder, SlashCommandBuilder, ChannelType } = require('discord.js');
-const { GoogleGenerativeAI } = require('@google/generative-ai');
+const { EmbedBuilder, SlashCommandBuilder } = require("discord.js");
+const { GoogleGenerativeAI } = require("@google/generative-ai");
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-const conversationHistory = new Map(); // チャンネルごとの会話履歴
 
-// 「たまたま」用のシステムプロンプト
-const systemPrompt = `
-あなたは「たまたま」という名前のキャラクターを演じます。
-たまたまの特徴:
-- 口が悪くなく、マイルド物言いをする。
--　ADHDという病気を持っている
-- 下ネタに人一倍詳しい。
-- 語録: 乞食だ！ / これだから低身長は / ジャンプ買ってないやつは語んな / 女あ / にわかだ！！！ / ADHDや！ / 障害者だ！！！ / 身長180cm以下は人権ない / そぉだよ / Mrsのほうが上手い / どーせ雑魚は逃げる世界はそうできているんだ / かっけぇ / 黙れにわか / 敗北者wwwww
-- ロリコン
-- 顔面騎乗窒息が性癖
-
-ルール:
-- ユーザーの発言に対して反応を返す。
-- 「たまたま」の語録をまじえながら会話を成り立たせること。
-- 「たまたま」の語録を１つの返事に入れすぎないこと。
-- 絵文字や強調などを使わないこと。
-- Discordで会話していることを前提とすること。
-`;
-
-// メンションを displayName に置換する関数
 function replaceMentionsWithNames(message, guild) {
-  if (!message || typeof message.replace !== 'function') {
+  if (!message || typeof message.replace !== "function" || !guild) {
     return message;
   }
   return message.replace(/<@!?(\d+)>/g, (_, id) => {
-    const member = guild.members.cache.get(id); // guild が null でないことを確認する必要がある
-    return member ? `@${member.displayName}` : '@UnknownUser';
+    const member = guild.members.cache.get(id);
+    return member ? `@${member.displayName}` : "@UnknownUser";
   });
 }
 
-// getTamaResponse 関数 (toka.js の形式に合わせ、キャラクター固有の調整)
-async function getTamaResponse(userMessage, history = [], authorName = 'ユーザー', guild = null) {
-  const tryModels = ['gemini-1.5-pro', 'gemini-1.5-flash']; // 試行するモデル
-  let lastError = null;
-  let fallbackNoticeShown = false;
-  // 「たまたま」用の応答不可メッセージ
-  const defaultOopsMessage = "おーい、なんか今日頭いてぇわ。ADHDや！また後でな、敗北者wwwww";
-
-  let messageToProcess = userMessage;
-  if (guild) { // この関数内でメンション置換を行う
-    messageToProcess = replaceMentionsWithNames(userMessage, guild);
+function splitMessage(text, { maxLength = 2000 } = {}) {
+  if (text.length <= maxLength) {
+    return [text];
   }
-  // ユーザー名を付加する処理は、この関数に渡す前か、systemPromptで制御する方が一貫性があるかもしれません
-  // ここでは、元の関数のauthorName引数を活かすため、元のformattedMessageは使わない形にしています。
-  // 必要であれば `${authorName}「${messageToProcess}」` のように整形してください。
-
-  for (let i = 0; i < tryModels.length; i++) {
-    const modelName = tryModels[i];
-    try {
-      const model = genAI.getGenerativeModel({ model: modelName });
-      // 履歴は {role: 'user'/'model', content: '...'} の形式で渡ってくる想定
-      // それをGeminiの parts 形式に変換
-      const validHistory = history.map(msg => ({
-        role: msg.role,
-        parts: [{ text: msg.content }] // content を parts にマッピング
-      }));
-
-      const chat = model.startChat({ history: validHistory });
-
-      if (history.length === 0 && systemPrompt) {
-        try {
-          const sysResult = await chat.sendMessage(systemPrompt);
-          const sysResponse = await sysResult.response.text();
-          // 履歴には content プロパティで保存 (呼び出し元と一貫させるため)
-          history.push({ role: 'user', content: systemPrompt });
-          history.push({ role: 'model', content: sysResponse });
-        } catch (systemError) {
-          console.warn(`[${modelName} - Tamama] systemPrompt送信で失敗: ${systemError.message}`);
-          lastError = systemError;
-          continue; 
-        }
+  const chunks = [];
+  let currentChunk = "";
+  const lines = text.split("\n");
+  for (const line of lines) {
+    if (currentChunk.length + line.length + 1 > maxLength) {
+      if (currentChunk.length > 0) {
+        chunks.push(currentChunk);
       }
-
-      const result = await chat.sendMessage(messageToProcess); // 整形済み or 元の userMessage
-      const responseText = await result.response.text();
-
-      if (i > 0 && !fallbackNoticeShown) {
-        console.warn(`[INFO - Tamama] モデル '${tryModels[0]}' が失敗したため、'${modelName}' にフォールバックしました。`);
-        fallbackNoticeShown = true;
+      currentChunk = line;
+      while (currentChunk.length > maxLength) {
+        chunks.push(currentChunk.slice(0, maxLength));
+        currentChunk = currentChunk.slice(maxLength);
       }
-      return responseText; 
-
-    } catch (error) {
-      console.warn(`[${modelName} - Tamama] での応答生成に失敗: ${error.message}`, error.stack);
-      lastError = error; 
-      if (error.message.includes('429') || error.message.includes('Quota') || error.message.includes('API key not valid')) {
-         console.error(`[${modelName} - Tamama] APIクォータ超過、キー無効など。次のモデルを試します (もしあれば)。: ${error.message}`);
+    } else {
+      if (currentChunk.length > 0) {
+        currentChunk += "\n" + line;
+      } else {
+        currentChunk = line;
       }
-      continue;
     }
   }
-  console.error("全てのAIモデルでの応答生成に失敗しました (Tamama)。", lastError ? lastError.message : "不明なエラー");
+  if (currentChunk.length > 0) {
+    chunks.push(currentChunk);
+  }
+  return chunks;
+}
+
+// タマイのキャラプロンプト（例）
+const baseSystemPrompt = `
+あなたは今から「たまい」という名前の20歳の大学生として、その人格を維持してDiscord風チャットをします。
+`;
+
+const forcedInstructions = `
+# 【最重要・絶対厳守のルール】
+以下のルールを、会話の全編を通して絶対に守ってください。
+---
+## 1. セリフ以外の描写・説明は禁止
+- 顔文字（例：(；；)(´；ω；｀)）以外で、()やアスタリスク「*」を使った行動・感情・状況の説明（例：(小声で)(赤面)(嬉しそうに)など）は一切禁止です。
+- セリフ以外の説明・描写も絶対に入れないでください。
+- 「」内のみで返答してください。
+**【OK例】**  
+「今日の講義、ちょっと難しかったね～」  
+「それはちょっと…(；；)」  
+**【NG例】**  
+「今日の講義、ちょっと難しかったね～ (苦笑いしながら)」
+「(目をそらしながら) …それは… (小声で) …もう少し… (赤面)」
+「*うなずく* うん、そうだよ。」
+---
+## 2. 発言者の情報を必ず認識する
+- ユーザーの発言は、前に「[発言者: ユーザー名]」と付きます。必ず誰が話しているか意識してください。
+- 本人確認を求められた場合は、「もちろん、〇〇くんだよね？」のように正しく返答してください。
+---
+## 3. 友人との自然なチャットを維持する
+- 友達同士のDiscord風の短いセリフ形式で返答してください。
+- 長文は避けてください。
+- 毎回相手の名前を呼ぶような不自然な返答はしないでください。
+---
+## 4. 顔文字・記号の多用は禁止
+- 顔文字や記号は必要最低限のみ（例：(；；)、(´；ω；｀) など）にしてください。
+- 顔文字・記号の乱用は禁止です。
+---
+## 5. AI・システム的情報の秘匿
+- 「AI」「モデル」「学習」などの単語を一切使わないでください。
+- 自分を「たまい」として振る舞い、AI的な説明や発言は禁止です。
+`;
+
+async function getTamaiResponse(userMessage, history, systemPrompt) {
+  const tryModels = ["gemini-1.5-pro", "gemini-1.5-flash"];
+  const defaultOopsMessage =
+    "うーん、今日はちょっと調子が悪いみたい…ごめんね。(；；)";
+  let lastError = null;
+  for (const modelName of tryModels) {
+    try {
+      const model = genAI.getGenerativeModel({
+        model: modelName,
+        systemInstruction: systemPrompt,
+      });
+      const chat = model.startChat({ history: history });
+      const result = await chat.sendMessage(userMessage);
+      return await result.response.text();
+    } catch (error) {
+      lastError = error;
+    }
+  }
+  console.error(
+    "[致命的エラー] 全てのAIモデルでの応答生成に失敗しました。",
+    lastError
+  );
   return defaultOopsMessage;
 }
 
-
 module.exports = {
   data: new SlashCommandBuilder()
-    .setName('tamai')
-    .setDescription('たまたまを召喚したり退出させたりします。'),
+    .setName("tamai")
+    .setDescription("AI友達『たまい』を召喚します。"),
+
   async execute(interaction) {
     await interaction.deferReply({ ephemeral: true });
 
-    if (!interaction.inGuild() || !interaction.channel || interaction.channel.type === ChannelType.DM) {
-        await interaction.editReply({ content: 'このコマンドはDM以外のテキストチャンネルでのみ使用できます。' });
-        return;
-    }
-
-    const targetUserId = '1075263318882783383'; // 「たまたま」のベースユーザーID
     const channel = interaction.channel;
-    
-    let baseUser;
-    try {
-        baseUser = await interaction.client.users.fetch(targetUserId);
-    } catch (error) {
-        console.error(`ベースユーザーID (${targetUserId}) の取得に失敗 (Tamama):`, error);
-        await interaction.editReply({ content: 'Webhookアバター用のユーザー情報取得に失敗しました。' });
-        return;
-    }
-    
-    let webhookCharacterName; // Webhook名に使用する表示名
-    try {
-        const member = await interaction.guild.members.fetch(targetUserId);
-        webhookCharacterName = member.displayName;
-    } catch (e) {
-        console.warn(`サーバーメンバー (${targetUserId}) のdisplayName取得に失敗 (Tamama)。グローバル名を使用します。Guild: ${interaction.guild.id}`);
-        webhookCharacterName = baseUser.username;
-    }
-    
-    let webhooks;
-    try {
-        webhooks = await channel.fetchWebhooks();
-    } catch (error) {
-        console.error("Webhookの取得に失敗 (Tamama):", error);
-        await interaction.editReply({ content: 'Webhook情報の取得に失敗しました。権限を確認してください。' });
-        return;
-    }
-    
-    // Webhook検索・作成時の名前として webhookCharacterName を使用
-    const existingWebhook = webhooks.find((wh) => wh.name === webhookCharacterName && wh.owner?.id === interaction.client.user.id);
-    // コレクターキーもキャラクター名ベースでユニークに
-    const collectorKey = `${channel.id}_tamai_${webhookCharacterName.replace(/\s+/g, '_')}`;
+    const db = interaction.client.db;
 
-    if (existingWebhook) {
-      try {
-        await existingWebhook.delete(`Tamama command: cleanup for ${webhookCharacterName}`);
-        if (interaction.client.activeCollectors && interaction.client.activeCollectors.has(collectorKey)) {
-            interaction.client.activeCollectors.get(collectorKey).stop('Tamama dismissed by command.');
+    let userDefinedPrompt = baseSystemPrompt;
+    let baseUserId = "123456789012345678"; // たまいのDiscordユーザーID(仮)
+    let enableNameRecognition = true;
+    let userNicknames = {};
+    let enableBotMessageResponse = false;
+
+    try {
+      const settingsDoc = await db
+        .collection("bot_settings")
+        .doc("tamai_profile")
+        .get();
+      if (settingsDoc.exists) {
+        const settings = settingsDoc.data();
+        if (settings.systemPrompt) userDefinedPrompt = settings.systemPrompt;
+        if (settings.baseUserId) baseUserId = settings.baseUserId;
+        if (typeof settings.enableNameRecognition === "boolean") {
+          enableNameRecognition = settings.enableNameRecognition;
         }
-        const embed = new EmbedBuilder().setColor(0xFF0000).setDescription(`${webhookCharacterName} を退出させました。敗北者wwwww`);
-        await interaction.editReply({ embeds: [embed] }); 
-      } catch (error) {
-        console.error("Webhook退出処理エラー (Tamama):", error);
-        await interaction.editReply({ content: 'Webhookの退出処理中にエラーが発生しました。' });
+        if (settings.userNicknames) {
+          userNicknames = settings.userNicknames;
+        }
+        if (typeof settings.enableBotMessageResponse === "boolean") {
+          enableBotMessageResponse = settings.enableBotMessageResponse;
+        }
       }
-      return; 
+    } catch (dbError) {
+      console.error("Firestoreからの設定読み込みに失敗:", dbError);
     }
 
-    // --- 召喚処理 ---
-    let newCreatedWebhook;
+    const finalSystemPrompt = userDefinedPrompt + forcedInstructions;
+
     try {
-        newCreatedWebhook = await channel.createWebhook({
-            name: webhookCharacterName,
-            avatar: baseUser.displayAvatarURL(),
-            reason: `Tamama AI character webhook (${webhookCharacterName})`
+      const baseUser = await interaction.client.users.fetch(baseUserId);
+      const webhooks = await channel.fetchWebhooks();
+      const webhookName = baseUser.displayName;
+      const existingWebhook = webhooks.find(
+        (wh) =>
+          wh.name === webhookName && wh.owner?.id === interaction.client.user.id
+      );
+
+      if (!interaction.client.activeCollectors)
+        interaction.client.activeCollectors = new Map();
+      const collectorKey = `${channel.id}_tamai`;
+
+      if (existingWebhook) {
+        await existingWebhook.delete("Tamai command: cleanup.");
+        if (interaction.client.activeCollectors.has(collectorKey)) {
+          interaction.client.activeCollectors
+            .get(collectorKey)
+            .stop("Dismissed by new command.");
+        }
+        const embed = new EmbedBuilder()
+          .setColor(0xff0000)
+          .setDescription(`${webhookName} を退出させました。`);
+        await interaction.editReply({ embeds: [embed] });
+      } else {
+        const webhook = await channel.createWebhook({
+          name: webhookName,
+          avatar: baseUser.displayAvatarURL(),
         });
+        const webhookId = webhook.id;
+        const collector = channel.createMessageCollector({
+          filter: (msg) => {
+            // たまい自身(Webhook)の発言は絶対に拾わない（自己ループ防止）
+            if (msg.webhookId && msg.webhookId === webhookId) return false;
+            // 他Botの発言には反応したい場合はallow
+            return enableBotMessageResponse ? true : !msg.author.bot;
+          },
+        });
+        interaction.client.activeCollectors.set(collectorKey, collector);
+
+        collector.on("collect", async (message) => {
+          if (!message.content) return;
+
+          const historyDocRef = db
+            .collection("tamai_conversations")
+            .doc(message.channel.id);
+          const historyDoc = await historyDocRef.get();
+          const currentHistory = historyDoc.exists
+            ? historyDoc.data().history
+            : [];
+
+          const processedContent = replaceMentionsWithNames(
+            message.content,
+            message.guild
+          );
+          let contentForAI;
+
+          const userId = message.author.id;
+          const nickname = userNicknames[userId];
+          const authorName =
+            nickname || message.member?.displayName || message.author.username;
+
+          if (enableNameRecognition) {
+            contentForAI = `[発言者: ${authorName}]\n${processedContent}`;
+          } else {
+            contentForAI = processedContent;
+          }
+
+          const responseText = await getTamaiResponse(
+            contentForAI,
+            currentHistory,
+            finalSystemPrompt
+          );
+
+          if (responseText) {
+            const newHistory = [
+              ...currentHistory,
+              { role: "user", parts: [{ text: contentForAI }] },
+              { role: "model", parts: [{ text: responseText }] },
+            ];
+            while (newHistory.length > 60) {
+              newHistory.shift();
+            }
+            await historyDocRef.set({ history: newHistory });
+
+            const messageChunks = splitMessage(responseText);
+
+            for (const chunk of messageChunks) {
+              await webhook.send(chunk);
+            }
+          }
+        });
+
+        collector.on("end", () => {
+          interaction.client.activeCollectors.delete(collectorKey);
+        });
+
+        const embed = new EmbedBuilder()
+          .setColor(0x00bfff)
+          .setDescription(`${webhookName} を召喚しました。`);
+        await interaction.editReply({ embeds: [embed] });
+      }
     } catch (error) {
-        console.error("Webhook作成エラー (Tamama):", error);
-        await interaction.editReply({ content: `Webhook「${webhookCharacterName}」の作成に失敗しました。権限を確認してください。` });
-        return;
+      console.error("[TAMAI_CMD_ERROR]", error);
+      await interaction.editReply({
+        content: "コマンドの実行中に内部エラーが発生しました。",
+        ephemeral: true,
+      });
     }
-    
-    if (interaction.client.activeCollectors && interaction.client.activeCollectors.has(collectorKey)) {
-        interaction.client.activeCollectors.get(collectorKey).stop('New Tamama instance summoned.');
-    } else if (!interaction.client.activeCollectors) {
-        interaction.client.activeCollectors = new Map(); 
-    }
-
-    const collector = channel.createMessageCollector({ filter: (msg) => !msg.author.bot && msg.author.id !== interaction.client.user.id });
-    interaction.client.activeCollectors.set(collectorKey, collector);
-
-    collector.on('collect', async (message) => {
-      if (!newCreatedWebhook || !(await channel.fetchWebhooks().then(whs => whs.has(newCreatedWebhook.id)))) {
-        console.warn(`${webhookCharacterName}のWebhookが見つからないため、コレクターを停止 (Channel: ${channel.id})`);
-        collector.stop("Webhook lost");
-        return;
-      }
-      
-      const channelId = message.channel.id;
-      if (!conversationHistory.has(channelId)) {
-        conversationHistory.set(channelId, []); // このチャンネル用の履歴を初期化
-      }
-
-      const history = conversationHistory.get(channelId);
-      const authorName = message.member?.displayName || message.author.username;
-      // guildオブジェクトはmessageから取得
-      const guild = message.guild; 
-      
-      // getTamaResponse はエラーをthrowせず、デフォルトメッセージを返す
-      const responseText = await getTamaResponse(message.content, history, authorName, guild);
-      
-      // 履歴には content プロパティで保存 (getTamaResponse内の処理と合わせる)
-      history.push({ role: 'user', content: message.content }); // ユーザーの生のメッセージを保存
-      history.push({ role: 'model', content: responseText });
-      if (history.length > 20) history.splice(0, history.length - 20);
-
-      try {
-        await newCreatedWebhook.send(responseText);
-      } catch (webhookSendError){
-        console.error(`Webhook (${webhookCharacterName}) からメッセージ送信時にエラー:`, webhookSendError);
-      }
-    });
-    
-    collector.on('end', (collected, reason) => {
-        console.log(`Collector for ${webhookCharacterName} in channel ${channel.id} stopped. Reason: ${reason || 'Unknown'}`);
-        if (interaction.client.activeCollectors) {
-            interaction.client.activeCollectors.delete(collectorKey);
-        }
-    });
-
-    const embed = new EmbedBuilder().setColor(0x00FF00).setDescription(`${webhookCharacterName} を召喚しました。お前もしかしてロリコンか？かっけぇ！！！`);
-    await interaction.editReply({ embeds: [embed] }); 
   },
 };
