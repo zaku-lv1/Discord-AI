@@ -122,7 +122,7 @@ module.exports = {
     let baseUserId = "1155356934292127844";
     let enableNameRecognition = true;
     let userNicknames = {};
-    let enableBotMessageResponse = false; // ★追加
+    let enableBotMessageResponse = false;
 
     try {
       const settingsDoc = await db
@@ -178,9 +178,13 @@ module.exports = {
           name: webhookName,
           avatar: baseUser.displayAvatarURL(),
         });
-        // filter: (msg) => !msg.author.bot, から変更
+        const webhookId = webhook.id;
         const collector = channel.createMessageCollector({
-          filter: (msg) => enableBotMessageResponse ? true : !msg.author.bot,
+          filter: (msg) => {
+            // とーか（自分自身のWebhook）による発言は絶対に拾わない
+            if (msg.webhookId && msg.webhookId === webhookId) return false;
+            return enableBotMessageResponse ? true : !msg.author.bot;
+          },
         });
         interaction.client.activeCollectors.set(collectorKey, collector);
 
