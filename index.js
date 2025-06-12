@@ -203,6 +203,7 @@ adminRouter.get("/api/settings/toka", verifyFirebaseToken, async (req, res) => {
       enableNameRecognition: data.enableNameRecognition ?? true,
       userNicknames: data.userNicknames || {},
       modelMode: data.modelMode || "hybrid",
+      enableBotMessageResponse: data.enableBotMessageResponse ?? false,
       admins: admins,
       currentUser: { isSuperAdmin: isSuperAdmin },
     });
@@ -288,33 +289,37 @@ adminRouter.get("/api/settings/toka", verifyFirebaseToken, async (req, res) => {
 });
 
 // 保存API
-adminRouter.post("/api/settings/toka", verifyFirebaseToken, async (req, res) => {
-  try {
-    const {
-      baseUserId,
-      systemPrompt,
-      enableNameRecognition,
-      userNicknames,
-      modelMode,
-      enableBotMessageResponse, // ★追加
-    } = req.body;
-    const dataToSave = {
-      baseUserId,
-      systemPrompt,
-      enableNameRecognition,
-      userNicknames,
-      modelMode,
-      enableBotMessageResponse, // ★追加
-    };
-    await db
-      .collection("bot_settings")
-      .doc("toka_profile")
-      .set(dataToSave, { merge: true });
-    res.status(200).json({ message: "とーか設定を更新しました。" });
-  } catch (error) {
-    res.status(500).json({ message: "サーバーエラー" });
+adminRouter.post(
+  "/api/settings/toka",
+  verifyFirebaseToken,
+  async (req, res) => {
+    try {
+      const {
+        baseUserId,
+        systemPrompt,
+        enableNameRecognition,
+        userNicknames,
+        modelMode,
+        enableBotMessageResponse, // ★追加
+      } = req.body;
+      const dataToSave = {
+        baseUserId,
+        systemPrompt,
+        enableNameRecognition,
+        userNicknames,
+        modelMode,
+        enableBotMessageResponse, // ★追加
+      };
+      await db
+        .collection("bot_settings")
+        .doc("toka_profile")
+        .set(dataToSave, { merge: true });
+      res.status(200).json({ message: "とーか設定を更新しました。" });
+    } catch (error) {
+      res.status(500).json({ message: "サーバーエラー" });
+    }
   }
-});
+);
 
 adminRouter.post(
   "/api/settings/schedule",
