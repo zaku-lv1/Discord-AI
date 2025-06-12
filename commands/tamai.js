@@ -102,7 +102,7 @@ const forcedInstructions = `
 async function getTamaiResponse(userMessage, history, systemPrompt) {
   const tryModels = ["gemini-1.5-pro", "gemini-1.5-flash"];
   const defaultOopsMessage =
-    "うーん、今日はちょっと調子が悪いみたい…ごめんね。(；；)";
+    "黙れ";
   let lastError = null;
   for (const modelName of tryModels) {
     try {
