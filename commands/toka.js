@@ -124,6 +124,7 @@ module.exports = {
     let enableNameRecognition = true;
     let userNicknames = {};
     let enableBotMessageResponse = false;
+    let replyDelayMs = 0; // ← 追加: collectorと同じスコープで宣言
 
     try {
       const settingsDoc = await db
@@ -142,6 +143,9 @@ module.exports = {
         }
         if (typeof settings.enableBotMessageResponse === "boolean") {
           enableBotMessageResponse = settings.enableBotMessageResponse;
+        }
+        if (typeof settings.replyDelayMs === "number") {   // ← 追加
+          replyDelayMs = settings.replyDelayMs;
         }
       }
     } catch (dbError) {
