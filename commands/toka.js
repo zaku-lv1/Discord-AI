@@ -140,7 +140,6 @@ module.exports = {
           userNicknames = settings.userNicknames;
         }
         if (typeof settings.enableBotMessageResponse === "boolean") {
-          // ★追加
           enableBotMessageResponse = settings.enableBotMessageResponse;
         }
       }
@@ -179,12 +178,9 @@ module.exports = {
           name: webhookName,
           avatar: baseUser.displayAvatarURL(),
         });
-        // ★ここを変更
+        // filter: (msg) => !msg.author.bot, から変更
         const collector = channel.createMessageCollector({
-          filter: (msg) => {
-            // オンなら全て拾う、オフならBot以外
-            return enableBotMessageResponse ? true : !msg.author.bot;
-          },
+          filter: (msg) => enableBotMessageResponse ? true : !msg.author.bot,
         });
         interaction.client.activeCollectors.set(collectorKey, collector);
 
