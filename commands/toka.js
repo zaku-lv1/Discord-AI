@@ -122,6 +122,7 @@ module.exports = {
     let baseUserId = "1155356934292127844";
     let enableNameRecognition = true;
     let userNicknames = {};
+    let enableBotMessageResponse = false; // ★追加
 
     try {
       const settingsDoc = await db
@@ -137,6 +138,10 @@ module.exports = {
         }
         if (settings.userNicknames) {
           userNicknames = settings.userNicknames;
+        }
+        if (typeof settings.enableBotMessageResponse === "boolean") {
+          // ★追加
+          enableBotMessageResponse = settings.enableBotMessageResponse;
         }
       }
     } catch (dbError) {
@@ -174,8 +179,12 @@ module.exports = {
           name: webhookName,
           avatar: baseUser.displayAvatarURL(),
         });
+        // ★ここを変更
         const collector = channel.createMessageCollector({
-          filter: (msg) => !msg.author.bot,
+          filter: (msg) => {
+            // オンなら全て拾う、オフならBot以外
+            return enableBotMessageResponse ? true : !msg.author.bot;
+          },
         });
         interaction.client.activeCollectors.set(collectorKey, collector);
 
@@ -206,9 +215,6 @@ module.exports = {
           } else {
             contentForAI = processedContent;
           }
-
-          // ▼▼▼ このログ出力を削除しました ▼▼▼
-          // console.log(`[情報] AIへの入力:\n---\n${contentForAI}\n---`);
 
           const responseText = await getTokaResponse(
             contentForAI,

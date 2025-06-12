@@ -18,9 +18,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const loginBtn = document.getElementById("login-btn");
   const registerBtn = document.getElementById("register-btn");
   const forgotPasswordLink = document.getElementById("forgot-password-link");
-  const showRegisterFormLink = document.getElementById(
-    "show-register-form-link"
-  );
+  const showRegisterFormLink = document.getElementById("show-register-form-link");
   const showLoginFormLink = document.getElementById("show-login-form-link");
   const userEmailEl = document.getElementById("user-email");
   const logoutBtn = document.getElementById("logout-btn");
@@ -32,9 +30,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // --- プロファイル要素 ---
   const profilePanel = document.getElementById("panel-profile");
-  const profileDisplayNameInput = document.getElementById(
-    "profile-display-name"
-  );
+  const profileDisplayNameInput = document.getElementById("profile-display-name");
   const profileEmailInput = document.getElementById("profile-email");
   const saveProfileBtn = document.getElementById("save-profile-btn");
 
@@ -42,44 +38,27 @@ document.addEventListener("DOMContentLoaded", () => {
   const tokaModelModeSelect = document.getElementById("toka-model-mode");
   const baseUserIdInput = document.getElementById("base-user-id-input");
   const promptTextarea = document.getElementById("prompt-textarea");
-  const nameRecognitionCheckbox = document.getElementById(
-    "name-recognition-checkbox"
-  );
-  const nicknamesListContainer = document.getElementById(
-    "nicknames-list-container"
-  );
+  const nameRecognitionCheckbox = document.getElementById("name-recognition-checkbox");
+  const botMessageResponseCheckbox = document.getElementById("bot-message-response-checkbox"); // ★追加
+  const nicknamesListContainer = document.getElementById("nicknames-list-container");
   const addNicknameBtn = document.getElementById("add-nickname-btn");
   const saveTokaBtn = document.getElementById("save-toka-btn");
 
   // --- スケジュールパネル要素 ---
-  const remindersEnabledCheckbox = document.getElementById(
-    "reminders-enabled-checkbox"
-  );
+  const remindersEnabledCheckbox = document.getElementById("reminders-enabled-checkbox");
   const reminderTimeInput = document.getElementById("reminder-time-input");
   const googleSheetIdInput = document.getElementById("google-sheet-id-input");
-  const reminderGuildIdInput = document.getElementById(
-    "reminder-guild-id-input"
-  );
+  const reminderGuildIdInput = document.getElementById("reminder-guild-id-input");
   const reminderRoleIdInput = document.getElementById("reminder-role-id-input");
-  const saveScheduleSettingsBtn = document.getElementById(
-    "save-schedule-settings-btn"
-  );
-  const scheduleItemsContainer = document.getElementById(
-    "schedule-items-container"
-  );
+  const saveScheduleSettingsBtn = document.getElementById("save-schedule-settings-btn");
+  const scheduleItemsContainer = document.getElementById("schedule-items-container");
   const addScheduleItemBtn = document.getElementById("add-schedule-item-btn");
-  const saveScheduleItemsBtn = document.getElementById(
-    "save-schedule-items-btn"
-  );
+  const saveScheduleItemsBtn = document.getElementById("save-schedule-items-btn");
 
   // --- 管理者パネル要素 ---
   const adminSettingsSection = document.getElementById("panel-admins");
-  const inviteCodeGeneratorSection = document.getElementById(
-    "invite-code-generator-section"
-  );
-  const generateInviteCodeBtn = document.getElementById(
-    "generate-invite-code-btn"
-  );
+  const inviteCodeGeneratorSection = document.getElementById("invite-code-generator-section");
+  const generateInviteCodeBtn = document.getElementById("generate-invite-code-btn");
   const inviteCodeDisplay = document.getElementById("invite-code-display");
   const newInviteCodeInput = document.getElementById("new-invite-code");
   const copyInviteCodeBtn = document.getElementById("copy-invite-code-btn");
@@ -125,9 +104,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 <input type="text" class="admin-name" data-field="name" 
                        placeholder="表示名" value="${admin.name || ""}">
                 <input type="email" class="admin-email" data-field="email" 
-                       placeholder="管理者メールアドレス" value="${
-                         admin.email || ""
-                       }">
+                       placeholder="管理者メールアドレス" value="${admin.email || ""}">
             `;
 
       if (index === 0) {
@@ -181,6 +158,7 @@ document.addEventListener("DOMContentLoaded", () => {
         baseUserIdInput.value = data.baseUserId || "";
         promptTextarea.value = data.systemPrompt || "";
         nameRecognitionCheckbox.checked = data.enableNameRecognition ?? true;
+        botMessageResponseCheckbox.checked = !!data.enableBotMessageResponse; // ★追加
         renderNicknameList(data.userNicknames || {});
 
         const currentUserAdminInfo = (data.admins || []).find(
@@ -283,16 +261,13 @@ document.addEventListener("DOMContentLoaded", () => {
 
       // メールアドレスの変更がある場合
       if (newEmail && newEmail !== currentEmail) {
-        // まず再認証が必要かチェック
         try {
-          // 新しいメールアドレスの確認メールを送信
           await user.verifyBeforeUpdateEmail(newEmail);
           statusMessage.textContent = `プロファイルを更新しました。
                     新しいメールアドレス（${newEmail}）に確認メールを送信しました。
                     確認メールのリンクをクリックしてメールアドレスの変更を完了してください。
                     メールが届かない場合は、スパムフォルダもご確認ください。`;
 
-          // 確認用のポップアップ表示
           alert(`新しいメールアドレス（${newEmail}）に確認メールを送信しました。
                     メールを確認してリンクをクリックしてください。
                     ※メールが届かない場合は、スパムフォルダもご確認ください。`);
@@ -315,7 +290,6 @@ document.addEventListener("DOMContentLoaded", () => {
         statusMessage.textContent = "プロファイルを更新しました。";
       }
 
-      // 設定を再読み込み
       await fetchSettings(user);
     } catch (err) {
       console.error("プロファイル更新エラー:", err);
@@ -490,6 +464,7 @@ document.addEventListener("DOMContentLoaded", () => {
         baseUserId: baseUserIdInput.value,
         systemPrompt: promptTextarea.value,
         enableNameRecognition: nameRecognitionCheckbox.checked,
+        enableBotMessageResponse: botMessageResponseCheckbox.checked, // ★追加
         userNicknames: nicknamesObject,
         modelMode: tokaModelModeSelect.value,
       };
@@ -613,71 +588,6 @@ document.addEventListener("DOMContentLoaded", () => {
       statusMessage.textContent = `エラー: ${err.message}`;
     } finally {
       saveScheduleItemsBtn.disabled = false;
-    }
-  });
-
-  saveProfileBtn.addEventListener("click", async () => {
-    const user = auth.currentUser;
-    if (!user || saveProfileBtn.disabled) return;
-
-    saveProfileBtn.disabled = true;
-    statusMessage.textContent = "プロファイルを更新中...";
-
-    try {
-      const token = await user.getIdToken();
-      const newDisplayName = profileDisplayNameInput.value.trim();
-      const newEmail = profileEmailInput.value.trim();
-      const currentEmail = user.email;
-
-      console.log("プロファイル更新リクエスト:", {
-        displayName: newDisplayName,
-        currentEmail,
-      });
-
-      // 表示名の更新
-      const res = await fetch("/api/update-profile", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          displayName: newDisplayName,
-        }),
-      });
-
-      const result = await res.json();
-
-      if (!res.ok) {
-        console.error("プロファイル更新エラー:", result);
-        throw new Error(
-          result.message || result.details || "不明なエラーが発生しました。"
-        );
-      }
-
-      // メールアドレスの更新（変更がある場合のみ）
-      if (newEmail !== currentEmail) {
-        await user.updateEmail(newEmail);
-        await user.sendEmailVerification();
-        statusMessage.textContent =
-          "プロファイルを更新しました。新しいメールアドレスの確認メールを送信しました。";
-      } else {
-        statusMessage.textContent = "プロファイルを更新しました。";
-      }
-
-      // 設定を再読み込み
-      await fetchSettings(user);
-    } catch (err) {
-      console.error("プロファイル更新エラーの詳細:", err);
-
-      if (err.code === "auth/requires-recent-login") {
-        statusMessage.textContent =
-          "セキュリティのため、再度ログインが必要です。一度ログアウトしてから、もう一度お試しください。";
-      } else {
-        statusMessage.textContent = `エラー: ${err.message}`;
-      }
-    } finally {
-      saveProfileBtn.disabled = false;
     }
   });
 
@@ -833,6 +743,7 @@ document.addEventListener("DOMContentLoaded", () => {
         baseUserId: baseUserIdInput.value,
         systemPrompt: promptTextarea.value,
         enableNameRecognition: nameRecognitionCheckbox.checked,
+        enableBotMessageResponse: botMessageResponseCheckbox.checked, // ★追加
         userNicknames: nicknamesObject,
         modelMode: tokaModelModeSelect.value,
       };
@@ -851,7 +762,6 @@ document.addEventListener("DOMContentLoaded", () => {
         (admin) => admin.email && admin.name
       );
 
-      // 各設定の保存を並行して実行
       const savePromises = [
         fetch("/api/settings/toka", {
           method: "POST",
@@ -871,7 +781,6 @@ document.addEventListener("DOMContentLoaded", () => {
         }),
       ];
 
-      // 管理者の場合のみ管理者設定を保存
       if (state.isSuperAdmin) {
         savePromises.push(
           fetch("/api/settings/admins", {
@@ -885,10 +794,8 @@ document.addEventListener("DOMContentLoaded", () => {
         );
       }
 
-      // すべての保存処理を実行
       const responses = await Promise.all(savePromises);
 
-      // エラーチェック
       for (const res of responses) {
         if (!res.ok) {
           const error = await res.json();
@@ -898,7 +805,6 @@ document.addEventListener("DOMContentLoaded", () => {
         }
       }
 
-      // 設定を再読み込み
       await fetchSettings(user);
       await fetchScheduleItems();
 

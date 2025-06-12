@@ -257,35 +257,64 @@ adminRouter.get(
 );
 
 // --- 設定保存API ---
-adminRouter.post(
-  "/api/settings/toka",
-  verifyFirebaseToken,
-  async (req, res) => {
-    try {
-      const {
-        baseUserId,
-        systemPrompt,
-        enableNameRecognition,
-        userNicknames,
-        modelMode,
-      } = req.body;
-      const dataToSave = {
-        baseUserId,
-        systemPrompt,
-        enableNameRecognition,
-        userNicknames,
-        modelMode,
-      };
-      await db
-        .collection("bot_settings")
-        .doc("toka_profile")
-        .set(dataToSave, { merge: true });
-      res.status(200).json({ message: "とーか設定を更新しました。" });
-    } catch (error) {
-      res.status(500).json({ message: "サーバーエラー" });
-    }
+// 1. 設定取得API・保存APIの該当部分を修正
+
+// 取得API
+adminRouter.get("/api/settings/toka", verifyFirebaseToken, async (req, res) => {
+  try {
+    const doc = await db.collection("bot_settings").doc("toka_profile").get();
+    if (!doc.exists)
+      return res.status(404).json({ message: "設定がまだありません。" });
+
+    const data = doc.data();
+    const admins = data.admins || [];
+    let isSuperAdmin =
+      admins.length > 0 ? req.user.email === admins[0].email : true;
+
+    // ★追加: enableBotMessageResponse
+    res.status(200).json({
+      baseUserId: data.baseUserId || null,
+      systemPrompt: data.systemPrompt || "",
+      enableNameRecognition: data.enableNameRecognition ?? true,
+      userNicknames: data.userNicknames || {},
+      modelMode: data.modelMode || "hybrid",
+      admins: admins,
+      currentUser: { isSuperAdmin: isSuperAdmin },
+      enableBotMessageResponse: data.enableBotMessageResponse ?? false, // ←追加
+    });
+  } catch (error) {
+    res.status(500).json({ message: "サーバーエラー" });
   }
-);
+});
+
+// 保存API
+adminRouter.post("/api/settings/toka", verifyFirebaseToken, async (req, res) => {
+  try {
+    const {
+      baseUserId,
+      systemPrompt,
+      enableNameRecognition,
+      userNicknames,
+      modelMode,
+      enableBotMessageResponse, // ★追加
+    } = req.body;
+    const dataToSave = {
+      baseUserId,
+      systemPrompt,
+      enableNameRecognition,
+      userNicknames,
+      modelMode,
+      enableBotMessageResponse, // ★追加
+    };
+    await db
+      .collection("bot_settings")
+      .doc("toka_profile")
+      .set(dataToSave, { merge: true });
+    res.status(200).json({ message: "とーか設定を更新しました。" });
+  } catch (error) {
+    res.status(500).json({ message: "サーバーエラー" });
+  }
+});
 
 adminRouter.post(
   "/api/settings/schedule",
