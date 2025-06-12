@@ -281,7 +281,8 @@ adminRouter.get("/api/settings/toka", verifyFirebaseToken, async (req, res) => {
       modelMode: data.modelMode || "hybrid",
       admins: admins,
       currentUser: { isSuperAdmin: isSuperAdmin },
-      enableBotMessageResponse: data.enableBotMessageResponse ?? false, // ←追加
+      enableBotMessageResponse: data.enableBotMessageResponse ?? false,
+      replyDelayMs: data.replyDelayMs ?? 0,
     });
   } catch (error) {
     res.status(500).json({ message: "サーバーエラー" });
@@ -300,7 +301,8 @@ adminRouter.post(
         enableNameRecognition,
         userNicknames,
         modelMode,
-        enableBotMessageResponse, // ★追加
+        enableBotMessageResponse,
+        replyDelayMs,
       } = req.body;
       const dataToSave = {
         baseUserId,
@@ -308,7 +310,8 @@ adminRouter.post(
         enableNameRecognition,
         userNicknames,
         modelMode,
-        enableBotMessageResponse, // ★追加
+        enableBotMessageResponse,
+        replyDelayMs: typeof replyDelayMs === "number" ? replyDelayMs : 0,
       };
       await db
         .collection("bot_settings")

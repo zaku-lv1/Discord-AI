@@ -231,6 +231,20 @@
                 >
               </div>
               <div class="form-group">
+                <label for="reply-delay-ms-input">
+                  返信ディレイ（ms単位, 0で即時返信）<br />
+                  <small>例: 1000 = 1秒遅延</small>
+                </label>
+                <input
+                  type="number"
+                  id="reply-delay-ms-input"
+                  min="0"
+                  max="10000"
+                  step="100"
+                  placeholder="例: 0(即時) ~ 10000(最大10秒)"
+                />
+              </div>
+              <div class="form-group">
                 <label for="prompt-textarea"
                   >システムプロンプト (キャラクター設定)</label
                 >

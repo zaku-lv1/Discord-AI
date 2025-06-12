@@ -39,7 +39,8 @@ document.addEventListener("DOMContentLoaded", () => {
   const baseUserIdInput = document.getElementById("base-user-id-input");
   const promptTextarea = document.getElementById("prompt-textarea");
   const nameRecognitionCheckbox = document.getElementById("name-recognition-checkbox");
-  const botMessageResponseCheckbox = document.getElementById("bot-message-response-checkbox"); // ★追加
+  const botMessageResponseCheckbox = document.getElementById("bot-message-response-checkbox");
+  const replyDelayMsInput = document.getElementById("reply-delay-ms-input");
   const nicknamesListContainer = document.getElementById("nicknames-list-container");
   const addNicknameBtn = document.getElementById("add-nickname-btn");
   const saveTokaBtn = document.getElementById("save-toka-btn");
@@ -467,6 +468,7 @@ document.addEventListener("DOMContentLoaded", () => {
         enableBotMessageResponse: botMessageResponseCheckbox.checked, // ★追加
         userNicknames: nicknamesObject,
         modelMode: tokaModelModeSelect.value,
+        replyDelayMs: Number(replyDelayMsInput.value) || 0,
       };
 
       const res = await fetch("/api/settings/toka", {
@@ -743,9 +745,10 @@ document.addEventListener("DOMContentLoaded", () => {
         baseUserId: baseUserIdInput.value,
         systemPrompt: promptTextarea.value,
         enableNameRecognition: nameRecognitionCheckbox.checked,
-        enableBotMessageResponse: botMessageResponseCheckbox.checked, // ★追加
+        enableBotMessageResponse: botMessageResponseCheckbox.checked,
         userNicknames: nicknamesObject,
         modelMode: tokaModelModeSelect.value,
+        replyDelayMs: Number(replyDelayMsInput.value) || 0,
       };
 
       // スケジュール設定

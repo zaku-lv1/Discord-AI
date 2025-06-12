@@ -236,6 +236,11 @@ module.exports = {
             const messageChunks = splitMessage(responseText);
 
             for (const chunk of messageChunks) {
+              if (replyDelayMs > 0) {
+                await new Promise((resolve) =>
+                  setTimeout(resolve, replyDelayMs)
+                );
+              }
               await webhook.send(chunk);
             }
           }
