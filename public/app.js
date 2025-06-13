@@ -781,6 +781,7 @@ document.addEventListener("DOMContentLoaded", () => {
         userNicknames: nicknamesObject,
         modelMode: tokaModelModeSelect.value,
         replyDelayMs: Number(replyDelayMsInput.value) || 0,
+        errorOopsMessage: errorOopsMessageInput.value.trim(),
       };
 
       // スケジュール設定
