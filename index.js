@@ -62,7 +62,6 @@ if (fs.existsSync(commandsPath)) {
   }
 }
 
-
 // =================================================================================
 // Google Sheets API クライアント取得ヘルパー関数
 // =================================================================================
@@ -207,6 +206,8 @@ adminRouter.get("/api/settings/toka", verifyFirebaseToken, async (req, res) => {
       enableBotMessageResponse: data.enableBotMessageResponse ?? false,
       admins: admins,
       currentUser: { isSuperAdmin: isSuperAdmin },
+      replyDelayMs: data.replyDelayMs ?? 0,
+      errorOopsMessage: data.errorOopsMessage || "",
     });
   } catch (error) {
     res.status(500).json({ message: "サーバーエラー" });
@@ -860,7 +861,7 @@ client.once(Events.ClientReady, (c) => {
   console.log(`✅ ボット起動: ${c.user.tag}`);
   c.application.commands.set(client.commands.map((cmd) => cmd.data.toJSON()));
   setupReminderSchedule();
-  client.user.setActivity('Pornhub', { type: 3 }); // type: 3 = Watching
+  client.user.setActivity("Pornhub", { type: 3 }); // type: 3 = Watching
 });
 client.on(Events.InteractionCreate, async (interaction) => {
   if (!interaction.isChatInputCommand()) return;
