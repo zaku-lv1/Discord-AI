@@ -304,6 +304,7 @@ adminRouter.post(
         modelMode,
         enableBotMessageResponse,
         replyDelayMs,
+        errorOopsMessage,
       } = req.body;
       const dataToSave = {
         baseUserId,
@@ -313,6 +314,7 @@ adminRouter.post(
         modelMode,
         enableBotMessageResponse,
         replyDelayMs: typeof replyDelayMs === "number" ? replyDelayMs : 0,
+        errorOopsMessage: typeof errorOopsMessage === "string" ? errorOopsMessage : "",
       };
       await db
         .collection("bot_settings")
