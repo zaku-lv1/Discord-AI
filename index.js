@@ -273,7 +273,6 @@ adminRouter.get("/api/settings/toka", verifyFirebaseToken, async (req, res) => {
     let isSuperAdmin =
       admins.length > 0 ? req.user.email === admins[0].email : true;
 
-    // ★追加: enableBotMessageResponse
     res.status(200).json({
       baseUserId: data.baseUserId || null,
       systemPrompt: data.systemPrompt || "",

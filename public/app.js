@@ -159,8 +159,9 @@ document.addEventListener("DOMContentLoaded", () => {
         baseUserIdInput.value = data.baseUserId || "";
         promptTextarea.value = data.systemPrompt || "";
         nameRecognitionCheckbox.checked = data.enableNameRecognition ?? true;
-        botMessageResponseCheckbox.checked = !!data.enableBotMessageResponse; // ★追加
+        botMessageResponseCheckbox.checked = !!data.enableBotMessageResponse;
         renderNicknameList(data.userNicknames || {});
+        replyDelayMsInput.value = data.replyDelayMs ?? 0;
 
         const currentUserAdminInfo = (data.admins || []).find(
           (admin) => admin.email === user.email
@@ -465,7 +466,7 @@ document.addEventListener("DOMContentLoaded", () => {
         baseUserId: baseUserIdInput.value,
         systemPrompt: promptTextarea.value,
         enableNameRecognition: nameRecognitionCheckbox.checked,
-        enableBotMessageResponse: botMessageResponseCheckbox.checked, // ★追加
+        enableBotMessageResponse: botMessageResponseCheckbox.checked,
         userNicknames: nicknamesObject,
         modelMode: tokaModelModeSelect.value,
         replyDelayMs: Number(replyDelayMsInput.value) || 0,
