@@ -82,9 +82,10 @@ const forcedInstructions = `
 - 自分を「とーか」として振る舞い、AI的な説明や発言は禁止です。
 `;
 
-async function getTokaResponse(userMessage, history, systemPrompt) {
+async function getTokaResponse(userMessage, history, systemPrompt, errorOopsMessage) {
   const tryModels = ["gemini-1.5-pro", "gemini-1.5-flash"];
   const defaultOopsMessage =
+    errorOopsMessage ||
     "うーん、なんだか今日は言葉がうまく出てこないみたいで……ごめんね、ちーくん。(；；)";
   let lastError = null;
   for (const modelName of tryModels) {
@@ -123,7 +124,8 @@ module.exports = {
     let enableNameRecognition = true;
     let userNicknames = {};
     let enableBotMessageResponse = false;
-    let replyDelayMs = 0; // ← 追加
+    let replyDelayMs = 0;
+    let errorOopsMessage = "";
 
     try {
       const settingsDoc = await db
@@ -143,8 +145,11 @@ module.exports = {
         if (typeof settings.enableBotMessageResponse === "boolean") {
           enableBotMessageResponse = settings.enableBotMessageResponse;
         }
-        if (typeof settings.replyDelayMs === "number") { // ← 追加
+        if (typeof settings.replyDelayMs === "number") {
           replyDelayMs = settings.replyDelayMs;
+        }
+        if (typeof settings.errorOopsMessage === "string") {
+          errorOopsMessage = settings.errorOopsMessage.trim();
         }
       }
     } catch (dbError) {
@@ -223,7 +228,8 @@ module.exports = {
           const responseText = await getTokaResponse(
             contentForAI,
             currentHistory,
-            finalSystemPrompt
+            finalSystemPrompt,
+            errorOopsMessage
           );
 
           if (responseText) {

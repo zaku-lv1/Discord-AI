@@ -18,7 +18,9 @@ document.addEventListener("DOMContentLoaded", () => {
   const loginBtn = document.getElementById("login-btn");
   const registerBtn = document.getElementById("register-btn");
   const forgotPasswordLink = document.getElementById("forgot-password-link");
-  const showRegisterFormLink = document.getElementById("show-register-form-link");
+  const showRegisterFormLink = document.getElementById(
+    "show-register-form-link"
+  );
   const showLoginFormLink = document.getElementById("show-login-form-link");
   const userEmailEl = document.getElementById("user-email");
   const logoutBtn = document.getElementById("logout-btn");
@@ -30,7 +32,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // --- プロファイル要素 ---
   const profilePanel = document.getElementById("panel-profile");
-  const profileDisplayNameInput = document.getElementById("profile-display-name");
+  const profileDisplayNameInput = document.getElementById(
+    "profile-display-name"
+  );
   const profileEmailInput = document.getElementById("profile-email");
   const saveProfileBtn = document.getElementById("save-profile-btn");
 
@@ -38,28 +42,51 @@ document.addEventListener("DOMContentLoaded", () => {
   const tokaModelModeSelect = document.getElementById("toka-model-mode");
   const baseUserIdInput = document.getElementById("base-user-id-input");
   const promptTextarea = document.getElementById("prompt-textarea");
-  const nameRecognitionCheckbox = document.getElementById("name-recognition-checkbox");
-  const botMessageResponseCheckbox = document.getElementById("bot-message-response-checkbox");
+  const nameRecognitionCheckbox = document.getElementById(
+    "name-recognition-checkbox"
+  );
+  const botMessageResponseCheckbox = document.getElementById(
+    "bot-message-response-checkbox"
+  );
   const replyDelayMsInput = document.getElementById("reply-delay-ms-input");
-  const nicknamesListContainer = document.getElementById("nicknames-list-container");
+  const errorOopsMessageInput = document.getElementById(
+    "error-oops-message-input"
+  );
+  const nicknamesListContainer = document.getElementById(
+    "nicknames-list-container"
+  );
   const addNicknameBtn = document.getElementById("add-nickname-btn");
   const saveTokaBtn = document.getElementById("save-toka-btn");
 
   // --- スケジュールパネル要素 ---
-  const remindersEnabledCheckbox = document.getElementById("reminders-enabled-checkbox");
+  const remindersEnabledCheckbox = document.getElementById(
+    "reminders-enabled-checkbox"
+  );
   const reminderTimeInput = document.getElementById("reminder-time-input");
   const googleSheetIdInput = document.getElementById("google-sheet-id-input");
-  const reminderGuildIdInput = document.getElementById("reminder-guild-id-input");
+  const reminderGuildIdInput = document.getElementById(
+    "reminder-guild-id-input"
+  );
   const reminderRoleIdInput = document.getElementById("reminder-role-id-input");
-  const saveScheduleSettingsBtn = document.getElementById("save-schedule-settings-btn");
-  const scheduleItemsContainer = document.getElementById("schedule-items-container");
+  const saveScheduleSettingsBtn = document.getElementById(
+    "save-schedule-settings-btn"
+  );
+  const scheduleItemsContainer = document.getElementById(
+    "schedule-items-container"
+  );
   const addScheduleItemBtn = document.getElementById("add-schedule-item-btn");
-  const saveScheduleItemsBtn = document.getElementById("save-schedule-items-btn");
+  const saveScheduleItemsBtn = document.getElementById(
+    "save-schedule-items-btn"
+  );
 
   // --- 管理者パネル要素 ---
   const adminSettingsSection = document.getElementById("panel-admins");
-  const inviteCodeGeneratorSection = document.getElementById("invite-code-generator-section");
-  const generateInviteCodeBtn = document.getElementById("generate-invite-code-btn");
+  const inviteCodeGeneratorSection = document.getElementById(
+    "invite-code-generator-section"
+  );
+  const generateInviteCodeBtn = document.getElementById(
+    "generate-invite-code-btn"
+  );
   const inviteCodeDisplay = document.getElementById("invite-code-display");
   const newInviteCodeInput = document.getElementById("new-invite-code");
   const copyInviteCodeBtn = document.getElementById("copy-invite-code-btn");
@@ -105,7 +132,9 @@ document.addEventListener("DOMContentLoaded", () => {
                 <input type="text" class="admin-name" data-field="name" 
                        placeholder="表示名" value="${admin.name || ""}">
                 <input type="email" class="admin-email" data-field="email" 
-                       placeholder="管理者メールアドレス" value="${admin.email || ""}">
+                       placeholder="管理者メールアドレス" value="${
+                         admin.email || ""
+                       }">
             `;
 
       if (index === 0) {
@@ -162,6 +191,7 @@ document.addEventListener("DOMContentLoaded", () => {
         botMessageResponseCheckbox.checked = !!data.enableBotMessageResponse;
         renderNicknameList(data.userNicknames || {});
         replyDelayMsInput.value = data.replyDelayMs ?? 0;
+        errorOopsMessageInput.value = data.errorOopsMessage || "";
 
         const currentUserAdminInfo = (data.admins || []).find(
           (admin) => admin.email === user.email
@@ -470,6 +500,7 @@ document.addEventListener("DOMContentLoaded", () => {
         userNicknames: nicknamesObject,
         modelMode: tokaModelModeSelect.value,
         replyDelayMs: Number(replyDelayMsInput.value) || 0,
+        errorOopsMessage: errorOopsMessageInput.value.trim(),
       };
 
       const res = await fetch("/api/settings/toka", {
