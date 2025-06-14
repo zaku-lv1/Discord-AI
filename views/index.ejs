@@ -298,116 +298,93 @@
 
               <div id="ai-list">
                 <!-- AIカードのテンプレート -->
+                <!-- AIキャラクターのテンプレート -->
                 <template id="ai-card-template">
-                  <div class="ai-card" data-ai-id="">
+                  <div class="ai-card">
                     <div class="ai-header">
-                      <div class="ai-title">
-                        <h3 class="ai-name"></h3>
-                        <span class="ai-command"></span>
-                      </div>
-                      <div class="ai-controls">
-                        <label class="toggle-switch">
-                          <input type="checkbox" class="ai-active-toggle" />
-                          <span class="slider"></span>
-                        </label>
-                        <button class="edit-ai-btn">編集</button>
-                        <button class="delete-ai-btn">削除</button>
-                      </div>
+                      <span class="ai-name"></span>
+                      <span class="ai-command"></span>
+                      <label>
+                        <input type="checkbox" class="ai-active-toggle" />
+                        有効
+                      </label>
+                      <button type="button" class="edit-ai-btn">編集</button>
+                      <button type="button" class="delete-ai-btn">削除</button>
                     </div>
-
                     <div class="ai-edit-form" style="display: none;">
                       <div class="form-group">
-                        <label>AIの名前</label>
+                        <label>名前 *</label>
                         <input
                           type="text"
                           class="ai-display-name"
-                          placeholder="表示名"
+                          placeholder="AIキャラクターの名前"
+                          required
                         />
-                        <small
-                          >この名前がスラッシュコマンドになります（例:
-                          /あいちゃん）</small
-                        >
                       </div>
-
                       <div class="form-group">
-                        <label>ベースユーザーID</label>
+                        <label>ベースユーザーID *</label>
                         <input
                           type="text"
                           class="ai-base-user-id"
-                          placeholder="Discordユーザー ID"
+                          placeholder="ベースとなるユーザーID"
+                          required
                         />
-                        <small
-                          >このユーザーの名前とアイコンが使用されます</small
-                        >
                       </div>
-
                       <div class="form-group">
-                        <label>AIモデルモード</label>
-                        <select class="ai-model-mode">
-                          <option value="hybrid">ハイブリッド (高品質)</option>
-                          <option value="flash_only">Flash (高速)</option>
-                        </select>
-                      </div>
-
-                      <div class="form-group">
-                        <div class="toggle-container">
-                          <label class="toggle-label"
-                            >名前認識を有効にする</label
-                          >
-                          <label class="toggle-switch">
-                            <input
-                              type="checkbox"
-                              class="ai-name-recognition"
-                            />
-                            <span class="slider"></span>
-                          </label>
-                        </div>
-                        <small>ユーザーの名前を認識して応答に使用します</small>
-                      </div>
-
-                      <div class="form-group">
-                        <label>システムプロンプト</label>
+                        <label>システムプロンプト *</label>
                         <textarea
                           class="ai-system-prompt"
-                          rows="10"
-                          placeholder="AIのキャラクター設定を入力"
+                          placeholder="AIの振る舞いを定義するプロンプト"
+                          required
                         ></textarea>
                       </div>
-
                       <div class="form-group">
-                        <label>ニックネーム設定</label>
-                        <div class="ai-nicknames-list"></div>
-                        <button class="add-nickname-btn secondary-btn">
-                          ＋ ニックネームを追加
-                        </button>
+                        <label>モデルモード</label>
+                        <select class="ai-model-mode">
+                          <option value="hybrid">ハイブリッド</option>
+                          <option value="gpt-4">GPT-4</option>
+                          <option value="gpt-3.5-turbo">GPT-3.5</option>
+                        </select>
                       </div>
-
                       <div class="form-group">
-                        <label>返信ディレイ（ms）</label>
+                        <label>
+                          <input type="checkbox" class="ai-name-recognition" />
+                          名前認識を有効化
+                        </label>
+                      </div>
+                      <div class="form-group">
+                        <label>
+                          <input type="checkbox" class="ai-bot-response" />
+                          BOTメッセージへの応答を有効化
+                        </label>
+                      </div>
+                      <div class="form-group">
+                        <label>返信遅延（ミリ秒）</label>
                         <input
                           type="number"
                           class="ai-reply-delay"
                           min="0"
-                          max="10000"
-                          step="100"
-                          placeholder="0"
+                          value="0"
                         />
-                        <small>1000 = 1秒。応答までの待機時間</small>
                       </div>
-
                       <div class="form-group">
-                        <label>エラー時のメッセージ</label>
+                        <label>エラーメッセージ</label>
                         <input
                           type="text"
                           class="ai-error-message"
-                          maxlength="200"
-                          placeholder="AIがエラーを起こした時のメッセージ"
+                          placeholder="エラー時のメッセージ"
                         />
                       </div>
-
-                      <div class="button-group">
-                        <button class="save-ai-btn save-btn">保存</button>
-                        <button class="cancel-ai-btn secondary-btn">
+                      <div class="form-group">
+                        <label>ニックネーム</label>
+                        <div class="ai-nicknames-list"></div>
+                        <button type="button" class="add-nickname-btn">
+                          ニックネームを追加
+                        </button>
+                      </div>
+                      <div class="form-actions">
+                        <button type="button" class="save-ai-btn">保存</button>
+                        <button type="button" class="cancel-ai-btn">
                           キャンセル
                         </button>
                       </div>
