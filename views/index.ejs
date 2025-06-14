@@ -29,7 +29,10 @@
       src="https://www.gstatic.com/firebasejs/9.6.1/firebase-auth-compat.js"
       defer
     ></script>
-    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js" defer></script>
+    <script
+      src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"
+      defer
+    ></script>
     <script src="/app.js" defer></script>
   </head>
   <body>
@@ -300,38 +303,70 @@
               <div id="ai-list">
                 <!-- AIカードのテンプレート -->
                 <!-- AIキャラクターのテンプレート -->
+                <!-- index.ejsに追加 -->
                 <template id="ai-card-template">
                   <div class="ai-card">
                     <div class="ai-header">
-                      <div class="ai-header-left">
-                        <h3 class="ai-name"></h3>
-                        <div class="command-container">
-                          <code class="command-text"></code>
-                          <button
-                            type="button"
-                            class="copy-command-btn"
-                            title="コマンドをコピー"
-                          >
-                            <span class="copy-icon">📋</span>
-                            <span class="copy-text">コピー</span>
-                          </button>
-                        </div>
+                      <span class="ai-name"></span>
+                      <div class="controls">
+                        <input type="checkbox" class="ai-active-toggle" />
+                        <button class="edit-ai-btn">編集</button>
+                        <button class="delete-ai-btn">削除</button>
                       </div>
-                      <div class="ai-controls">
-                        <label class="ai-toggle">
-                          <input type="checkbox" class="ai-active-toggle" />
-                          <span class="ai-toggle-slider"></span>
-                        </label>
-                        <button type="button" class="edit-ai-btn">編集</button>
-                        <button type="button" class="delete-ai-btn">
-                          削除
+                    </div>
+
+                    <form class="ai-edit-form" style="display: none;">
+                      <input
+                        type="text"
+                        class="ai-display-name"
+                        placeholder="表示名"
+                      />
+                      <input
+                        type="text"
+                        class="ai-base-user-id"
+                        placeholder="ベースユーザーID"
+                      />
+                      <select class="ai-model-mode">
+                        <option value="hybrid">ハイブリッド</option>
+                        <option value="gpt4">GPT-4</option>
+                      </select>
+                      <div class="checkbox-group">
+                        <input type="checkbox" class="ai-name-recognition" />
+                        <label>名前認識を有効化</label>
+                      </div>
+                      <textarea
+                        class="ai-system-prompt"
+                        placeholder="システムプロンプト"
+                      ></textarea>
+                      <div class="checkbox-group">
+                        <input type="checkbox" class="ai-bot-response" />
+                        <label>ボットメッセージへの応答を有効化</label>
+                      </div>
+                      <input
+                        type="number"
+                        class="ai-reply-delay"
+                        placeholder="返信遅延（ミリ秒）"
+                      />
+                      <input
+                        type="text"
+                        class="ai-error-message"
+                        placeholder="エラーメッセージ"
+                      />
+
+                      <div class="nicknames-section">
+                        <div class="ai-nicknames-list"></div>
+                        <button type="button" class="add-nickname-btn">
+                          ニックネーム追加
                         </button>
                       </div>
-                    </div>
-                    <!-- 編集フォーム -->
-                    <div class="ai-edit-form" style="display: none;">
-                      <!-- 既存のフォーム要素をより整理された構造で配置 -->
-                    </div>
+
+                      <div class="form-actions">
+                        <button type="button" class="save-ai-btn">保存</button>
+                        <button type="button" class="cancel-ai-btn">
+                          キャンセル
+                        </button>
+                      </div>
+                    </form>
                   </div>
                 </template>
               </div>
