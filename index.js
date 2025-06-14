@@ -314,7 +314,8 @@ adminRouter.post(
         modelMode,
         enableBotMessageResponse,
         replyDelayMs: typeof replyDelayMs === "number" ? replyDelayMs : 0,
-        errorOopsMessage: typeof errorOopsMessage === "string" ? errorOopsMessage : "",
+        errorOopsMessage:
+          typeof errorOopsMessage === "string" ? errorOopsMessage : "",
       };
       await db
         .collection("bot_settings")
@@ -323,6 +324,268 @@ adminRouter.post(
       res.status(200).json({ message: "とーか設定を更新しました。" });
     } catch (error) {
       res.status(500).json({ message: "サーバーエラー" });
+    }
+  }
+);
+
+// AIキャラクター関連のAPIエンドポイント
+adminRouter.get("/api/ai/characters", verifyFirebaseToken, async (req, res) => {
+  try {
+    const charactersSnapshot = await db.collection("ai_characters").get();
+    const characters = [];
+    charactersSnapshot.forEach((doc) => {
+      characters.push({
+        id: doc.id,
+        ...doc.data(),
+      });
+    });
+    res.status(200).json(characters);
+  } catch (error) {
+    console.error("AIキャラクター一覧取得エラー:", error);
+    res.status(500).json({ message: "AIキャラクター一覧の取得に失敗しました" });
+  }
+});
+
+adminRouter.post(
+  "/api/ai/characters",
+  verifyFirebaseToken,
+  async (req, res) => {
+    try {
+      const {
+        name,
+        baseUserId,
+        systemPrompt,
+        modelMode = "hybrid",
+        enableNameRecognition = true,
+        enableBotMessageResponse = false,
+        replyDelayMs = 0,
+        errorOopsMessage = "",
+        userNicknames = {},
+        active = false,
+      } = req.body;
+
+      // 入力値の検証
+      if (!name || !baseUserId || !systemPrompt) {
+        return res.status(400).json({
+          message: "名前、ベースユーザーID、システムプロンプトは必須です",
+        });
+      }
+
+      // スラッシュコマンド用の名前を検証
+      const commandName = name.toLowerCase().replace(/[^a-z0-9]/g, "");
+      if (!commandName) {
+        return res.status(400).json({
+          message: "名前には少なくとも1つのアルファベットか数字が必要です",
+        });
+      }
+
+      // 既存のキャラクター名の重複チェック
+      const existingCharacter = await db
+        .collection("ai_characters")
+        .where("name", "==", name)
+        .limit(1)
+        .get();
+
+      if (!existingCharacter.empty) {
+        return res.status(400).json({
+          message: "この名前のAIキャラクターは既に存在します",
+        });
+      }
+
+      const newCharacter = {
+        name,
+        commandName,
+        baseUserId,
+        systemPrompt,
+        modelMode,
+        enableNameRecognition,
+        enableBotMessageResponse,
+        replyDelayMs,
+        errorOopsMessage,
+        userNicknames,
+        active,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        createdBy: req.user.email,
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        updatedBy: req.user.email,
+      };
+
+      const docRef = await db.collection("ai_characters").add(newCharacter);
+      res.status(201).json({
+        id: docRef.id,
+        ...newCharacter,
+        message: "AIキャラクターを作成しました",
+      });
+    } catch (error) {
+      console.error("AIキャラクター作成エラー:", error);
+      res.status(500).json({ message: "AIキャラクターの作成に失敗しました" });
+    }
+  }
+);
+
+adminRouter.put(
+  "/api/ai/characters/:id",
+  verifyFirebaseToken,
+  async (req, res) => {
+    try {
+      const { id } = req.params;
+      const {
+        name,
+        baseUserId,
+        systemPrompt,
+        modelMode,
+        enableNameRecognition,
+        enableBotMessageResponse,
+        replyDelayMs,
+        errorOopsMessage,
+        userNicknames,
+        active,
+      } = req.body;
+
+      // 入力値の検証
+      if (!name || !baseUserId || !systemPrompt) {
+        return res.status(400).json({
+          message: "名前、ベースユーザーID、システムプロンプトは必須です",
+        });
+      }
+
+      // スラッシュコマンド用の名前を検証
+      const commandName = name.toLowerCase().replace(/[^a-z0-9]/g, "");
+      if (!commandName) {
+        return res.status(400).json({
+          message: "名前には少なくとも1つのアルファベットか数字が必要です",
+        });
+      }
+
+      // 名前の重複チェック（自分以外）
+      const existingCharacter = await db
+        .collection("ai_characters")
+        .where("name", "==", name)
+        .get();
+
+      const hasConflict = existingCharacter.docs.some((doc) => doc.id !== id);
+      if (hasConflict) {
+        return res.status(400).json({
+          message: "この名前のAIキャラクターは既に存在します",
+        });
+      }
+
+      const updateData = {
+        name,
+        commandName,
+        baseUserId,
+        systemPrompt,
+        modelMode,
+        enableNameRecognition,
+        enableBotMessageResponse,
+        replyDelayMs,
+        errorOopsMessage,
+        userNicknames,
+        active,
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        updatedBy: req.user.email,
+      };
+
+      await db.collection("ai_characters").doc(id).update(updateData);
+      res.status(200).json({
+        id,
+        ...updateData,
+        message: "AIキャラクターを更新しました",
+      });
+    } catch (error) {
+      console.error("AIキャラクター更新エラー:", error);
+      res.status(500).json({ message: "AIキャラクターの更新に失敗しました" });
+    }
+  }
+);
+
+adminRouter.delete(
+  "/api/ai/characters/:id",
+  verifyFirebaseToken,
+  async (req, res) => {
+    try {
+      const { id } = req.params;
+      // キャラクターが存在するか確認
+      const character = await db.collection("ai_characters").doc(id).get();
+      if (!character.exists) {
+        return res
+          .status(404)
+          .json({ message: "指定されたAIキャラクターが見つかりません" });
+      }
+
+      await db.collection("ai_characters").doc(id).delete();
+      res.status(200).json({ message: "AIキャラクターを削除しました" });
+    } catch (error) {
+      console.error("AIキャラクター削除エラー:", error);
+      res.status(500).json({ message: "AIキャラクターの削除に失敗しました" });
+    }
+  }
+);
+
+// AIキャラクターのアクティブ状態を切り替えるエンドポイント
+adminRouter.put(
+  "/api/ai/characters/:id/status",
+  verifyFirebaseToken,
+  async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { active } = req.body;
+
+      if (typeof active !== "boolean") {
+        return res
+          .status(400)
+          .json({ message: "アクティブ状態は真偽値で指定してください" });
+      }
+
+      const character = await db.collection("ai_characters").doc(id).get();
+      if (!character.exists) {
+        return res
+          .status(404)
+          .json({ message: "指定されたAIキャラクターが見つかりません" });
+      }
+
+      await db.collection("ai_characters").doc(id).update({
+        active,
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        updatedBy: req.user.email,
+      });
+
+      res.status(200).json({
+        message: `AIキャラクターを${
+          active ? "アクティブ" : "非アクティブ"
+        }に設定しました`,
+      });
+    } catch (error) {
+      console.error("AIキャラクター状態更新エラー:", error);
+      res
+        .status(500)
+        .json({ message: "AIキャラクターの状態更新に失敗しました" });
+    }
+  }
+);
+
+// AIキャラクターの情報を取得するエンドポイント
+adminRouter.get(
+  "/api/ai/characters/:id",
+  verifyFirebaseToken,
+  async (req, res) => {
+    try {
+      const { id } = req.params;
+      const character = await db.collection("ai_characters").doc(id).get();
+
+      if (!character.exists) {
+        return res
+          .status(404)
+          .json({ message: "指定されたAIキャラクターが見つかりません" });
+      }
+
+      res.status(200).json({
+        id: character.id,
+        ...character.data(),
+      });
+    } catch (error) {
+      console.error("AIキャラクター取得エラー:", error);
+      res.status(500).json({ message: "AIキャラクターの取得に失敗しました" });
     }
   }
 );

@@ -393,3 +393,84 @@ input:checked + .slider:before { transform: translateX(24px); }
     transform: translateY(-2px);
     box-shadow: 0 6px 20px 0 rgba(76, 175, 80, 0.5);
 }
+
+/* AI管理パネルのスタイル */
+.ai-card {
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  margin-bottom: 1rem;
+  padding: 1rem;
+}
+
+.ai-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.ai-title {
+  display: flex;
+  align-items: baseline;
+  gap: 1rem;
+}
+
+.ai-name {
+  margin: 0;
+  font-size: 1.2rem;
+}
+
+.ai-command {
+  color: #666;
+  font-family: monospace;
+  font-size: 0.9rem;
+}
+
+.ai-controls {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.ai-edit-form {
+  border-top: 1px solid #eee;
+  margin-top: 1rem;
+  padding-top: 1rem;
+}
+
+/* 編集フォームのアニメーション */
+.ai-edit-form {
+  transition: max-height 0.3s ease-out;
+  overflow: hidden;
+}
+
+.ai-edit-form.collapsed {
+  max-height: 0;
+}
+
+.ai-edit-form.expanded {
+  max-height: 2000px;
+}
+
+/* ニックネームリストのスタイル */
+.ai-nicknames-list {
+  margin: 0.5rem 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+/* レスポンシブ対応 */
+@media (max-width: 768px) {
+  .ai-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1rem;
+  }
+  
+  .ai-controls {
+    width: 100%;
+    justify-content: flex-end;
+  }
+}

@@ -127,6 +127,9 @@
                 >
               </li>
               <li>
+                <a href="#" class="nav-link" data-target="panel-ai">AI管理</a>
+              </li>
+              <li>
                 <a href="#" class="nav-link" data-target="panel-schedule"
                   >スケジュール設定</a
                 >
@@ -281,6 +284,136 @@
                 <button id="save-toka-btn" class="save-btn">
                   とーか設定を保存
                 </button>
+              </div>
+            </div>
+            <!-- AI管理パネル -->
+            <div id="panel-ai" class="dashboard-panel" style="display: none;">
+              <h2>AI管理</h2>
+
+              <div class="button-group">
+                <button id="add-ai-btn" class="secondary-btn">
+                  ＋ 新しいAIを追加
+                </button>
+              </div>
+
+              <div id="ai-list">
+                <!-- AIカードのテンプレート -->
+                <template id="ai-card-template">
+                  <div class="ai-card" data-ai-id="">
+                    <div class="ai-header">
+                      <div class="ai-title">
+                        <h3 class="ai-name"></h3>
+                        <span class="ai-command"></span>
+                      </div>
+                      <div class="ai-controls">
+                        <label class="toggle-switch">
+                          <input type="checkbox" class="ai-active-toggle" />
+                          <span class="slider"></span>
+                        </label>
+                        <button class="edit-ai-btn">編集</button>
+                        <button class="delete-ai-btn">削除</button>
+                      </div>
+                    </div>
+
+                    <div class="ai-edit-form" style="display: none;">
+                      <div class="form-group">
+                        <label>AIの名前</label>
+                        <input
+                          type="text"
+                          class="ai-display-name"
+                          placeholder="表示名"
+                        />
+                        <small
+                          >この名前がスラッシュコマンドになります（例:
+                          /あいちゃん）</small
+                        >
+                      </div>
+
+                      <div class="form-group">
+                        <label>ベースユーザーID</label>
+                        <input
+                          type="text"
+                          class="ai-base-user-id"
+                          placeholder="Discordユーザー ID"
+                        />
+                        <small
+                          >このユーザーの名前とアイコンが使用されます</small
+                        >
+                      </div>
+
+                      <div class="form-group">
+                        <label>AIモデルモード</label>
+                        <select class="ai-model-mode">
+                          <option value="hybrid">ハイブリッド (高品質)</option>
+                          <option value="flash_only">Flash (高速)</option>
+                        </select>
+                      </div>
+
+                      <div class="form-group">
+                        <div class="toggle-container">
+                          <label class="toggle-label"
+                            >名前認識を有効にする</label
+                          >
+                          <label class="toggle-switch">
+                            <input
+                              type="checkbox"
+                              class="ai-name-recognition"
+                            />
+                            <span class="slider"></span>
+                          </label>
+                        </div>
+                        <small>ユーザーの名前を認識して応答に使用します</small>
+                      </div>
+
+                      <div class="form-group">
+                        <label>システムプロンプト</label>
+                        <textarea
+                          class="ai-system-prompt"
+                          rows="10"
+                          placeholder="AIのキャラクター設定を入力"
+                        ></textarea>
+                      </div>
+
+                      <div class="form-group">
+                        <label>ニックネーム設定</label>
+                        <div class="ai-nicknames-list"></div>
+                        <button class="add-nickname-btn secondary-btn">
+                          ＋ ニックネームを追加
+                        </button>
+                      </div>
+
+                      <div class="form-group">
+                        <label>返信ディレイ（ms）</label>
+                        <input
+                          type="number"
+                          class="ai-reply-delay"
+                          min="0"
+                          max="10000"
+                          step="100"
+                          placeholder="0"
+                        />
+                        <small>1000 = 1秒。応答までの待機時間</small>
+                      </div>
+
+                      <div class="form-group">
+                        <label>エラー時のメッセージ</label>
+                        <input
+                          type="text"
+                          class="ai-error-message"
+                          maxlength="200"
+                          placeholder="AIがエラーを起こした時のメッセージ"
+                        />
+                      </div>
+
+                      <div class="button-group">
+                        <button class="save-ai-btn save-btn">保存</button>
+                        <button class="cancel-ai-btn secondary-btn">
+                          キャンセル
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </template>
               </div>
             </div>
 

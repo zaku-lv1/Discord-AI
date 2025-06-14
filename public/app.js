@@ -94,13 +94,19 @@ document.addEventListener("DOMContentLoaded", () => {
   const addAdminBtn = document.getElementById("add-admin-btn");
   const saveAdminsBtn = document.getElementById("save-admins-btn");
 
+  // --- AI管理パネル要素 ---
+  const aiPanel = document.getElementById("panel-ai");
+  const aiList = document.getElementById("ai-list");
+  const addAIBtn = document.getElementById("add-ai-btn");
+  const aiCardTemplate = document.getElementById("ai-card-template");
+
   // ================ アプリケーションの状態 ================
   let state = {
     admins: [],
     isSuperAdmin: false,
     scheduleItems: [],
+    aiCharacters: [],
   };
-
   // ================ UI関連の関数 ================
   function renderNicknameList(nicknames = {}) {
     nicknamesListContainer.innerHTML = "";
@@ -167,6 +173,75 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
+  // --- AI管理関連の関数 ---
+  function getAICardElements(card) {
+    return {
+      nameDisplay: card.querySelector(".ai-name"),
+      commandDisplay: card.querySelector(".ai-command"),
+      activeToggle: card.querySelector(".ai-active-toggle"),
+      editBtn: card.querySelector(".edit-ai-btn"),
+      deleteBtn: card.querySelector(".delete-ai-btn"),
+      editForm: card.querySelector(".ai-edit-form"),
+      displayNameInput: card.querySelector(".ai-display-name"),
+      baseUserIdInput: card.querySelector(".ai-base-user-id"),
+      modelModeSelect: card.querySelector(".ai-model-mode"),
+      nameRecognitionCheckbox: card.querySelector(".ai-name-recognition"),
+      systemPromptTextarea: card.querySelector(".ai-system-prompt"),
+      botResponseCheckbox: card.querySelector(".ai-bot-response"),
+      replyDelayInput: card.querySelector(".ai-reply-delay"),
+      errorMessageInput: card.querySelector(".ai-error-message"),
+      nicknamesList: card.querySelector(".ai-nicknames-list"),
+      addNicknameBtn: card.querySelector(".add-nickname-btn"),
+      saveBtn: card.querySelector(".save-ai-btn"),
+      cancelBtn: card.querySelector(".cancel-ai-btn"),
+    };
+  }
+
+  function renderAICharactersList() {
+    aiList.innerHTML = "";
+    state.aiCharacters.forEach((character) => {
+      const card = aiCardTemplate.content.cloneNode(true);
+      const cardElement = card.querySelector(".ai-card");
+      const elements = getAICardElements(cardElement);
+
+      cardElement.dataset.aiId = character.id;
+      elements.nameDisplay.textContent = character.name;
+      elements.commandDisplay.textContent = `/${character.commandName}`;
+      elements.activeToggle.checked = character.active;
+
+      elements.displayNameInput.value = character.name;
+      elements.baseUserIdInput.value = character.baseUserId;
+      elements.modelModeSelect.value = character.modelMode || "hybrid";
+      elements.nameRecognitionCheckbox.checked =
+        character.enableNameRecognition;
+      elements.systemPromptTextarea.value = character.systemPrompt;
+      elements.botResponseCheckbox.checked = character.enableBotMessageResponse;
+      elements.replyDelayInput.value = character.replyDelayMs || 0;
+      elements.errorMessageInput.value = character.errorOopsMessage || "";
+
+      renderAICharacterNicknames(
+        elements.nicknamesList,
+        character.userNicknames || {}
+      );
+
+      aiList.appendChild(cardElement);
+    });
+  }
+
+  function renderAICharacterNicknames(container, nicknames) {
+    container.innerHTML = "";
+    Object.entries(nicknames).forEach(([userId, nickname]) => {
+      const entry = createNicknameEntry(userId, nickname);
+      container.appendChild(entry);
+    });
+  }
+
+  function toggleAIEditForm(card) {
+    const elements = getAICardElements(card);
+    const isVisible = elements.editForm.style.display !== "none";
+    elements.editForm.style.display = isVisible ? "none" : "block";
+  }
+
   // ================ データ取得と保存の関数 ================
   async function fetchSettings(user) {
     statusMessage.textContent = "読込中...";
@@ -231,6 +306,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const errData = await tokaRes.json().catch(() => ({}));
         throw new Error(errData.message || "とーか設定の読み込みに失敗");
       }
+      await fetchAICharacters();
     } catch (err) {
       finalStatusMessage = `エラー: ${err.message}`;
       console.error("とーか/管理者設定の読み込みエラー:", err);
