@@ -121,42 +121,73 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  function setupRealtimeUpdates() {
-    const db = firebase.firestore();
-    return db.collection("ai_characters").onSnapshot((snapshot) => {
-      let hasChanges = false;
-
-      snapshot.docChanges().forEach((change) => {
-        if (change.type === "added") {
-          const newCharacter = { id: change.doc.id, ...change.doc.data() };
-          if (!state.aiCharacters.some((char) => char.id === newCharacter.id)) {
-            state.aiCharacters.push({ ...newCharacter, modified: false });
-            hasChanges = true;
-          }
-        } else if (change.type === "modified") {
-          const updatedCharacter = { id: change.doc.id, ...change.doc.data() };
-          const index = state.aiCharacters.findIndex(
-            (char) => char.id === updatedCharacter.id
-          );
-          if (index !== -1) {
-            state.aiCharacters[index] = {
-              ...updatedCharacter,
-              modified: false,
-            };
-            hasChanges = true;
-          }
-        } else if (change.type === "removed") {
-          state.aiCharacters = state.aiCharacters.filter(
-            (char) => char.id !== change.doc.id
-          );
-          hasChanges = true;
-        }
-      });
-
-      if (hasChanges) {
-        renderAICharactersList();
+  function initializeFirestore() {
+    try {
+      if (!firebase || !firebase.firestore) {
+        throw new Error("Firebase SDKが正しく読み込まれていません");
       }
-    });
+      return firebase.firestore();
+    } catch (error) {
+      console.error("Firestoreの初期化エラー:", error);
+      showStatusMessage("データベース接続に失敗しました", "error");
+      return null;
+    }
+  }
+
+  function setupRealtimeUpdates() {
+    const db = initializeFirestore();
+    if (!db) return null;
+
+    return db.collection("ai_characters").onSnapshot(
+      (snapshot) => {
+        let hasChanges = false;
+
+        try {
+          snapshot.docChanges().forEach((change) => {
+            if (change.type === "added") {
+              const newCharacter = { id: change.doc.id, ...change.doc.data() };
+              if (
+                !state.aiCharacters.some((char) => char.id === newCharacter.id)
+              ) {
+                state.aiCharacters.push({ ...newCharacter, modified: false });
+                hasChanges = true;
+              }
+            } else if (change.type === "modified") {
+              const updatedCharacter = {
+                id: change.doc.id,
+                ...change.doc.data(),
+              };
+              const index = state.aiCharacters.findIndex(
+                (char) => char.id === updatedCharacter.id
+              );
+              if (index !== -1) {
+                state.aiCharacters[index] = {
+                  ...updatedCharacter,
+                  modified: false,
+                };
+                hasChanges = true;
+              }
+            } else if (change.type === "removed") {
+              state.aiCharacters = state.aiCharacters.filter(
+                (char) => char.id !== change.doc.id
+              );
+              hasChanges = true;
+            }
+          });
+
+          if (hasChanges) {
+            renderAICharactersList();
+          }
+        } catch (error) {
+          console.error("リアルタイム更新処理エラー:", error);
+          showStatusMessage("データの更新中にエラーが発生しました", "error");
+        }
+      },
+      (error) => {
+        console.error("Firestoreリスナーエラー:", error);
+        showStatusMessage("リアルタイム更新の接続に失敗しました", "error");
+      }
+    );
   }
 
   // ================ UI関連の関数 ================
@@ -227,32 +258,54 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // --- AI管理関連の関数 ---
   function getAICardElements(card) {
-    return {
-      nameDisplay: card.querySelector(".ai-name"),
-      commandDisplay: card.querySelector(".ai-command"),
-      activeToggle: card.querySelector(".ai-active-toggle"),
-      editBtn: card.querySelector(".edit-ai-btn"),
-      deleteBtn: card.querySelector(".delete-ai-btn"),
-      editForm: card.querySelector(".ai-edit-form"),
-      displayNameInput: card.querySelector(".ai-display-name"),
-      baseUserIdInput: card.querySelector(".ai-base-user-id"),
-      modelModeSelect: card.querySelector(".ai-model-mode"),
-      nameRecognitionCheckbox: card.querySelector(".ai-name-recognition"),
-      systemPromptTextarea: card.querySelector(".ai-system-prompt"),
-      botResponseCheckbox: card.querySelector(".ai-bot-response"),
-      replyDelayInput: card.querySelector(".ai-reply-delay"),
-      errorMessageInput: card.querySelector(".ai-error-message"),
-      nicknamesList: card.querySelector(".ai-nicknames-list"),
-      addNicknameBtn: card.querySelector(".add-nickname-btn"),
-      saveBtn: card.querySelector(".save-ai-btn"),
-      cancelBtn: card.querySelector(".cancel-ai-btn"),
+    const required = {
+      nameDisplay: ".ai-name",
+      activeToggle: ".ai-active-toggle",
+      editBtn: ".edit-ai-btn",
+      deleteBtn: ".delete-ai-btn",
+      editForm: ".ai-edit-form",
+      displayNameInput: ".ai-display-name",
+      baseUserIdInput: ".ai-base-user-id",
+      modelModeSelect: ".ai-model-mode",
+      nameRecognitionCheckbox: ".ai-name-recognition",
+      systemPromptTextarea: ".ai-system-prompt",
+      botResponseCheckbox: ".ai-bot-response",
+      replyDelayInput: ".ai-reply-delay",
+      errorMessageInput: ".ai-error-message",
+      nicknamesList: ".ai-nicknames-list",
+      addNicknameBtn: ".add-nickname-btn",
+      saveBtn: ".save-ai-btn",
+      cancelBtn: ".cancel-ai-btn",
     };
+
+    const elements = {};
+    let missingElements = [];
+
+    for (const [key, selector] of Object.entries(required)) {
+      elements[key] = card.querySelector(selector);
+      if (!elements[key]) {
+        missingElements.push(selector);
+      }
+    }
+
+    if (missingElements.length > 0) {
+      console.error("必要なカード要素が見つかりません:", missingElements);
+    }
+
+    return elements;
   }
 
+  // AIキャラクターの変更を追跡
   function markAICharacterAsModified(aiId) {
-    const character = state.aiCharacters.find((char) => char.id === aiId);
-    if (character) {
-      character.modified = true;
+    try {
+      const character = state.aiCharacters.find((char) => char.id === aiId);
+      if (character) {
+        character.modified = true;
+      } else {
+        console.warn("変更対象のAIキャラクターが見つかりません:", aiId);
+      }
+    } catch (error) {
+      console.error("変更追跡エラー:", error);
     }
   }
 
@@ -277,58 +330,98 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function renderAICharactersList() {
-    aiList.innerHTML = "";
-    state.aiCharacters.forEach((character) => {
-      const card = aiCardTemplate.content.cloneNode(true);
-      const cardElement = card.querySelector(".ai-card");
-      const elements = getAICardElements(cardElement);
+    const aiList = document.getElementById("ai-list");
+    const template = document.getElementById("ai-card-template");
 
-      cardElement.dataset.aiId = character.id;
+    if (!aiList || !template) {
+      console.error("AIリストまたはテンプレートが見つかりません");
+      showStatusMessage("UI要素の読み込みに失敗しました", "error");
+      return;
+    }
 
-      // ヘッダー部分の構築
-      const headerContent = document.createElement("div");
-      headerContent.className = "ai-header-content";
+    try {
+      aiList.innerHTML = "";
+      state.aiCharacters.forEach((character) => {
+        const card = template.content.cloneNode(true);
+        const cardElement = card.querySelector(".ai-card");
 
-      // 名前とコマンド情報
-      elements.nameDisplay.textContent = character.name || "新規AIキャラクター";
-      const commandText = `/ai ${character.commandId || "未設定"}`;
+        if (!cardElement) {
+          throw new Error("AIカードのテンプレートが不正です");
+        }
 
-      // コマンドコンテナの作成
-      const commandContainer = document.createElement("div");
-      commandContainer.className = "command-container";
-      commandContainer.innerHTML = `
-      <code class="command-text">${commandText}</code>
-      <button type="button" class="copy-command-btn" title="コマンドをコピー">
-        <span class="copy-icon">📋</span>
-        <span class="copy-text">コピー</span>
-      </button>
-    `;
+        cardElement.dataset.aiId = character.id;
+        const elements = getAICardElements(cardElement);
 
-      headerContent.appendChild(elements.nameDisplay);
-      headerContent.appendChild(commandContainer);
-      elements.editForm.before(headerContent);
+        // ヘッダー部分の構築
+        const headerContent = document.createElement("div");
+        headerContent.className = "ai-header-content";
 
-      // 各種設定の反映
-      elements.activeToggle.checked = character.active;
-      elements.displayNameInput.value = character.name || "";
-      elements.baseUserIdInput.value = character.baseUserId || "";
-      elements.modelModeSelect.value = character.modelMode || "hybrid";
-      elements.nameRecognitionCheckbox.checked =
-        character.enableNameRecognition ?? true;
-      elements.systemPromptTextarea.value = character.systemPrompt || "";
-      elements.botResponseCheckbox.checked =
-        character.enableBotMessageResponse ?? false;
-      elements.replyDelayInput.value = character.replyDelayMs || 0;
-      elements.errorMessageInput.value = character.errorOopsMessage || "";
+        // 名前とコマンド情報
+        if (elements.nameDisplay) {
+          elements.nameDisplay.textContent =
+            character.name || "新規AIキャラクター";
+        }
 
-      // ニックネームリストの設定
-      renderAICharacterNicknames(
-        elements.nicknamesList,
-        character.userNicknames || {}
-      );
+        const commandText = `/ai ${character.commandId || "未設定"}`;
+        const commandContainer = document.createElement("div");
+        commandContainer.className = "command-container";
+        commandContainer.innerHTML = `
+        <code class="command-text">${commandText}</code>
+        <button type="button" class="copy-command-btn" title="コマンドをコピー">
+          <span class="copy-icon">📋</span>
+          <span class="copy-text">コピー</span>
+        </button>
+      `;
 
-      aiList.appendChild(cardElement);
-    });
+        headerContent.appendChild(elements.nameDisplay);
+        headerContent.appendChild(commandContainer);
+        elements.editForm.before(headerContent);
+
+        // 各種設定の反映
+        if (elements.activeToggle) {
+          elements.activeToggle.checked = character.active;
+        }
+        if (elements.displayNameInput) {
+          elements.displayNameInput.value = character.name || "";
+        }
+        if (elements.baseUserIdInput) {
+          elements.baseUserIdInput.value = character.baseUserId || "";
+        }
+        if (elements.modelModeSelect) {
+          elements.modelModeSelect.value = character.modelMode || "hybrid";
+        }
+        if (elements.nameRecognitionCheckbox) {
+          elements.nameRecognitionCheckbox.checked =
+            character.enableNameRecognition ?? true;
+        }
+        if (elements.systemPromptTextarea) {
+          elements.systemPromptTextarea.value = character.systemPrompt || "";
+        }
+        if (elements.botResponseCheckbox) {
+          elements.botResponseCheckbox.checked =
+            character.enableBotMessageResponse ?? false;
+        }
+        if (elements.replyDelayInput) {
+          elements.replyDelayInput.value = character.replyDelayMs || 0;
+        }
+        if (elements.errorMessageInput) {
+          elements.errorMessageInput.value = character.errorOopsMessage || "";
+        }
+
+        // ニックネームリストの設定
+        if (elements.nicknamesList) {
+          renderAICharacterNicknames(
+            elements.nicknamesList,
+            character.userNicknames || {}
+          );
+        }
+
+        aiList.appendChild(cardElement);
+      });
+    } catch (error) {
+      console.error("AIリストのレンダリングエラー:", error);
+      showStatusMessage("AIキャラクター一覧の表示に失敗しました", "error");
+    }
   }
 
   // コピー機能のイベントリスナー
@@ -1207,17 +1300,21 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
+  // ステータスメッセージの表示
   function showStatusMessage(message, type = "info") {
-    const statusMessage = document.getElementById("status-message");
-    if (!statusMessage) return;
+    const statusElement = document.getElementById("status-message");
+    if (!statusElement) {
+      console.error("ステータスメッセージ要素が見つかりません");
+      return;
+    }
 
-    statusMessage.textContent = message;
-    statusMessage.className = `status-message ${type}`;
+    statusElement.textContent = message;
+    statusElement.className = `status-message ${type}`;
 
     if (type !== "error") {
       setTimeout(() => {
-        if (statusMessage.textContent === message) {
-          statusMessage.textContent = "";
+        if (statusElement.textContent === message) {
+          statusElement.textContent = "";
         }
       }, 3000);
     }
