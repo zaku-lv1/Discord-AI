@@ -2,376 +2,525 @@
 <html lang="ja">
   <head>
     <meta charset="UTF-8" />
+    <title>ボット設定管理パネル</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>とーか管理パネル</title>
-    <link rel="stylesheet" href="/styles.css" />
+    <link rel="icon" href="/favicon.ico" type="image/x-icon" />
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&family=Noto+Sans+JP:wght@400;500;700&display=swap"
+      rel="stylesheet"
+    />
+
+    <!-- Firebase Config -->
+    <script>
+      const firebaseConfig = <%- JSON.stringify(firebaseConfig) %>;
+    </script>
+
+    <!-- Styles and Scripts -->
+    <link rel="stylesheet" href="/style.css" />
+    <script
+      src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"
+      defer
+    ></script>
+    <script
+      src="https://www.gstatic.com/firebasejs/9.6.1/firebase-auth-compat.js"
+      defer
+    ></script>
+    <script src="/app.js" defer></script>
   </head>
   <body>
-    <div id="loader-container">
-      <div class="loader">Loading...</div>
+    <!-- ローディング画面 -->
+    <div id="loader-container" class="loader-container">
+      <div class="spinner"></div>
+      <p class="loader-text">読み込み中...</p>
     </div>
 
+    <!-- メインコンテナ -->
     <div class="container" style="display: none;">
+      <h1>ボット設定管理パネル</h1>
+
       <!-- 認証コンテナ -->
       <div id="auth-container" style="display: none;">
         <!-- ログインフォーム -->
-        <form id="login-form" style="display: none;">
+        <form id="login-form">
           <h2>ログイン</h2>
-          <div class="form-group">
-            <input
-              type="email"
-              id="login-email"
-              placeholder="メールアドレス"
-              required
-            />
-          </div>
-          <div class="form-group">
-            <input
-              type="password"
-              id="login-password"
-              placeholder="パスワード"
-              required
-            />
-          </div>
-          <div class="form-actions">
+          <input
+            type="email"
+            id="login-email"
+            placeholder="メールアドレス"
+            required
+          />
+          <input
+            type="password"
+            id="login-password"
+            placeholder="パスワード"
+            required
+          />
+          <div class="login-actions">
             <button type="button" id="login-btn">ログイン</button>
             <a href="#" id="forgot-password-link">パスワードを忘れた場合</a>
-            <a href="#" id="show-register-form-link">新規登録</a>
+          </div>
+          <div class="switch-form-link">
+            <a href="#" id="show-register-form-link"
+              >招待コードをお持ちですか？ 新規登録はこちら</a
+            >
           </div>
         </form>
 
         <!-- 登録フォーム -->
-        <form id="register-form" style="display: none;">
-          <h2>新規登録</h2>
-          <div class="form-group">
-            <input
-              type="text"
-              id="register-invite-code"
-              placeholder="招待コード"
-              required
-            />
-          </div>
-          <div class="form-group">
-            <input
-              type="text"
-              id="register-display-name"
-              placeholder="表示名"
-              required
-            />
-          </div>
-          <div class="form-group">
-            <input
-              type="email"
-              id="register-email"
-              placeholder="メールアドレス"
-              required
-            />
-          </div>
-          <div class="form-group">
-            <input
-              type="password"
-              id="register-password"
-              placeholder="パスワード"
-              required
-            />
-          </div>
-          <div class="form-actions">
+        <form id="register-form" style="display:none;">
+          <h2>招待コードで新規登録</h2>
+          <input
+            type="text"
+            id="register-invite-code"
+            placeholder="招待コード"
+            required
+          />
+          <input
+            type="text"
+            id="register-display-name"
+            placeholder="表示名"
+            required
+          />
+          <input
+            type="email"
+            id="register-email"
+            placeholder="メールアドレス"
+            required
+          />
+          <input
+            type="password"
+            id="register-password"
+            placeholder="パスワード (6文字以上)"
+            required
+          />
+          <div class="login-actions">
             <button type="button" id="register-btn">登録</button>
-            <a href="#" id="show-login-form-link">ログイン画面に戻る</a>
+          </div>
+          <div class="switch-form-link">
+            <a href="#" id="show-login-form-link"
+              >アカウントをお持ちですか？ ログインはこちら</a
+            >
           </div>
         </form>
       </div>
 
       <!-- メインコンテンツ -->
       <div id="main-content" style="display: none;">
-        <header>
-          <h1>とーか管理パネル</h1>
-          <div class="user-info">
-            <span id="user-email"></span>
-            <button id="logout-btn">ログアウト</button>
-          </div>
-        </header>
-
-        <nav>
-          <ul>
-            <li>
-              <a href="#" class="nav-link active" data-target="panel-profile"
-                >プロファイル</a
-              >
-            </li>
-            <li>
-              <a href="#" class="nav-link" data-target="panel-toka"
-                >とーか設定</a
-              >
-            </li>
-            <li>
-              <a href="#" class="nav-link" data-target="panel-ai">AI管理</a>
-            </li>
-            <li>
-              <a href="#" class="nav-link" data-target="panel-schedule"
-                >スケジュール</a
-              >
-            </li>
-            <li id="nav-item-admin" style="display: none;">
-              <a href="#" class="nav-link" data-target="panel-admins">管理者</a>
-            </li>
-          </ul>
-        </nav>
-
-        <div id="status-message"></div>
-
-        <div class="save-all-container">
-          <button id="save-all-btn">すべての設定を保存</button>
+        <!-- ユーザー情報 -->
+        <div class="user-info">
+          <p>ようこそ, <span id="user-email"></span> さん</p>
+          <button id="logout-btn">ログアウト</button>
         </div>
 
-        <!-- プロファイルパネル -->
-        <div id="panel-profile" class="dashboard-panel">
-          <h2>プロファイル設定</h2>
-          <div class="form-group">
-            <label>表示名</label>
-            <input type="text" id="profile-display-name" placeholder="表示名" />
-          </div>
-          <div class="form-group">
-            <label>メールアドレス</label>
-            <input
-              type="email"
-              id="profile-email"
-              placeholder="メールアドレス"
-            />
-          </div>
-          <button id="save-profile-btn">保存</button>
-        </div>
+        <!-- ダッシュボード -->
+        <div id="dashboard-container">
+          <!-- ナビゲーション -->
+          <nav id="dashboard-nav">
+            <ul>
+              <li>
+                <a href="#" class="nav-link active" data-target="panel-toka"
+                  >とーか設定</a
+                >
+              </li>
+              <li>
+                <a href="#" class="nav-link" data-target="panel-ai">AI管理</a>
+              </li>
+              <li>
+                <a href="#" class="nav-link" data-target="panel-schedule"
+                  >スケジュール設定</a
+                >
+              </li>
+              <li>
+                <a href="#" class="nav-link" data-target="panel-profile"
+                  >プロファイル設定</a
+                >
+              </li>
+              <li id="nav-item-admin" style="display: none;">
+                <a href="#" class="nav-link" data-target="panel-admins"
+                  >管理者設定</a
+                >
+              </li>
+            </ul>
+          </nav>
 
-        <!-- とーか設定パネル -->
-        <div id="panel-toka" class="dashboard-panel" style="display: none;">
-          <h2>とーか設定</h2>
-          <div class="form-group">
-            <label>モデルモード</label>
-            <select id="toka-model-mode">
-              <option value="hybrid">ハイブリッド</option>
-              <option value="gpt-4">GPT-4</option>
-              <option value="gpt-3.5-turbo">GPT-3.5</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label>ベースユーザーID</label>
-            <input
-              type="text"
-              id="base-user-id-input"
-              placeholder="ベースとなるユーザーID"
-            />
-          </div>
-          <div class="form-group">
-            <label>システムプロンプト</label>
-            <textarea
-              id="prompt-textarea"
-              placeholder="システムプロンプト"
-            ></textarea>
-          </div>
-          <div class="form-group">
-            <label>
-              <input type="checkbox" id="name-recognition-checkbox" />
-              名前認識を有効化
-            </label>
-          </div>
-          <div class="form-group">
-            <label>
-              <input type="checkbox" id="bot-message-response-checkbox" />
-              BOTメッセージへの応答を有効化
-            </label>
-          </div>
-          <div class="form-group">
-            <label>返信遅延（ミリ秒）</label>
-            <input type="number" id="reply-delay-ms-input" min="0" value="0" />
-          </div>
-          <div class="form-group">
-            <label>エラーメッセージ</label>
-            <input
-              type="text"
-              id="error-oops-message-input"
-              placeholder="エラー時のメッセージ"
-            />
-          </div>
-          <div class="form-group">
-            <label>ニックネーム</label>
-            <div id="nicknames-list-container"></div>
-            <button type="button" id="add-nickname-btn">
-              ニックネームを追加
-            </button>
-          </div>
-          <button id="save-toka-btn">保存</button>
-        </div>
+          <!-- プロファイル設定パネル -->
+          <div
+            id="panel-profile"
+            class="dashboard-panel"
+            style="display: none;"
+          >
+            <h2>プロファイル設定</h2>
 
-        <!-- AI管理パネル -->
-        <div id="panel-ai" class="dashboard-panel" style="display: none;">
-          <h2>AI管理</h2>
-          <button id="add-ai-btn">新しいAIを追加</button>
-          <div id="ai-list"></div>
-        </div>
-
-        <!-- スケジュールパネル -->
-        <div id="panel-schedule" class="dashboard-panel" style="display: none;">
-          <h2>スケジュール設定</h2>
-          <div class="settings-section">
-            <h3>通知設定</h3>
             <div class="form-group">
-              <label>
-                <input type="checkbox" id="reminders-enabled-checkbox" />
-                リマインダーを有効化
-              </label>
-            </div>
-            <div class="form-group">
-              <label>通知時刻</label>
-              <input type="time" id="reminder-time-input" />
-            </div>
-            <div class="form-group">
-              <label>スプレッドシートID</label>
+              <label for="profile-display-name">ユーザー名</label>
               <input
                 type="text"
-                id="google-sheet-id-input"
-                placeholder="GoogleスプレッドシートのID"
+                id="profile-display-name"
+                placeholder="あなたのユーザー名"
               />
+              <small>管理者から設定されたユーザー名を変更できます。</small>
             </div>
+
             <div class="form-group">
-              <label>通知サーバーID</label>
+              <label for="profile-email">メールアドレス</label>
               <input
-                type="text"
-                id="reminder-guild-id-input"
-                placeholder="DiscordサーバーID"
+                type="email"
+                id="profile-email"
+                placeholder="新しいメールアドレス"
               />
+              <small
+                >メールアドレスを変更する場合、確認メールが送信されます。</small
+              >
             </div>
-            <div class="form-group">
-              <label>通知ロールID</label>
-              <input
-                type="text"
-                id="reminder-role-id-input"
-                placeholder="DiscordロールID"
-              />
+
+            <div class="button-group">
+              <button id="save-profile-btn" class="save-btn">
+                プロファイルを保存
+              </button>
             </div>
-            <button id="save-schedule-settings-btn">設定を保存</button>
           </div>
-          <div class="schedule-items-section">
-            <h3>予定リスト</h3>
-            <div id="schedule-items-container"></div>
-            <button id="add-schedule-item-btn">予定を追加</button>
-            <button id="save-schedule-items-btn">予定を保存</button>
-          </div>
+
+          <!-- パネルコンテンツ -->
+          <main id="dashboard-content">
+            <!-- とーか設定パネル -->
+            <div id="panel-toka" class="dashboard-panel">
+              <h2>とーか 設定</h2>
+              <div class="form-group">
+                <label for="toka-model-mode">AIモデルモード</label>
+                <select id="toka-model-mode">
+                  <option value="hybrid">ハイブリッド (高品質)</option>
+                  <option value="flash_only">Flash (高速)</option>
+                </select>
+                <small>使用するAIモデルを選択します。</small>
+              </div>
+              <div>
+                <label for="base-user-id-input">ベースユーザーID</label>
+                <input
+                  type="text"
+                  id="base-user-id-input"
+                  placeholder="とーかの見た目と名前の元になるDiscordユーザーID"
+                />
+              </div>
+              <div class="form-group">
+                <div class="toggle-container">
+                  <label for="name-recognition-checkbox" class="toggle-label">
+                    個別の名前認識を有効にする
+                  </label>
+                  <label class="toggle-switch">
+                    <input type="checkbox" id="name-recognition-checkbox" />
+                    <span class="slider"></span>
+                  </label>
+                </div>
+              </div>
+              <div class="form-group">
+                <div class="toggle-container">
+                  <label
+                    for="bot-message-response-checkbox"
+                    class="toggle-label"
+                  >
+                    Botユーザーのメッセージにも反応する
+                  </label>
+                  <label class="toggle-switch">
+                    <input type="checkbox" id="bot-message-response-checkbox" />
+                    <span class="slider"></span>
+                  </label>
+                </div>
+                <small
+                  >ONにするとBotユーザーの発言にもとーかが反応します。</small
+                >
+              </div>
+              <div class="form-group">
+                <label for="reply-delay-ms-input"
+                  >返信ディレイ（ms単位, 0で即時返信）</label
+                >
+                <input
+                  type="number"
+                  id="reply-delay-ms-input"
+                  min="0"
+                  max="10000"
+                  step="100"
+                  placeholder="例: 0(即時) ~ 10000(最大10秒)"
+                />
+                <small>1000=1秒。とーかが返事するまでの遅延。0で即時。</small>
+              </div>
+              <div class="form-group">
+                <label for="error-oops-message-input"
+                  >AIエラー時のメッセージ</label
+                >
+                <input
+                  type="text"
+                  id="error-oops-message-input"
+                  maxlength="200"
+                  placeholder="例: うーん、なんだか今日は言葉がうまく出てこないみたいで……ごめんね、ちーくん。(；；)"
+                />
+                <small>Geminiが使えないときの返答。空ならデフォルト文。</small>
+              </div>
+              <div class="form-group">
+                <label for="prompt-textarea"
+                  >システムプロンプト (キャラクター設定)</label
+                >
+                <textarea
+                  id="prompt-textarea"
+                  rows="10"
+                  placeholder="ここにキャラクター設定を入力..."
+                ></textarea>
+              </div>
+              <div class="form-group">
+                <label>ニックネーム設定</label>
+                <div id="nicknames-list-container"></div>
+                <button
+                  type="button"
+                  id="add-nickname-btn"
+                  class="secondary-btn"
+                >
+                  ＋ ニックネームを追加
+                </button>
+              </div>
+              <div class="button-group">
+                <button id="save-toka-btn" class="save-btn">
+                  とーか設定を保存
+                </button>
+              </div>
+            </div>
+            <!-- AI管理パネル -->
+            <div id="panel-ai" class="dashboard-panel" style="display: none;">
+              <h2>AI管理</h2>
+
+              <div class="button-group">
+                <button id="add-ai-btn" class="secondary-btn">
+                  ＋ 新しいAIを追加
+                </button>
+              </div>
+
+              <div id="ai-list">
+                <!-- AIカードのテンプレート -->
+                <!-- AIキャラクターのテンプレート -->
+                <template id="ai-card-template">
+                  <div class="ai-card">
+                    <div class="ai-header">
+                      <span class="ai-name"></span>
+                      <span class="ai-command"></span>
+                      <label>
+                        <input type="checkbox" class="ai-active-toggle" />
+                        有効
+                      </label>
+                      <button type="button" class="edit-ai-btn">編集</button>
+                      <button type="button" class="delete-ai-btn">削除</button>
+                    </div>
+                    <div class="ai-edit-form" style="display: none;">
+                      <div class="form-group">
+                        <label>名前 *</label>
+                        <input
+                          type="text"
+                          class="ai-display-name"
+                          placeholder="AIキャラクターの名前"
+                          required
+                        />
+                      </div>
+                      <div class="form-group">
+                        <label>ベースユーザーID *</label>
+                        <input
+                          type="text"
+                          class="ai-base-user-id"
+                          placeholder="ベースとなるユーザーID"
+                          required
+                        />
+                      </div>
+                      <div class="form-group">
+                        <label>システムプロンプト *</label>
+                        <textarea
+                          class="ai-system-prompt"
+                          placeholder="AIの振る舞いを定義するプロンプト"
+                          required
+                        ></textarea>
+                      </div>
+                      <div class="form-group">
+                        <label>モデルモード</label>
+                        <select class="ai-model-mode">
+                          <option value="hybrid">ハイブリッド</option>
+                          <option value="gpt-4">GPT-4</option>
+                          <option value="gpt-3.5-turbo">GPT-3.5</option>
+                        </select>
+                      </div>
+                      <div class="form-group">
+                        <label>
+                          <input type="checkbox" class="ai-name-recognition" />
+                          名前認識を有効化
+                        </label>
+                      </div>
+                      <div class="form-group">
+                        <label>
+                          <input type="checkbox" class="ai-bot-response" />
+                          BOTメッセージへの応答を有効化
+                        </label>
+                      </div>
+                      <div class="form-group">
+                        <label>返信遅延（ミリ秒）</label>
+                        <input
+                          type="number"
+                          class="ai-reply-delay"
+                          min="0"
+                          value="0"
+                        />
+                      </div>
+                      <div class="form-group">
+                        <label>エラーメッセージ</label>
+                        <input
+                          type="text"
+                          class="ai-error-message"
+                          placeholder="エラー時のメッセージ"
+                        />
+                      </div>
+                      <div class="form-group">
+                        <label>ニックネーム</label>
+                        <div class="ai-nicknames-list"></div>
+                        <button type="button" class="add-nickname-btn">
+                          ニックネームを追加
+                        </button>
+                      </div>
+                      <div class="form-actions">
+                        <button type="button" class="save-ai-btn">保存</button>
+                        <button type="button" class="cancel-ai-btn">
+                          キャンセル
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </template>
+              </div>
+            </div>
+
+            <!-- スケジュール設定パネル -->
+            <div
+              id="panel-schedule"
+              class="dashboard-panel"
+              style="display: none;"
+            >
+              <h2>スケジュール設定</h2>
+              <div class="form-group">
+                <div class="toggle-container">
+                  <label for="reminders-enabled-checkbox" class="toggle-label">
+                    宿題リマインダーを有効にする
+                  </label>
+                  <label class="toggle-switch">
+                    <input type="checkbox" id="reminders-enabled-checkbox" />
+                    <span class="slider"></span>
+                  </label>
+                </div>
+              </div>
+              <div class="form-group">
+                <label for="reminder-time-input"
+                  >リマインダー時刻 (24時間表記)</label
+                >
+                <input type="time" id="reminder-time-input" />
+                <small
+                  >毎日この時刻に、翌日提出の課題がDMに通知されます。</small
+                >
+              </div>
+              <div class="form-group">
+                <label for="google-sheet-id-input"
+                  >GoogleスプレッドシートID</label
+                >
+                <input
+                  type="text"
+                  id="google-sheet-id-input"
+                  placeholder="予定を管理するスプレッドシートのID"
+                />
+              </div>
+              <div class="form-group">
+                <label for="reminder-guild-id-input">Discord サーバーID</label>
+                <input
+                  type="text"
+                  id="reminder-guild-id-input"
+                  placeholder="リマインダーを送信するDiscordサーバーのID"
+                />
+              </div>
+              <div class="form-group">
+                <label for="reminder-role-id-input">Discord ロールID</label>
+                <input
+                  type="text"
+                  id="reminder-role-id-input"
+                  placeholder="通知するロールのID"
+                />
+              </div>
+              <div class="button-group">
+                <button id="save-schedule-settings-btn" class="save-btn">
+                  スケジュール設定を保存
+                </button>
+              </div>
+              <hr />
+              <h3>予定リストエディター</h3>
+              <div id="schedule-items-container"></div>
+              <button
+                type="button"
+                id="add-schedule-item-btn"
+                class="secondary-btn"
+              >
+                ＋ 予定を追加
+              </button>
+              <div class="button-group">
+                <button id="save-schedule-items-btn" class="save-btn">
+                  予定リストをシートに保存
+                </button>
+              </div>
+            </div>
+
+            <!-- 管理者設定パネル -->
+            <div
+              id="panel-admins"
+              class="dashboard-panel"
+              style="display: none;"
+            >
+              <div id="invite-code-generator-section">
+                <div class="form-group">
+                  <label>新しい管理者を招待</label>
+                  <button
+                    type="button"
+                    id="generate-invite-code-btn"
+                    class="secondary-btn"
+                  >
+                    招待コードを生成
+                  </button>
+                  <div id="invite-code-display" style="display:none;">
+                    <p>このコードを新しい管理者に伝えてください。</p>
+                    <input type="text" id="new-invite-code" readonly />
+                    <button type="button" id="copy-invite-code-btn">
+                      コピー
+                    </button>
+                  </div>
+                </div>
+              </div>
+              <hr />
+              <h2>管理者アカウント</h2>
+              <div class="form-group">
+                <label>管理者リスト</label>
+                <div id="admins-list-container"></div>
+                <button type="button" id="add-admin-btn" class="secondary-btn">
+                  ＋ 管理者を追加
+                </button>
+                <small>リストの一番上の管理者が「最高管理者」です。</small>
+              </div>
+              <div class="button-group">
+                <button id="save-admins-btn" class="save-btn">
+                  管理者リストを保存
+                </button>
+              </div>
+            </div>
+          </main>
         </div>
 
-        <!-- 管理者パネル -->
-        <div id="panel-admins" class="dashboard-panel" style="display: none;">
-          <h2>管理者設定</h2>
-          <div id="invite-code-generator-section" style="display: none;">
-            <h3>招待コード生成</h3>
-            <button id="generate-invite-code-btn">招待コードを生成</button>
-            <div id="invite-code-display" style="display: none;">
-              <input type="text" id="new-invite-code" readonly />
-              <button id="copy-invite-code-btn">コピー</button>
-            </div>
-          </div>
-          <div class="admins-section">
-            <h3>管理者一覧</h3>
-            <div id="admins-list-container"></div>
-            <button id="add-admin-btn">管理者を追加</button>
-            <button id="save-admins-btn">管理者リストを保存</button>
-          </div>
+        <!-- 全体の保存ボタン -->
+        <div class="button-group-main">
+          <button id="save-all-btn" class="save-btn">すべての設定を保存</button>
         </div>
       </div>
+
+      <!-- ステータスメッセージ -->
+      <p id="status-message"></p>
     </div>
-
-    <!-- AIキャラクターのテンプレート -->
-    <template id="ai-card-template">
-      <div class="ai-card">
-        <div class="ai-header">
-          <span class="ai-name"></span>
-          <span class="ai-command"></span>
-          <label>
-            <input type="checkbox" class="ai-active-toggle" />
-            有効
-          </label>
-          <button type="button" class="edit-ai-btn">編集</button>
-          <button type="button" class="delete-ai-btn">削除</button>
-        </div>
-        <div class="ai-edit-form" style="display: none;">
-          <div class="form-group">
-            <label>名前 *</label>
-            <input
-              type="text"
-              class="ai-display-name"
-              placeholder="AIキャラクターの名前"
-              required
-            />
-          </div>
-          <div class="form-group">
-            <label>ベースユーザーID *</label>
-            <input
-              type="text"
-              class="ai-base-user-id"
-              placeholder="ベースとなるユーザーID"
-              required
-            />
-          </div>
-          <div class="form-group">
-            <label>システムプロンプト *</label>
-            <textarea
-              class="ai-system-prompt"
-              placeholder="AIの振る舞いを定義するプロンプト"
-              required
-            ></textarea>
-          </div>
-          <div class="form-group">
-            <label>モデルモード</label>
-            <select class="ai-model-mode">
-              <option value="hybrid">ハイブリッド</option>
-              <option value="gpt-4">GPT-4</option>
-              <option value="gpt-3.5-turbo">GPT-3.5</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label>
-              <input type="checkbox" class="ai-name-recognition" />
-              名前認識を有効化
-            </label>
-          </div>
-          <div class="form-group">
-            <label>
-              <input type="checkbox" class="ai-bot-response" />
-              BOTメッセージへの応答を有効化
-            </label>
-          </div>
-          <div class="form-group">
-            <label>返信遅延（ミリ秒）</label>
-            <input type="number" class="ai-reply-delay" min="0" value="0" />
-          </div>
-          <div class="form-group">
-            <label>エラーメッセージ</label>
-            <input
-              type="text"
-              class="ai-error-message"
-              placeholder="エラー時のメッセージ"
-            />
-          </div>
-          <div class="form-group">
-            <label>ニックネーム</label>
-            <div class="ai-nicknames-list"></div>
-            <button type="button" class="add-nickname-btn">
-              ニックネームを追加
-            </button>
-          </div>
-          <div class="form-actions">
-            <button type="button" class="save-ai-btn">保存</button>
-            <button type="button" class="cancel-ai-btn">キャンセル</button>
-          </div>
-        </div>
-      </div>
-    </template>
-
-    <!-- Firebase SDK -->
-    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
-
-    <!-- アプリケーションの設定とメインスクリプト -->
-    <script src="/firebase-config.js"></script>
-    <script src="/main.js"></script>
   </body>
 </html>
