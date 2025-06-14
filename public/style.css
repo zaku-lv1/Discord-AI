@@ -55,7 +55,6 @@ h3 {
 p { line-height: 1.7; }
 hr { border: none; border-top: 1px solid rgba(0, 0, 0, 0.1); margin: 2.5rem 0; }
 
-/* ▼▼▼ このセレクタに select を追加し、appearance と background関連のプロパティを追加しました ▼▼▼ */
 input[type="email"], input[type="password"], input[type="text"], input[type="time"], input[type="number"], textarea, select {
     width: 100%;
     padding: 14px;
@@ -167,7 +166,6 @@ input:checked + .slider:before { transform: translateX(24px); }
 #save-schedule-items-btn { background-image: linear-gradient(to right, #ffc107, #ffb300, #ffa000); box-shadow: 0 4px 15px 0 rgba(255, 193, 7, 0.4); }
 #save-schedule-items-btn:hover:not(:disabled) { background-position: right center; transform: translateY(-2px); box-shadow: 0 6px 20px 0 rgba(255, 193, 7, 0.5); }
 
-
 /* ========== レスポンシブ対応 ========== */
 @media (max-width: 768px) {
     .container { padding: 1.5rem 1rem; }
@@ -183,7 +181,7 @@ input:checked + .slider:before { transform: translateX(24px); }
     .super-admin-label { text-align: right; margin: -10px 0 5px 0; }
 }
 
-/* ▼▼▼ ロード画面のスタイルを追加 ▼▼▼ */
+/* ロード画面のスタイル */
 .loader-container {
     display: flex;
     flex-direction: column;
@@ -392,78 +390,6 @@ input:checked + .slider:before { transform: translateX(24px); }
     background-position: right center;
     transform: translateY(-2px);
     box-shadow: 0 6px 20px 0 rgba(76, 175, 80, 0.5);
-}
-
-/* AI管理パネルのスタイル */
-.ai-card {
-  border: 1px solid #ddd;
-  margin-bottom: 1rem;
-  padding: 1rem;
-  border-radius: 4px;
-}
-
-.ai-header {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-  margin-bottom: 1rem;
-}
-
-.ai-name {
-  font-weight: bold;
-  flex-grow: 1;
-}
-
-.ai-command {
-  color: #666;
-  font-family: monospace;
-}
-
-.ai-edit-form {
-  padding: 1rem;
-  background: #f5f5f5;
-  border-radius: 4px;
-}
-
-.form-group {
-  margin-bottom: 1rem;
-}
-
-.form-group label {
-  display: block;
-  margin-bottom: 0.5rem;
-  font-weight: bold;
-}
-
-.form-group input[type="text"],
-.form-group input[type="number"],
-.form-group textarea,
-.form-group select {
-  width: 100%;
-  padding: 0.5rem;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-}
-
-.form-group textarea {
-  min-height: 100px;
-}
-
-.ai-nicknames-list {
-  margin-bottom: 0.5rem;
-}
-
-.nickname-entry {
-  display: flex;
-  gap: 0.5rem;
-  margin-bottom: 0.5rem;
-}
-
-.form-actions {
-  display: flex;
-  gap: 1rem;
-  justify-content: flex-end;
-  margin-top: 1rem;
 }
 
 /* 必須項目のラベルに * を付ける */

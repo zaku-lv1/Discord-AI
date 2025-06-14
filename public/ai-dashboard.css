@@ -1,0 +1,65 @@
+/* AIキャラクター管理パネル用スタイル */
+.command-container {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 4px 0;
+  font-family: monospace;
+}
+
+.command-text {
+  background: #f5f5f5;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 14px;
+  user-select: all;
+}
+
+.copy-command-btn {
+  padding: 4px 8px;
+  font-size: 12px;
+  background: #f0f0f0;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.copy-command-btn:hover {
+  background: #e0e0e0;
+}
+
+.ai-header-content {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+/* ステータスメッセージのスタイル */
+.status-message {
+  padding: 8px 16px;
+  border-radius: 4px;
+  margin: 8px 0;
+  transition: opacity 0.3s ease-in-out;
+}
+
+.status-message.error {
+  background: #ffebee;
+  color: #c62828;
+  border: 1px solid #ffcdd2;
+}
+
+.status-message.success {
+  background: #e8f5e9;
+  color: #2e7d32;
+  border: 1px solid #c8e6c9;
+}
+
+.status-message.info {
+  background: #e3f2fd;
+  color: #1565c0;
+  border: 1px solid #bbdefb;
+}
+
+/* 最終更新: 2025-06-14 02:47:56 */

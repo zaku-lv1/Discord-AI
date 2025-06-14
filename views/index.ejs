@@ -302,70 +302,61 @@
                 <template id="ai-card-template">
                   <div class="ai-card">
                     <div class="ai-header">
-                      <span class="ai-name"></span>
-                      <span class="ai-command"></span>
-                      <label>
-                        <input type="checkbox" class="ai-active-toggle" />
-                        有効
-                      </label>
-                      <button type="button" class="edit-ai-btn">編集</button>
-                      <button type="button" class="delete-ai-btn">削除</button>
+                      <h3 class="ai-name"></h3>
+                      <div class="ai-controls">
+                        <label class="switch">
+                          <input type="checkbox" class="ai-active-toggle" />
+                          <span class="slider round"></span>
+                        </label>
+                        <button type="button" class="edit-ai-btn">編集</button>
+                        <button type="button" class="delete-ai-btn">
+                          削除
+                        </button>
+                      </div>
                     </div>
                     <div class="ai-edit-form" style="display: none;">
                       <div class="form-group">
-                        <label>名前 *</label>
+                        <label>表示名</label>
                         <input
                           type="text"
                           class="ai-display-name"
-                          placeholder="AIキャラクターの名前"
-                          required
+                          placeholder="AIの表示名"
                         />
                       </div>
                       <div class="form-group">
-                        <label>ベースユーザーID *</label>
+                        <label>ベースユーザーID</label>
                         <input
                           type="text"
                           class="ai-base-user-id"
                           placeholder="ベースとなるユーザーID"
-                          required
                         />
-                      </div>
-                      <div class="form-group">
-                        <label>システムプロンプト *</label>
-                        <textarea
-                          class="ai-system-prompt"
-                          placeholder="AIの振る舞いを定義するプロンプト"
-                          required
-                        ></textarea>
                       </div>
                       <div class="form-group">
                         <label>モデルモード</label>
                         <select class="ai-model-mode">
-                          <option value="hybrid">ハイブリッド</option>
-                          <option value="gpt-4">GPT-4</option>
-                          <option value="gpt-3.5-turbo">GPT-3.5</option>
+                          <option value="hybrid">ハイブリッド (高品質)</option>
+                          <option value="flash_only">Flash (高速)</option>
                         </select>
                       </div>
                       <div class="form-group">
                         <label>
                           <input type="checkbox" class="ai-name-recognition" />
-                          名前認識を有効化
+                          名前認識を有効にする
                         </label>
+                      </div>
+                      <div class="form-group">
+                        <label>システムプロンプト</label>
+                        <textarea class="ai-system-prompt" rows="4"></textarea>
                       </div>
                       <div class="form-group">
                         <label>
                           <input type="checkbox" class="ai-bot-response" />
-                          BOTメッセージへの応答を有効化
+                          botのメッセージに反応する
                         </label>
                       </div>
                       <div class="form-group">
                         <label>返信遅延（ミリ秒）</label>
-                        <input
-                          type="number"
-                          class="ai-reply-delay"
-                          min="0"
-                          value="0"
-                        />
+                        <input type="number" class="ai-reply-delay" min="0" />
                       </div>
                       <div class="form-group">
                         <label>エラーメッセージ</label>
