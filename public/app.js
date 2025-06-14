@@ -372,9 +372,11 @@ document.addEventListener("DOMContentLoaded", () => {
         );
       }
 
-      state.aiCharacters = (await response.json()).map(char => ({
+      state.aiCharacters = (await response.json()).map((char) => ({
         ...char,
-        modified: false  // 修正フラグを追加
+        modified: false, // 修正フラグを追加
+      })); // ここに閉じ括弧を追加
+
       renderAICharactersList();
       return state.aiCharacters;
     } catch (error) {
