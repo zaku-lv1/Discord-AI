@@ -374,17 +374,16 @@ document.addEventListener("DOMContentLoaded", () => {
 
       state.aiCharacters = (await response.json()).map((char) => ({
         ...char,
-        modified: false, // 修正フラグを追加
-      })); // ここに閉じ括弧を追加
-
+        modified: false,
+      }));
       renderAICharactersList();
-      return state.aiCharacters;
     } catch (error) {
       console.error("AIキャラクター一覧取得エラー:", error);
       statusMessage.textContent = `エラー: ${error.message}`;
     }
   }
 
+  // AIキャラクター保存処理
   async function saveAICharacter(card) {
     const user = auth.currentUser;
     if (!user) return;
@@ -392,26 +391,39 @@ document.addEventListener("DOMContentLoaded", () => {
     const elements = getAICardElements(card);
     const aiId = card.dataset.aiId;
 
+    // 必須項目のバリデーション
+    const name = elements.displayNameInput.value.trim();
+    const baseUserId = elements.baseUserIdInput.value.trim();
+    const systemPrompt = elements.systemPromptTextarea.value.trim();
+
+    if (!name || !baseUserId || !systemPrompt) {
+      statusMessage.textContent =
+        "エラー: 名前、ベースユーザーID、システムプロンプトは必須です";
+      return;
+    }
+
     try {
       // ニックネームの収集
       const nicknames = {};
-      card.querySelectorAll(".nickname-entry").forEach((entry) => {
-        const userId = entry.querySelector(".nickname-id").value.trim();
-        const nickname = entry.querySelector(".nickname-name").value.trim();
-        if (userId && nickname) {
-          nicknames[userId] = nickname;
-        }
-      });
+      elements.nicknamesList
+        .querySelectorAll(".nickname-entry")
+        .forEach((entry) => {
+          const userId = entry.querySelector(".nickname-id").value.trim();
+          const nickname = entry.querySelector(".nickname-name").value.trim();
+          if (userId && nickname) {
+            nicknames[userId] = nickname;
+          }
+        });
 
       const data = {
-        name: elements.displayNameInput.value,
-        baseUserId: elements.baseUserIdInput.value,
-        systemPrompt: elements.systemPromptTextarea.value,
+        name,
+        baseUserId,
+        systemPrompt,
         modelMode: elements.modelModeSelect.value,
         enableNameRecognition: elements.nameRecognitionCheckbox.checked,
         enableBotMessageResponse: elements.botResponseCheckbox.checked,
         replyDelayMs: parseInt(elements.replyDelayInput.value) || 0,
-        errorOopsMessage: elements.errorMessageInput.value,
+        errorOopsMessage: elements.errorMessageInput.value.trim(),
         userNicknames: nicknames,
         active: elements.activeToggle.checked,
       };
@@ -434,7 +446,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const result = await response.json();
       const index = state.aiCharacters.findIndex((char) => char.id === aiId);
       if (index !== -1) {
-        state.aiCharacters[index] = { ...result };
+        state.aiCharacters[index] = { ...result, modified: false };
       }
 
       renderAICharactersList();
@@ -713,24 +725,26 @@ document.addEventListener("DOMContentLoaded", () => {
     addAIBtn.addEventListener("click", async () => {
       try {
         const token = await auth.currentUser.getIdToken();
+        const newCharacter = {
+          name: "新規AIキャラクター",
+          baseUserId: "",
+          systemPrompt: "",
+          modelMode: "hybrid",
+          enableNameRecognition: true,
+          enableBotMessageResponse: false,
+          replyDelayMs: 0,
+          errorOopsMessage: "",
+          userNicknames: {},
+          active: false,
+        };
+
         const response = await fetch("/api/ai/characters", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
             Authorization: `Bearer ${token}`,
           },
-          body: JSON.stringify({
-            name: "",
-            baseUserId: "",
-            systemPrompt: "",
-            modelMode: "hybrid",
-            enableNameRecognition: true,
-            enableBotMessageResponse: false,
-            replyDelayMs: 0,
-            errorOopsMessage: "",
-            userNicknames: {},
-            active: false,
-          }),
+          body: JSON.stringify(newCharacter),
         });
 
         if (!response.ok) {
@@ -738,17 +752,20 @@ document.addEventListener("DOMContentLoaded", () => {
           throw new Error(error.message);
         }
 
-        const newCharacter = await response.json();
-        state.aiCharacters.push(newCharacter);
+        const savedCharacter = await response.json();
+        state.aiCharacters.push({ ...savedCharacter, modified: true });
         renderAICharactersList();
 
         // 新しく作成したカードの編集フォームを開く
         const newCard = aiList.querySelector(
-          `[data-ai-id="${newCharacter.id}"]`
+          `[data-ai-id="${savedCharacter.id}"]`
         );
         if (newCard) {
           toggleAIEditForm(newCard);
         }
+
+        statusMessage.textContent =
+          "新しいAIキャラクターを作成しました。必要な情報を入力してください。";
       } catch (error) {
         console.error("AIキャラクター作成エラー:", error);
         statusMessage.textContent = `エラー: ${error.message}`;
@@ -757,14 +774,13 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   if (aiList) {
-    // 編集・削除・保存のイベント
+    // 編集・削除・保存のイベント処理
     aiList.addEventListener("click", async (e) => {
       const target = e.target;
       const card = target.closest(".ai-card");
       if (!card) return;
 
       const aiId = card.dataset.aiId;
-      const elements = getAICardElements(card);
 
       if (target.classList.contains("edit-ai-btn")) {
         toggleAIEditForm(card);
@@ -786,7 +802,7 @@ document.addEventListener("DOMContentLoaded", () => {
               (char) => char.id !== aiId
             );
             renderAICharactersList();
-            statusMessage.textContent = "削除しました";
+            statusMessage.textContent = "AIキャラクターを削除しました";
           } catch (error) {
             console.error("AIキャラクター削除エラー:", error);
             statusMessage.textContent = `エラー: ${error.message}`;
@@ -797,8 +813,10 @@ document.addEventListener("DOMContentLoaded", () => {
       } else if (target.classList.contains("cancel-ai-btn")) {
         toggleAIEditForm(card);
       } else if (target.classList.contains("add-nickname-btn")) {
-        const nicknamesList = elements.nicknamesList;
-        createNicknameEntry("", "");
+        const elements = getAICardElements(card);
+        const entry = createNicknameEntry("", "");
+        elements.nicknamesList.appendChild(entry);
+        markAICharacterAsModified(aiId);
       }
     });
 
@@ -836,6 +854,15 @@ document.addEventListener("DOMContentLoaded", () => {
           statusMessage.textContent = `エラー: ${error.message}`;
           target.checked = !target.checked; // エラー時は元の状態に戻す
         }
+      }
+    });
+
+    // 入力変更時のmodifiedフラグ設定
+    aiList.addEventListener("input", (e) => {
+      const card = e.target.closest(".ai-card");
+      if (card) {
+        const aiId = card.dataset.aiId;
+        markAICharacterAsModified(aiId);
       }
     });
   }
@@ -1082,54 +1109,40 @@ document.addEventListener("DOMContentLoaded", () => {
     try {
       const token = await user.getIdToken();
 
-      // とーか設定
-      const nicknamesObject = {};
-      document.querySelectorAll(".nickname-entry").forEach((entry) => {
-        const id = entry.querySelector(".nickname-id").value.trim();
-        const name = entry.querySelector(".nickname-name").value.trim();
-        if (id) nicknamesObject[id] = name;
-      });
+      // AIキャラクターの保存（変更があるものだけ）
+      const aiPromises = state.aiCharacters
+        .filter((char) => char.modified)
+        .map((char) => {
+          const card = aiList.querySelector(`[data-ai-id="${char.id}"]`);
+          if (card) {
+            return saveAICharacter(card);
+          }
+          return Promise.resolve();
+        });
 
+      // とーか設定の保存
       const tokaSettings = {
         baseUserId: baseUserIdInput.value,
         systemPrompt: promptTextarea.value,
         enableNameRecognition: nameRecognitionCheckbox.checked,
         enableBotMessageResponse: botMessageResponseCheckbox.checked,
-        userNicknames: nicknamesObject,
         modelMode: tokaModelModeSelect.value,
         replyDelayMs: Number(replyDelayMsInput.value) || 0,
         errorOopsMessage: errorOopsMessageInput.value.trim(),
+        userNicknames: (() => {
+          const nicknames = {};
+          nicknamesListContainer
+            .querySelectorAll(".nickname-entry")
+            .forEach((entry) => {
+              const id = entry.querySelector(".nickname-id").value.trim();
+              const name = entry.querySelector(".nickname-name").value.trim();
+              if (id) nicknames[id] = name;
+            });
+          return nicknames;
+        })(),
       };
 
-      // AIキャラクターの保存（変更があるものだけ）
-      const aiPromises = state.aiCharacters
-        .filter((char) => char.modified)
-        .map((char) =>
-          fetch(`/api/ai/characters/${char.id}`, {
-            method: "PUT",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${token}`,
-            },
-            body: JSON.stringify(char),
-          })
-        );
-
-      // スケジュール設定
-      const scheduleSettings = {
-        remindersEnabled: remindersEnabledCheckbox.checked,
-        reminderTime: reminderTimeInput.value,
-        googleSheetId: googleSheetIdInput.value,
-        reminderGuildId: reminderGuildIdInput.value,
-        reminderRoleId: reminderRoleIdInput.value,
-      };
-
-      // 管理者設定
-      const adminsArray = state.admins.filter(
-        (admin) => admin.email && admin.name
-      );
-
-      const savePromises = [
+      await Promise.all([
         fetch("/api/settings/toka", {
           method: "POST",
           headers: {
@@ -1138,43 +1151,8 @@ document.addEventListener("DOMContentLoaded", () => {
           },
           body: JSON.stringify(tokaSettings),
         }),
-        fetch("/api/settings/schedule", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify(scheduleSettings),
-        }),
-        ...aiPromises, // AIキャラクター関連のPromiseを追加
-      ];
-
-      if (state.isSuperAdmin) {
-        savePromises.push(
-          fetch("/api/settings/admins", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${token}`,
-            },
-            body: JSON.stringify({ admins: adminsArray }),
-          })
-        );
-      }
-
-      const responses = await Promise.all(savePromises);
-
-      for (const res of responses) {
-        if (!res.ok) {
-          const error = await res.json();
-          throw new Error(
-            error.message || "設定の保存中にエラーが発生しました。"
-          );
-        }
-      }
-
-      await fetchSettings(user);
-      await fetchScheduleItems();
+        ...aiPromises,
+      ]);
 
       statusMessage.textContent = "すべての設定を保存しました。";
     } catch (err) {
