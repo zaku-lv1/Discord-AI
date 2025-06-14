@@ -1,106 +1,5 @@
 document.addEventListener("DOMContentLoaded", () => {
-  // ================ Firebase初期化 ================
-  firebase.initializeApp(firebaseConfig);
-  const auth = firebase.auth();
-
-  // ================ DOM要素の参照 ================
-  // --- 共通要素 ---
-  const loaderContainer = document.getElementById("loader-container");
-  const pageContainer = document.querySelector(".container");
-  const authContainer = document.getElementById("auth-container");
-  const mainContent = document.getElementById("main-content");
-  const statusMessage = document.getElementById("status-message");
-  const saveAllBtn = document.getElementById("save-all-btn");
-
-  // --- 認証関連要素 ---
-  const loginForm = document.getElementById("login-form");
-  const registerForm = document.getElementById("register-form");
-  const loginBtn = document.getElementById("login-btn");
-  const registerBtn = document.getElementById("register-btn");
-  const forgotPasswordLink = document.getElementById("forgot-password-link");
-  const showRegisterFormLink = document.getElementById(
-    "show-register-form-link"
-  );
-  const showLoginFormLink = document.getElementById("show-login-form-link");
-  const userEmailEl = document.getElementById("user-email");
-  const logoutBtn = document.getElementById("logout-btn");
-
-  // --- ナビゲーション要素 ---
-  const navLinks = document.querySelectorAll(".nav-link");
-  const panels = document.querySelectorAll(".dashboard-panel");
-  const adminNavItem = document.getElementById("nav-item-admin");
-
-  // --- プロファイル要素 ---
-  const profilePanel = document.getElementById("panel-profile");
-  const profileDisplayNameInput = document.getElementById(
-    "profile-display-name"
-  );
-  const profileEmailInput = document.getElementById("profile-email");
-  const saveProfileBtn = document.getElementById("save-profile-btn");
-
-  // --- とーかパネル要素 ---
-  const tokaModelModeSelect = document.getElementById("toka-model-mode");
-  const baseUserIdInput = document.getElementById("base-user-id-input");
-  const promptTextarea = document.getElementById("prompt-textarea");
-  const nameRecognitionCheckbox = document.getElementById(
-    "name-recognition-checkbox"
-  );
-  const botMessageResponseCheckbox = document.getElementById(
-    "bot-message-response-checkbox"
-  );
-  const replyDelayMsInput = document.getElementById("reply-delay-ms-input");
-  const errorOopsMessageInput = document.getElementById(
-    "error-oops-message-input"
-  );
-  const nicknamesListContainer = document.getElementById(
-    "nicknames-list-container"
-  );
-  const addNicknameBtn = document.getElementById("add-nickname-btn");
-  const saveTokaBtn = document.getElementById("save-toka-btn");
-
-  // --- スケジュールパネル要素 ---
-  const remindersEnabledCheckbox = document.getElementById(
-    "reminders-enabled-checkbox"
-  );
-  const reminderTimeInput = document.getElementById("reminder-time-input");
-  const googleSheetIdInput = document.getElementById("google-sheet-id-input");
-  const reminderGuildIdInput = document.getElementById(
-    "reminder-guild-id-input"
-  );
-  const reminderRoleIdInput = document.getElementById("reminder-role-id-input");
-  const saveScheduleSettingsBtn = document.getElementById(
-    "save-schedule-settings-btn"
-  );
-  const scheduleItemsContainer = document.getElementById(
-    "schedule-items-container"
-  );
-  const addScheduleItemBtn = document.getElementById("add-schedule-item-btn");
-  const saveScheduleItemsBtn = document.getElementById(
-    "save-schedule-items-btn"
-  );
-
-  // --- 管理者パネル要素 ---
-  const adminSettingsSection = document.getElementById("panel-admins");
-  const inviteCodeGeneratorSection = document.getElementById(
-    "invite-code-generator-section"
-  );
-  const generateInviteCodeBtn = document.getElementById(
-    "generate-invite-code-btn"
-  );
-  const inviteCodeDisplay = document.getElementById("invite-code-display");
-  const newInviteCodeInput = document.getElementById("new-invite-code");
-  const copyInviteCodeBtn = document.getElementById("copy-invite-code-btn");
-  const adminsListContainer = document.getElementById("admins-list-container");
-  const addAdminBtn = document.getElementById("add-admin-btn");
-  const saveAdminsBtn = document.getElementById("save-admins-btn");
-
-  // --- AI管理パネル要素 ---
-  const aiPanel = document.getElementById("panel-ai");
-  const aiList = document.getElementById("ai-list");
-  const addAIBtn = document.getElementById("add-ai-btn");
-  const aiCardTemplate = document.getElementById("ai-card-template");
-
-  // ================ アプリケーションの状態 ================
+  // ================ 状態管理 ================
   let state = {
     admins: [],
     isSuperAdmin: false,
@@ -108,111 +7,88 @@ document.addEventListener("DOMContentLoaded", () => {
     aiCharacters: [],
   };
 
+  // ================ Firebase初期化 ================
+  try {
+    firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
+    const db = firebase.firestore();
+    if (!auth || !db) {
+      throw new Error('Firebaseの初期化に失敗しました');
+    }
+  } catch (error) {
+    console.error('Firebase初期化エラー:', error);
+    showStatusMessage('システムの初期化に失敗しました', 'error');
+    return;
+  }
+
   // ================ ユーティリティ関数 ================
-  function renderAICharactersList() {
-    const aiList = document.getElementById("ai-list");
-    if (!aiList) {
-      console.error("ai-list要素が見つかりません");
-      return;
-    }
-
-    try {
-      aiList.innerHTML = "";
-      state.aiCharacters.forEach((character) => {
-        const cardElement = createAICard(character);
-        if (cardElement) {
-          aiList.appendChild(cardElement);
-        }
-      });
-    } catch (error) {
-      console.error("AIリストレンダリングエラー:", error);
-      showStatusMessage("AIキャラクター一覧の表示に失敗しました", "error");
-    }
-  }
-
-  function createAICard(character) {
-    try {
-      const template = document.getElementById("ai-card-template");
-      if (!template) {
-        throw new Error("AIカードテンプレートが見つかりません");
-      }
-
-      const card = template.content.cloneNode(true);
-      const cardElement = card.querySelector(".ai-card");
-      if (!cardElement) {
-        throw new Error("AIカード要素が見つかりません");
-      }
-
-      // 以下、カードの設定処理
-      return cardElement;
-    } catch (error) {
-      console.error("AIカード作成エラー:", error);
-      return null;
-    }
-  }
-
   function showStatusMessage(message, type = "info") {
-    const statusMessage = document.getElementById("status-message");
-    statusMessage.textContent = message;
-    statusMessage.className = `status-message ${type}`;
+    const statusElement = document.getElementById("status-message");
+    if (!statusElement) return;
+
+    statusElement.textContent = message;
+    statusElement.className = `status-message ${type}`;
 
     if (type !== "error") {
       setTimeout(() => {
-        statusMessage.textContent = "";
+        if (statusElement.textContent === message) {
+          statusElement.textContent = "";
+        }
       }, 3000);
     }
   }
 
-  function initializeFirestore() {
+  async function fetchWithAuth(endpoint, options = {}) {
     try {
-      if (!firebase || !firebase.firestore) {
-        throw new Error("Firebase SDKが正しく読み込まれていません");
+      const user = auth.currentUser;
+      if (!user) {
+        throw new Error('認証されていません');
       }
-      return firebase.firestore();
+
+      const token = await user.getIdToken();
+      const response = await fetch(endpoint, {
+        ...options,
+        headers: {
+          ...options.headers,
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json"
+        }
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || `APIエラー (${response.status})`);
+      }
+
+      return await response.json();
     } catch (error) {
-      console.error("Firestoreの初期化エラー:", error);
-      showStatusMessage("データベース接続に失敗しました", "error");
-      return null;
+      console.error('API呼び出しエラー:', error);
+      throw error;
     }
   }
 
+  // ================ リアルタイム更新 ================
   function setupRealtimeUpdates() {
-    const db = initializeFirestore();
-    if (!db) return null;
-
     return db.collection("ai_characters").onSnapshot(
       (snapshot) => {
         let hasChanges = false;
-
         try {
           snapshot.docChanges().forEach((change) => {
             if (change.type === "added") {
               const newCharacter = { id: change.doc.id, ...change.doc.data() };
-              if (
-                !state.aiCharacters.some((char) => char.id === newCharacter.id)
-              ) {
+              if (!state.aiCharacters.some(char => char.id === newCharacter.id)) {
                 state.aiCharacters.push({ ...newCharacter, modified: false });
                 hasChanges = true;
               }
             } else if (change.type === "modified") {
-              const updatedCharacter = {
-                id: change.doc.id,
-                ...change.doc.data(),
-              };
-              const index = state.aiCharacters.findIndex(
-                (char) => char.id === updatedCharacter.id
-              );
+              const updatedCharacter = { id: change.doc.id, ...change.doc.data() };
+              const index = state.aiCharacters.findIndex(char => char.id === updatedCharacter.id);
               if (index !== -1) {
-                state.aiCharacters[index] = {
-                  ...updatedCharacter,
-                  modified: false,
-                };
+                state.aiCharacters[index] = { ...updatedCharacter, modified: false };
                 hasChanges = true;
               }
             } else if (change.type === "removed") {
-              state.aiCharacters = state.aiCharacters.filter(
-                (char) => char.id !== change.doc.id
-              );
+              state.aiCharacters = state.aiCharacters.filter(char => char.id !== change.doc.id);
               hasChanges = true;
             }
           });
@@ -221,610 +97,64 @@ document.addEventListener("DOMContentLoaded", () => {
             renderAICharactersList();
           }
         } catch (error) {
-          console.error("リアルタイム更新処理エラー:", error);
-          showStatusMessage("データの更新中にエラーが発生しました", "error");
+          console.error('リアルタイム更新処理エラー:', error);
+          showStatusMessage('データの更新処理に失敗しました', 'error');
         }
       },
       (error) => {
-        console.error("Firestoreリスナーエラー:", error);
-        showStatusMessage("リアルタイム更新の接続に失敗しました", "error");
-      }
-    );
-  }
-
-  // ================ UI関連の関数 ================
-  function renderNicknameList(nicknames = {}) {
-    nicknamesListContainer.innerHTML = "";
-    Object.entries(nicknames).forEach(([id, name]) =>
-      createNicknameEntry(id, name)
-    );
-  }
-
-  function createNicknameEntry(id = "", name = "") {
-    const entryDiv = document.createElement("div");
-    entryDiv.className = "nickname-entry";
-    entryDiv.innerHTML = `
-            <input type="text" class="nickname-id" placeholder="ユーザーID" value="${id}">
-            <input type="text" class="nickname-name" placeholder="ニックネーム" value="${name}">
-            <button type="button" class="delete-btn">削除</button>
-        `;
-    nicknamesListContainer.appendChild(entryDiv);
-  }
-
-  function renderAdminList() {
-    adminsListContainer.innerHTML = "";
-    (state.admins || []).forEach((admin, index) => {
-      const entryDiv = document.createElement("div");
-      entryDiv.className = "admin-entry";
-      entryDiv.setAttribute("draggable", state.isSuperAdmin);
-      entryDiv.dataset.index = index;
-
-      let html = `
-                <input type="text" class="admin-name" data-field="name" 
-                       placeholder="表示名" value="${admin.name || ""}">
-                <input type="email" class="admin-email" data-field="email" 
-                       placeholder="管理者メールアドレス" value="${
-                         admin.email || ""
-                       }">
-            `;
-
-      if (index === 0) {
-        entryDiv.classList.add("super-admin");
-        html += '<span class="super-admin-label">👑</span>';
-      }
-
-      html += '<button type="button" class="delete-btn">削除</button>';
-      entryDiv.innerHTML = html;
-      adminsListContainer.appendChild(entryDiv);
-    });
-  }
-
-  function renderScheduleList() {
-    scheduleItemsContainer.innerHTML = "";
-    state.scheduleItems.forEach((item, index) => {
-      const entryDiv = document.createElement("div");
-      entryDiv.className = "schedule-item-entry";
-      entryDiv.dataset.index = index;
-      entryDiv.innerHTML = `
-                <input type="text" class="item-type" data-field="0" 
-                       placeholder="種別" value="${item[0] || ""}">
-                <input type="text" class="item-task" data-field="1" 
-                       placeholder="内容" value="${item[1] || ""}">
-                <input type="text" class="item-due" data-field="2" 
-                       placeholder="期限" value="${item[2] || ""}">
-                <button type="button" class="delete-btn">削除</button>
-            `;
-      scheduleItemsContainer.appendChild(entryDiv);
-    });
-  }
-
-  // --- AI管理関連の関数 ---
-  function getAICardElements(card) {
-    const required = {
-      nameDisplay: ".ai-name",
-      activeToggle: ".ai-active-toggle",
-      editBtn: ".edit-ai-btn",
-      deleteBtn: ".delete-ai-btn",
-      editForm: ".ai-edit-form",
-      displayNameInput: ".ai-display-name",
-      baseUserIdInput: ".ai-base-user-id",
-      modelModeSelect: ".ai-model-mode",
-      nameRecognitionCheckbox: ".ai-name-recognition",
-      systemPromptTextarea: ".ai-system-prompt",
-      botResponseCheckbox: ".ai-bot-response",
-      replyDelayInput: ".ai-reply-delay",
-      errorMessageInput: ".ai-error-message",
-      nicknamesList: ".ai-nicknames-list",
-      addNicknameBtn: ".add-nickname-btn",
-      saveBtn: ".save-ai-btn",
-      cancelBtn: ".cancel-ai-btn",
-    };
-
-    const elements = {};
-    let missingElements = [];
-
-    for (const [key, selector] of Object.entries(required)) {
-      elements[key] = card.querySelector(selector);
-      if (!elements[key]) {
-        missingElements.push(selector);
-      }
-    }
-
-    if (missingElements.length > 0) {
-      console.error("必要なカード要素が見つかりません:", missingElements);
-    }
-
-    return elements;
-  }
-
-  // AIキャラクターの変更を追跡
-  function markAICharacterAsModified(aiId) {
-    try {
-      const character = state.aiCharacters.find((char) => char.id === aiId);
-      if (character) {
-        character.modified = true;
-      } else {
-        console.warn("変更対象のAIキャラクターが見つかりません:", aiId);
-      }
-    } catch (error) {
-      console.error("変更追跡エラー:", error);
-    }
-  }
-
-  function renderAICharacterNicknames(container, nicknames) {
-    container.innerHTML = "";
-    Object.entries(nicknames).forEach(([userId, nickname]) => {
-      const entry = createNicknameEntry(userId, nickname);
-      container.appendChild(entry);
-    });
-  }
-
-  function addNicknameToAICharacter(container, aiId) {
-    const entry = createNicknameEntry("", "");
-    container.appendChild(entry);
-    markAICharacterAsModified(aiId);
-  }
-
-  function toggleAIEditForm(card) {
-    const elements = getAICardElements(card);
-    const isVisible = elements.editForm.style.display !== "none";
-    elements.editForm.style.display = isVisible ? "none" : "block";
-  }
-
-  function renderAICharactersList() {
-    const aiList = document.getElementById("ai-list");
-    const template = document.getElementById("ai-card-template");
-
-    if (!aiList || !template) {
-      console.error("AIリストまたはテンプレートが見つかりません");
-      showStatusMessage("UI要素の読み込みに失敗しました", "error");
-      return;
-    }
-
-    try {
-      aiList.innerHTML = "";
-      state.aiCharacters.forEach((character) => {
-        const card = template.content.cloneNode(true);
-        const cardElement = card.querySelector(".ai-card");
-
-        if (!cardElement) {
-          throw new Error("AIカードのテンプレートが不正です");
-        }
-
-        cardElement.dataset.aiId = character.id;
-        const elements = getAICardElements(cardElement);
-
-        // ヘッダー部分の構築
-        const headerContent = document.createElement("div");
-        headerContent.className = "ai-header-content";
-
-        // 名前とコマンド情報
-        if (elements.nameDisplay) {
-          elements.nameDisplay.textContent =
-            character.name || "新規AIキャラクター";
-        }
-
-        const commandText = `/ai ${character.commandId || "未設定"}`;
-        const commandContainer = document.createElement("div");
-        commandContainer.className = "command-container";
-        commandContainer.innerHTML = `
-        <code class="command-text">${commandText}</code>
-        <button type="button" class="copy-command-btn" title="コマンドをコピー">
-          <span class="copy-icon">📋</span>
-          <span class="copy-text">コピー</span>
-        </button>
-      `;
-
-        headerContent.appendChild(elements.nameDisplay);
-        headerContent.appendChild(commandContainer);
-        elements.editForm.before(headerContent);
-
-        // 各種設定の反映
-        if (elements.activeToggle) {
-          elements.activeToggle.checked = character.active;
-        }
-        if (elements.displayNameInput) {
-          elements.displayNameInput.value = character.name || "";
-        }
-        if (elements.baseUserIdInput) {
-          elements.baseUserIdInput.value = character.baseUserId || "";
-        }
-        if (elements.modelModeSelect) {
-          elements.modelModeSelect.value = character.modelMode || "hybrid";
-        }
-        if (elements.nameRecognitionCheckbox) {
-          elements.nameRecognitionCheckbox.checked =
-            character.enableNameRecognition ?? true;
-        }
-        if (elements.systemPromptTextarea) {
-          elements.systemPromptTextarea.value = character.systemPrompt || "";
-        }
-        if (elements.botResponseCheckbox) {
-          elements.botResponseCheckbox.checked =
-            character.enableBotMessageResponse ?? false;
-        }
-        if (elements.replyDelayInput) {
-          elements.replyDelayInput.value = character.replyDelayMs || 0;
-        }
-        if (elements.errorMessageInput) {
-          elements.errorMessageInput.value = character.errorOopsMessage || "";
-        }
-
-        // ニックネームリストの設定
-        if (elements.nicknamesList) {
-          renderAICharacterNicknames(
-            elements.nicknamesList,
-            character.userNicknames || {}
-          );
-        }
-
-        aiList.appendChild(cardElement);
-      });
-    } catch (error) {
-      console.error("AIリストのレンダリングエラー:", error);
-      showStatusMessage("AIキャラクター一覧の表示に失敗しました", "error");
-    }
-  }
-
-  // コピー機能のイベントリスナー
-  if (aiList) {
-    aiList.addEventListener("click", async (e) => {
-      if (e.target.classList.contains("copy-command-btn")) {
-        const commandText = e.target.previousElementSibling.textContent;
-        try {
-          await navigator.clipboard.writeText(commandText);
-          const button = e.target;
-          const textSpan = button.querySelector(".copy-text");
-          const originalText = textSpan.textContent;
-
-          button.disabled = true;
-          textSpan.textContent = "コピーしました！";
-          showStatusMessage("コマンドをコピーしました", "success");
-
-          setTimeout(() => {
-            button.disabled = false;
-            textSpan.textContent = originalText;
-          }, 2000);
-        } catch (err) {
-          console.error("コピーに失敗:", err);
-          showStatusMessage("コマンドのコピーに失敗しました", "error");
-        }
-      }
-    });
-  }
-
-  // ================ データ取得と保存の関数 ================
-  async function fetchSettings(user) {
-    statusMessage.textContent = "読込中...";
-    const token = await user.getIdToken();
-    let finalStatusMessage = "設定を読み込みました。";
-
-    try {
-      const tokaRes = await fetch("/api/settings/toka", {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-
-      if (tokaRes.status === 403 || tokaRes.status === 401) {
-        throw new Error("アクセスが拒否されました。");
-      }
-
-      if (tokaRes.ok) {
-        const data = await tokaRes.json();
-        tokaModelModeSelect.value = data.modelMode || "hybrid";
-        baseUserIdInput.value = data.baseUserId || "";
-        promptTextarea.value = data.systemPrompt || "";
-        nameRecognitionCheckbox.checked = data.enableNameRecognition ?? true;
-        botMessageResponseCheckbox.checked = !!data.enableBotMessageResponse;
-        renderNicknameList(data.userNicknames || {});
-        replyDelayMsInput.value = data.replyDelayMs ?? 0;
-        errorOopsMessageInput.value = data.errorOopsMessage || "";
-
-        const currentUserAdminInfo = (data.admins || []).find(
-          (admin) => admin.email === user.email
-        );
-
-        if (currentUserAdminInfo) {
-          profileDisplayNameInput.value = currentUserAdminInfo.name || "";
-          profileEmailInput.value = user.email || "";
-        }
-
-        userEmailEl.textContent =
-          currentUserAdminInfo && currentUserAdminInfo.name
-            ? currentUserAdminInfo.name
-            : user.email;
-
-        state.admins = data.admins || [];
-        state.isSuperAdmin = data.currentUser && data.currentUser.isSuperAdmin;
-        adminNavItem.style.display = "block";
-        renderAdminList();
-
-        if (!state.isSuperAdmin) {
-          document
-            .querySelectorAll("#panel-admins input, #panel-admins button")
-            .forEach((el) => (el.disabled = true));
-          inviteCodeGeneratorSection.style.display = "none";
+        console.error('Firestoreリスナーエラー:', error);
+        if (error.code === 'permission-denied') {
+          showStatusMessage('アクセス権限がありません', 'error');
         } else {
-          document
-            .querySelectorAll("#panel-admins input, #panel-admins button")
-            .forEach((el) => (el.disabled = false));
-          inviteCodeGeneratorSection.style.display = "block";
+          showStatusMessage('データベース接続エラー', 'error');
         }
-      } else if (tokaRes.status === 404) {
-        userEmailEl.textContent = user.displayName || user.email;
-        state.isSuperAdmin = true;
-        adminNavItem.style.display = "block";
-      } else {
-        const errData = await tokaRes.json().catch(() => ({}));
-        throw new Error(errData.message || "とーか設定の読み込みに失敗");
       }
-      await fetchAICharacters();
-    } catch (err) {
-      finalStatusMessage = `エラー: ${err.message}`;
-      console.error("とーか/管理者設定の読み込みエラー:", err);
-    }
-
-    try {
-      const scheduleRes = await fetch("/api/settings/schedule", {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-
-      if (scheduleRes.ok) {
-        const data = await scheduleRes.json();
-        remindersEnabledCheckbox.checked = data.remindersEnabled ?? false;
-        reminderTimeInput.value = data.reminderTime || "";
-        googleSheetIdInput.value = data.googleSheetId || "";
-        reminderGuildIdInput.value = data.reminderGuildId || "";
-        reminderRoleIdInput.value = data.reminderRoleId || "";
-      } else if (scheduleRes.status !== 404) {
-        const errData = await scheduleRes.json().catch(() => ({}));
-        throw new Error(errData.message || "スケジュール設定の読み込みに失敗");
-      }
-    } catch (err) {
-      console.error("スケジュール設定の読み込みエラー:", err);
-      finalStatusMessage =
-        `${finalStatusMessage}\nスケジュール設定の読み込みに失敗しました。`.trim();
-    }
-
-    statusMessage.textContent = finalStatusMessage;
+    );
   }
 
-  // --- AI管理関連のデータ操作関数 ---
-  async function fetchAICharacters() {
-    const user = auth.currentUser;
-    if (!user) return;
-
-    try {
-      const token = await user.getIdToken();
-      const response = await fetch("/api/ai/characters", {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(
-          error.message || "AIキャラクター一覧の取得に失敗しました"
-        );
-      }
-
-      state.aiCharacters = (await response.json()).map((char) => ({
-        ...char,
-        modified: false,
-      }));
-      renderAICharactersList();
-    } catch (error) {
-      console.error("AIキャラクター一覧取得エラー:", error);
-      statusMessage.textContent = `エラー: ${error.message}`;
-    }
-  }
-
-  // AIキャラクター保存処理
-  async function saveAICharacter(card) {
-    const user = auth.currentUser;
-    if (!user) throw new Error("ユーザーが認証されていません");
-
-    const elements = getAICardElements(card);
-    const aiId = card.dataset.aiId;
-
-    // 必須項目のバリデーション
-    const name = elements.displayNameInput.value.trim();
-    const baseUserId = elements.baseUserIdInput.value.trim();
-    const systemPrompt = elements.systemPromptTextarea.value.trim();
-
-    if (!name || !baseUserId || !systemPrompt) {
-      statusMessage.textContent =
-        "エラー: 名前、ベースユーザーID、システムプロンプトは必須です";
-      return;
-    }
-
-    try {
-      // ニックネームの収集
-      const nicknames = {};
-      elements.nicknamesList
-        .querySelectorAll(".nickname-entry")
-        .forEach((entry) => {
-          const userId = entry.querySelector(".nickname-id").value.trim();
-          const nickname = entry.querySelector(".nickname-name").value.trim();
-          if (userId && nickname) {
-            nicknames[userId] = nickname;
-          }
-        });
-
-      const data = {
-        name,
-        baseUserId,
-        systemPrompt,
-        modelMode: elements.modelModeSelect.value,
-        enableNameRecognition: elements.nameRecognitionCheckbox.checked,
-        enableBotMessageResponse: elements.botResponseCheckbox.checked,
-        replyDelayMs: parseInt(elements.replyDelayInput.value) || 0,
-        errorOopsMessage: elements.errorMessageInput.value.trim(),
-        userNicknames: nicknames,
-        active: elements.activeToggle.checked,
-      };
-
-      const token = await user.getIdToken();
-      const response = await fetch(`/api/ai/characters/${aiId}`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(data),
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || "AIキャラクターの更新に失敗しました");
-      }
-
-      const result = await response.json();
-      const index = state.aiCharacters.findIndex((char) => char.id === aiId);
-      if (index !== -1) {
-        state.aiCharacters[index] = { ...result, modified: false };
-      }
-
-      renderAICharactersList();
-      statusMessage.textContent = result.message;
-      toggleAIEditForm(card);
-    } catch (error) {
-      console.error("AIキャラクター更新エラー:", error);
-      statusMessage.textContent = `エラー: ${error.message}`;
-    }
-  }
-
-  saveProfileBtn.addEventListener("click", async () => {
-    const user = auth.currentUser;
-    if (!user || saveProfileBtn.disabled) return;
-
-    saveProfileBtn.disabled = true;
-    statusMessage.textContent = "プロファイルを更新中...";
-
-    try {
-      const newDisplayName = profileDisplayNameInput.value.trim();
-      const newEmail = profileEmailInput.value.trim();
-      const currentEmail = user.email;
-
-      // 表示名の更新
-      const token = await user.getIdToken(true);
-      const res = await fetch("/api/update-profile", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          displayName: newDisplayName,
-        }),
-      });
-
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.message || "更新に失敗しました");
-      }
-
-      // メールアドレスの変更がある場合
-      if (newEmail && newEmail !== currentEmail) {
-        try {
-          await user.verifyBeforeUpdateEmail(newEmail);
-          statusMessage.textContent = `プロファイルを更新しました。
-                    新しいメールアドレス（${newEmail}）に確認メールを送信しました。
-                    確認メールのリンクをクリックしてメールアドレスの変更を完了してください。
-                    メールが届かない場合は、スパムフォルダもご確認ください。`;
-
-          alert(`新しいメールアドレス（${newEmail}）に確認メールを送信しました。
-                    メールを確認してリンクをクリックしてください。
-                    ※メールが届かない場合は、スパムフォルダもご確認ください。`);
-        } catch (emailError) {
-          console.error("メール更新エラー:", emailError);
-          if (emailError.code === "auth/requires-recent-login") {
-            await auth.signOut();
-            alert(
-              "セキュリティ保護のため、メールアドレスを変更するには再ログインが必要です。\nログアウトしましたので、再度ログインしてからお試しください。"
-            );
-            window.location.reload();
-            return;
-          } else {
-            throw new Error(
-              `メールアドレスの更新に失敗しました。エラー: ${emailError.message}`
-            );
-          }
-        }
-      } else {
-        statusMessage.textContent = "プロファイルを更新しました。";
-      }
-
-      await fetchSettings(user);
-    } catch (err) {
-      console.error("プロファイル更新エラー:", err);
-      statusMessage.textContent = `エラー: ${err.message}`;
-      alert(`エラーが発生しました: ${err.message}`);
-    } finally {
-      saveProfileBtn.disabled = false;
-    }
-  });
-
-  async function fetchScheduleItems() {
-    const user = auth.currentUser;
-    if (!user) return;
-
-    statusMessage.textContent = "予定リストを読み込み中...";
-    try {
-      const token = await user.getIdToken();
-      const res = await fetch("/api/schedule/items", {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-
-      if (!res.ok) {
-        const errorData = await res
-          .json()
-          .catch(() => ({ message: "予定リストの読み込みに失敗しました。" }));
-        throw new Error(errorData.message);
-      }
-
-      const items = await res.json();
-      state.scheduleItems = items;
-      renderScheduleList();
-      statusMessage.textContent = "予定リストを読み込みました。";
-    } catch (err) {
-      statusMessage.textContent = `エラー: ${err.message}`;
-    }
-  }
-
-  // ================ イベントリスナーの設定 ================
-  // --- ナビゲーション ---
-  navLinks.forEach((link) => {
-    link.addEventListener("click", (e) => {
-      e.preventDefault();
-      const targetId = link.dataset.target;
-      navLinks.forEach((l) => l.classList.remove("active"));
-      panels.forEach((p) => (p.style.display = "none"));
-      link.classList.add("active");
-      const targetPanel = document.getElementById(targetId);
-      if (targetPanel) targetPanel.style.display = "block";
-      if (targetId === "panel-schedule") {
-        fetchScheduleItems();
-      }
-    });
-  });
+  // ================ 認証状態監視 ================
   let unsubscribe = null;
-  // --- 認証関連 ---
-  auth.onAuthStateChanged((user) => {
-    loaderContainer.style.display = "none";
-    pageContainer.style.display = "block";
-    if (user) {
-      authContainer.style.display = "none";
-      mainContent.style.display = "block";
-      fetchSettings(user);
-      unsubscribe = setupRealtimeUpdates();
-    } else {
-      if (unsubscribe) {
-        unsubscribe();
-        unsubscribe = null;
+
+  auth.onAuthStateChanged(async (user) => {
+    try {
+      // ローディング表示の制御
+      loaderContainer.style.display = 'none';
+      pageContainer.style.display = 'block';
+
+      if (user) {
+        console.log('ログインユーザー:', user.email);
+        
+        // UI表示切替
+        authContainer.style.display = 'none';
+        mainContent.style.display = 'block';
+        
+        // データ取得
+        await fetchSettings(user);
+        
+        // リアルタイム更新のセットアップ
+        if (unsubscribe) {
+          unsubscribe();
+        }
+        unsubscribe = setupRealtimeUpdates();
+        
+      } else {
+        console.log('未ログイン状態');
+        
+        if (unsubscribe) {
+          unsubscribe();
+          unsubscribe = null;
+        }
+        
+        // UI表示切替
+        authContainer.style.display = 'block';
+        mainContent.style.display = 'none';
+        loginForm.style.display = 'block';
+        registerForm.style.display = 'none';
       }
-      authContainer.style.display = "block";
-      mainContent.style.display = "none";
-      loginForm.style.display = "block";
-      registerForm.style.display = "none";
+
+    } catch (error) {
+      console.error('認証状態変更エラー:', error);
+      showStatusMessage('エラーが発生しました: ' + error.message, 'error');
     }
   });
 
