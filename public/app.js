@@ -108,12 +108,12 @@ document.addEventListener("DOMContentLoaded", () => {
     aiCharacters: [],
   };
 
-    // ================ ユーティリティ関数 ================
+  // ================ ユーティリティ関数 ================
   function showStatusMessage(message, type = "info") {
     const statusMessage = document.getElementById("status-message");
     statusMessage.textContent = message;
     statusMessage.className = `status-message ${type}`;
-    
+
     if (type !== "error") {
       setTimeout(() => {
         statusMessage.textContent = "";
@@ -125,23 +125,30 @@ document.addEventListener("DOMContentLoaded", () => {
     const db = firebase.firestore();
     return db.collection("ai_characters").onSnapshot((snapshot) => {
       let hasChanges = false;
-      
+
       snapshot.docChanges().forEach((change) => {
         if (change.type === "added") {
           const newCharacter = { id: change.doc.id, ...change.doc.data() };
-          if (!state.aiCharacters.some(char => char.id === newCharacter.id)) {
+          if (!state.aiCharacters.some((char) => char.id === newCharacter.id)) {
             state.aiCharacters.push({ ...newCharacter, modified: false });
             hasChanges = true;
           }
         } else if (change.type === "modified") {
           const updatedCharacter = { id: change.doc.id, ...change.doc.data() };
-          const index = state.aiCharacters.findIndex(char => char.id === updatedCharacter.id);
+          const index = state.aiCharacters.findIndex(
+            (char) => char.id === updatedCharacter.id
+          );
           if (index !== -1) {
-            state.aiCharacters[index] = { ...updatedCharacter, modified: false };
+            state.aiCharacters[index] = {
+              ...updatedCharacter,
+              modified: false,
+            };
             hasChanges = true;
           }
         } else if (change.type === "removed") {
-          state.aiCharacters = state.aiCharacters.filter(char => char.id !== change.doc.id);
+          state.aiCharacters = state.aiCharacters.filter(
+            (char) => char.id !== change.doc.id
+          );
           hasChanges = true;
         }
       });
@@ -242,12 +249,31 @@ document.addEventListener("DOMContentLoaded", () => {
     };
   }
 
-  // AIキャラクターの変更を追跡する関数を追加
   function markAICharacterAsModified(aiId) {
     const character = state.aiCharacters.find((char) => char.id === aiId);
     if (character) {
       character.modified = true;
     }
+  }
+
+  function renderAICharacterNicknames(container, nicknames) {
+    container.innerHTML = "";
+    Object.entries(nicknames).forEach(([userId, nickname]) => {
+      const entry = createNicknameEntry(userId, nickname);
+      container.appendChild(entry);
+    });
+  }
+
+  function addNicknameToAICharacter(container, aiId) {
+    const entry = createNicknameEntry("", "");
+    container.appendChild(entry);
+    markAICharacterAsModified(aiId);
+  }
+
+  function toggleAIEditForm(card) {
+    const elements = getAICardElements(card);
+    const isVisible = elements.editForm.style.display !== "none";
+    elements.editForm.style.display = isVisible ? "none" : "block";
   }
 
   function renderAICharactersList() {
@@ -273,7 +299,8 @@ document.addEventListener("DOMContentLoaded", () => {
       commandContainer.innerHTML = `
       <code class="command-text">${commandText}</code>
       <button type="button" class="copy-command-btn" title="コマンドをコピー">
-        コピー
+        <span class="copy-icon">📋</span>
+        <span class="copy-text">コピー</span>
       </button>
     `;
 
@@ -304,38 +331,31 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  // コピー機能のイベントリスナーを追加
-if (aiList) {
-  aiList.addEventListener("click", (e) => {
-    if (e.target.classList.contains("copy-command-btn")) {
-      const commandText = e.target.previousElementSibling.textContent;
-      navigator.clipboard.writeText(commandText).then(() => {
-        showStatusMessage("コマンドをコピーしました", "success");
-      }).catch(() => {
-        showStatusMessage("コマンドのコピーに失敗しました", "error");
-      });
-    }
-  });
+  // コピー機能のイベントリスナー
+  if (aiList) {
+    aiList.addEventListener("click", async (e) => {
+      if (e.target.classList.contains("copy-command-btn")) {
+        const commandText = e.target.previousElementSibling.textContent;
+        try {
+          await navigator.clipboard.writeText(commandText);
+          const button = e.target;
+          const textSpan = button.querySelector(".copy-text");
+          const originalText = textSpan.textContent;
 
+          button.disabled = true;
+          textSpan.textContent = "コピーしました！";
+          showStatusMessage("コマンドをコピーしました", "success");
 
-  function renderAICharacterNicknames(container, nicknames) {
-    container.innerHTML = "";
-    Object.entries(nicknames).forEach(([userId, nickname]) => {
-      const entry = createNicknameEntry(userId, nickname);
-      container.appendChild(entry);
+          setTimeout(() => {
+            button.disabled = false;
+            textSpan.textContent = originalText;
+          }, 2000);
+        } catch (err) {
+          console.error("コピーに失敗:", err);
+          showStatusMessage("コマンドのコピーに失敗しました", "error");
+        }
+      }
     });
-  }
-
-  function addNicknameToAICharacter(container, aiId) {
-    const entry = createNicknameEntry("", "");
-    container.appendChild(entry);
-    markAICharacterAsModified(aiId);
-  }
-
-  function toggleAIEditForm(card) {
-    const elements = getAICardElements(card);
-    const isVisible = elements.editForm.style.display !== "none";
-    elements.editForm.style.display = isVisible ? "none" : "block";
   }
 
   // ================ データ取得と保存の関数 ================
@@ -857,19 +877,19 @@ if (aiList) {
   if (aiList) {
     // 編集・削除・保存のイベント処理
     aiList.addEventListener("click", async (e) => {
-        const target = e.target;
-        const card = target.closest(".ai-card");
-        if (!card) return;
-                if (target.classList.contains("copy-command-btn")) {
-            const commandText = target.previousElementSibling.textContent;
-            try {
-                await navigator.clipboard.writeText(commandText);
-                showStatusMessage("コマンドをコピーしました", "success");
-            } catch (err) {
-                showStatusMessage("コマンドのコピーに失敗しました", "error");
-            }
-            return;
+      const target = e.target;
+      const card = target.closest(".ai-card");
+      if (!card) return;
+      if (target.classList.contains("copy-command-btn")) {
+        const commandText = target.previousElementSibling.textContent;
+        try {
+          await navigator.clipboard.writeText(commandText);
+          showStatusMessage("コマンドをコピーしました", "success");
+        } catch (err) {
+          showStatusMessage("コマンドのコピーに失敗しました", "error");
         }
+        return;
+      }
       const aiId = card.dataset.aiId;
       if (target.classList.contains("edit-ai-btn")) {
         toggleAIEditForm(card);
@@ -1187,21 +1207,21 @@ if (aiList) {
     }
   });
 
-function showStatusMessage(message, type = "info") {
+  function showStatusMessage(message, type = "info") {
     const statusMessage = document.getElementById("status-message");
     if (!statusMessage) return;
 
     statusMessage.textContent = message;
     statusMessage.className = `status-message ${type}`;
-    
+
     if (type !== "error") {
-        setTimeout(() => {
-            if (statusMessage.textContent === message) {
-                statusMessage.textContent = "";
-            }
-        }, 3000);
+      setTimeout(() => {
+        if (statusMessage.textContent === message) {
+          statusMessage.textContent = "";
+        }
+      }, 3000);
     }
-}
+  }
   // --- すべての設定を保存 ---
   saveAllBtn.addEventListener("click", async () => {
     const user = auth.currentUser;

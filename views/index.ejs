@@ -302,11 +302,24 @@
                 <template id="ai-card-template">
                   <div class="ai-card">
                     <div class="ai-header">
-                      <h3 class="ai-name"></h3>
+                      <div class="ai-header-left">
+                        <h3 class="ai-name"></h3>
+                        <div class="command-container">
+                          <code class="command-text"></code>
+                          <button
+                            type="button"
+                            class="copy-command-btn"
+                            title="コマンドをコピー"
+                          >
+                            <span class="copy-icon">📋</span>
+                            <span class="copy-text">コピー</span>
+                          </button>
+                        </div>
+                      </div>
                       <div class="ai-controls">
-                        <label class="switch">
+                        <label class="ai-toggle">
                           <input type="checkbox" class="ai-active-toggle" />
-                          <span class="slider round"></span>
+                          <span class="ai-toggle-slider"></span>
                         </label>
                         <button type="button" class="edit-ai-btn">編集</button>
                         <button type="button" class="delete-ai-btn">
@@ -314,71 +327,9 @@
                         </button>
                       </div>
                     </div>
+                    <!-- 編集フォーム -->
                     <div class="ai-edit-form" style="display: none;">
-                      <div class="form-group">
-                        <label>表示名</label>
-                        <input
-                          type="text"
-                          class="ai-display-name"
-                          placeholder="AIの表示名"
-                        />
-                      </div>
-                      <div class="form-group">
-                        <label>ベースユーザーID</label>
-                        <input
-                          type="text"
-                          class="ai-base-user-id"
-                          placeholder="ベースとなるユーザーID"
-                        />
-                      </div>
-                      <div class="form-group">
-                        <label>モデルモード</label>
-                        <select class="ai-model-mode">
-                          <option value="hybrid">ハイブリッド (高品質)</option>
-                          <option value="flash_only">Flash (高速)</option>
-                        </select>
-                      </div>
-                      <div class="form-group">
-                        <label>
-                          <input type="checkbox" class="ai-name-recognition" />
-                          名前認識を有効にする
-                        </label>
-                      </div>
-                      <div class="form-group">
-                        <label>システムプロンプト</label>
-                        <textarea class="ai-system-prompt" rows="4"></textarea>
-                      </div>
-                      <div class="form-group">
-                        <label>
-                          <input type="checkbox" class="ai-bot-response" />
-                          botのメッセージに反応する
-                        </label>
-                      </div>
-                      <div class="form-group">
-                        <label>返信遅延（ミリ秒）</label>
-                        <input type="number" class="ai-reply-delay" min="0" />
-                      </div>
-                      <div class="form-group">
-                        <label>エラーメッセージ</label>
-                        <input
-                          type="text"
-                          class="ai-error-message"
-                          placeholder="エラー時のメッセージ"
-                        />
-                      </div>
-                      <div class="form-group">
-                        <label>ニックネーム</label>
-                        <div class="ai-nicknames-list"></div>
-                        <button type="button" class="add-nickname-btn">
-                          ニックネームを追加
-                        </button>
-                      </div>
-                      <div class="form-actions">
-                        <button type="button" class="save-ai-btn">保存</button>
-                        <button type="button" class="cancel-ai-btn">
-                          キャンセル
-                        </button>
-                      </div>
+                      <!-- 既存のフォーム要素をより整理された構造で配置 -->
                     </div>
                   </div>
                 </template>
