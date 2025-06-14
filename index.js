@@ -346,6 +346,7 @@ adminRouter.get("/api/ai/characters", verifyFirebaseToken, async (req, res) => {
   }
 });
 
+// AIキャラクター関連のAPIエンドポイント - POST部分の修正
 adminRouter.post(
   "/api/ai/characters",
   verifyFirebaseToken,
@@ -371,30 +372,12 @@ adminRouter.post(
         });
       }
 
-      // スラッシュコマンド用の名前を検証
-      const commandName = name.toLowerCase().replace(/[^a-z0-9]/g, "");
-      if (!commandName) {
-        return res.status(400).json({
-          message: "名前には少なくとも1つのアルファベットか数字が必要です",
-        });
-      }
-
-      // 既存のキャラクター名の重複チェック
-      const existingCharacter = await db
-        .collection("ai_characters")
-        .where("name", "==", name)
-        .limit(1)
-        .get();
-
-      if (!existingCharacter.empty) {
-        return res.status(400).json({
-          message: "この名前のAIキャラクターは既に存在します",
-        });
-      }
+      // IDを生成 (短い英数字)
+      const commandId = Math.random().toString(36).substring(2, 8);
 
       const newCharacter = {
         name,
-        commandName,
+        commandId, // 新しいフィールド
         baseUserId,
         systemPrompt,
         modelMode,
@@ -449,30 +432,8 @@ adminRouter.put(
         });
       }
 
-      // スラッシュコマンド用の名前を検証
-      const commandName = name.toLowerCase().replace(/[^a-z0-9]/g, "");
-      if (!commandName) {
-        return res.status(400).json({
-          message: "名前には少なくとも1つのアルファベットか数字が必要です",
-        });
-      }
-
-      // 名前の重複チェック（自分以外）
-      const existingCharacter = await db
-        .collection("ai_characters")
-        .where("name", "==", name)
-        .get();
-
-      const hasConflict = existingCharacter.docs.some((doc) => doc.id !== id);
-      if (hasConflict) {
-        return res.status(400).json({
-          message: "この名前のAIキャラクターは既に存在します",
-        });
-      }
-
       const updateData = {
         name,
-        commandName,
         baseUserId,
         systemPrompt,
         modelMode,

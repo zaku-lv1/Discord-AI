@@ -214,8 +214,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
       cardElement.dataset.aiId = character.id;
       elements.nameDisplay.textContent = character.name || "新規AIキャラクター";
-      elements.commandDisplay.textContent = `/${
-        character.commandName || "未設定"
+      // コマンド表示を新形式に変更
+      elements.commandDisplay.textContent = `/ai ${
+        character.commandId || "未設定"
       }`;
       elements.activeToggle.checked = character.active;
 
@@ -234,7 +235,6 @@ document.addEventListener("DOMContentLoaded", () => {
         elements.nicknamesList,
         character.userNicknames || {}
       );
-
       aiList.appendChild(cardElement);
     });
   }
@@ -726,9 +726,9 @@ document.addEventListener("DOMContentLoaded", () => {
       try {
         const token = await auth.currentUser.getIdToken();
         const newCharacter = {
-          name: "新規AIキャラクター", // デフォルト名を設定
-          baseUserId: "仮のID", // 仮のIDを設定
-          systemPrompt: "デフォルトのプロンプトです。後で編集してください。", // 仮のプロンプト
+          name: "新規AIキャラクター",
+          baseUserId: "仮のID",
+          systemPrompt: "デフォルトのプロンプトです。後で編集してください。",
           modelMode: "hybrid",
           enableNameRecognition: true,
           enableBotMessageResponse: false,
@@ -756,15 +756,12 @@ document.addEventListener("DOMContentLoaded", () => {
         state.aiCharacters.push({ ...savedCharacter, modified: true });
         renderAICharactersList();
 
-        // 新しく作成したカードの編集フォームを開く
+        // 新しく作成したカードを自動的に編集モードにする
         const newCard = aiList.querySelector(
           `[data-ai-id="${savedCharacter.id}"]`
         );
         if (newCard) {
           toggleAIEditForm(newCard);
-          // ユーザーに編集を促すメッセージを表示
-          statusMessage.textContent =
-            "新しいAIキャラクターを作成しました。必要な情報を入力してください。";
         }
       } catch (error) {
         console.error("AIキャラクター作成エラー:", error);
@@ -772,7 +769,7 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     });
   }
-  
+
   if (aiList) {
     // 編集・削除・保存のイベント処理
     aiList.addEventListener("click", async (e) => {
