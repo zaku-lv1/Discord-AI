@@ -465,7 +465,7 @@ if (aiList) {
   // AIキャラクター保存処理
   async function saveAICharacter(card) {
     const user = auth.currentUser;
-    if (!user) return;
+    if (!user) throw new Error("ユーザーが認証されていません");
 
     const elements = getAICardElements(card);
     const aiId = card.dataset.aiId;
@@ -857,12 +857,20 @@ if (aiList) {
   if (aiList) {
     // 編集・削除・保存のイベント処理
     aiList.addEventListener("click", async (e) => {
-      const target = e.target;
-      const card = target.closest(".ai-card");
-      if (!card) return;
-
+        const target = e.target;
+        const card = target.closest(".ai-card");
+        if (!card) return;
+                if (target.classList.contains("copy-command-btn")) {
+            const commandText = target.previousElementSibling.textContent;
+            try {
+                await navigator.clipboard.writeText(commandText);
+                showStatusMessage("コマンドをコピーしました", "success");
+            } catch (err) {
+                showStatusMessage("コマンドのコピーに失敗しました", "error");
+            }
+            return;
+        }
       const aiId = card.dataset.aiId;
-
       if (target.classList.contains("edit-ai-btn")) {
         toggleAIEditForm(card);
       } else if (target.classList.contains("delete-ai-btn")) {
@@ -1179,18 +1187,21 @@ if (aiList) {
     }
   });
 
-  function showStatusMessage(message, type = "info") {
+function showStatusMessage(message, type = "info") {
     const statusMessage = document.getElementById("status-message");
+    if (!statusMessage) return;
+
     statusMessage.textContent = message;
     statusMessage.className = `status-message ${type}`;
-
+    
     if (type !== "error") {
-      setTimeout(() => {
-        statusMessage.textContent = "";
-      }, 3000);
+        setTimeout(() => {
+            if (statusMessage.textContent === message) {
+                statusMessage.textContent = "";
+            }
+        }, 3000);
     }
-  }
-
+}
   // --- すべての設定を保存 ---
   saveAllBtn.addEventListener("click", async () => {
     const user = auth.currentUser;
