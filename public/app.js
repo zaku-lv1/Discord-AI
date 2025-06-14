@@ -109,6 +109,48 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 
   // ================ ユーティリティ関数 ================
+  function renderAICharactersList() {
+    const aiList = document.getElementById("ai-list");
+    if (!aiList) {
+      console.error("ai-list要素が見つかりません");
+      return;
+    }
+
+    try {
+      aiList.innerHTML = "";
+      state.aiCharacters.forEach((character) => {
+        const cardElement = createAICard(character);
+        if (cardElement) {
+          aiList.appendChild(cardElement);
+        }
+      });
+    } catch (error) {
+      console.error("AIリストレンダリングエラー:", error);
+      showStatusMessage("AIキャラクター一覧の表示に失敗しました", "error");
+    }
+  }
+
+  function createAICard(character) {
+    try {
+      const template = document.getElementById("ai-card-template");
+      if (!template) {
+        throw new Error("AIカードテンプレートが見つかりません");
+      }
+
+      const card = template.content.cloneNode(true);
+      const cardElement = card.querySelector(".ai-card");
+      if (!cardElement) {
+        throw new Error("AIカード要素が見つかりません");
+      }
+
+      // 以下、カードの設定処理
+      return cardElement;
+    } catch (error) {
+      console.error("AIカード作成エラー:", error);
+      return null;
+    }
+  }
+
   function showStatusMessage(message, type = "info") {
     const statusMessage = document.getElementById("status-message");
     statusMessage.textContent = message;
