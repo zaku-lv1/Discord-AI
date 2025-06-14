@@ -1,162 +1,296 @@
-document.addEventListener("DOMContentLoaded", () => {
-  // ================ 状態管理 ================
-  let state = {
-    admins: [],
-    isSuperAdmin: false,
-    scheduleItems: [],
-    aiCharacters: [],
-  };
+// =================================================================================
+// アプリケーションの状態管理
+// =================================================================================
+let state = {
+  admins: [],
+  isSuperAdmin: false,
+  scheduleItems: [],
+  aiCharacters: [],
+  currentUser: null,
+  lastSync: null
+};
 
-  // ================ Firebase初期化 ================
+// =================================================================================
+// ユーティリティ関数とエラー処理
+// =================================================================================
+class APIError extends Error {
+  constructor(message, status, retryable = false) {
+    super(message);
+    this.name = 'APIError';
+    this.status = status;
+    this.retryable = retryable;
+  }
+}
+
+function showStatusMessage(message, type = "info") {
+  const statusElement = document.getElementById("status-message");
+  if (!statusElement) return;
+
+  statusElement.textContent = message;
+  statusElement.className = `status-message ${type}`;
+
+  if (type !== "error") {
+    setTimeout(() => {
+      if (statusElement.textContent === message) {
+        statusElement.textContent = "";
+      }
+    }, 3000);
+  }
+}
+
+const handleError = (error, context = '') => {
+  console.error(`${context}エラー:`, error);
+  let message = 'エラーが発生しました';
+  
+  if (error.code === 'permission-denied') {
+    message = 'アクセス権限がありません';
+  } else if (error.code === 'not-found') {
+    message = '要求されたリソースが見つかりません';
+  } else if (error.message) {
+    message = error.message;
+  }
+  
+  showStatusMessage(`${message}`, 'error');
+};
+
+async function retryOperation(operation, maxRetries = 3, delay = 2000) {
+  let lastError;
+  
+  for (let i = 0; i < maxRetries; i++) {
+    try {
+      return await operation();
+    } catch (error) {
+      lastError = error;
+      
+      if (error instanceof APIError && !error.retryable) {
+        throw error;
+      }
+      
+      if (i < maxRetries - 1) {
+        console.log(`リトライ ${i + 1}/${maxRetries}...`);
+        await new Promise(resolve => setTimeout(resolve, delay * (i + 1)));
+      }
+    }
+  }
+  
+  throw lastError;
+}
+
+// =================================================================================
+// Firebase初期化
+// =================================================================================
+const initializeFirebase = () => {
   try {
-    firebase.initializeApp(firebaseConfig);
+    if (!firebase) {
+      throw new Error('Firebase SDKが読み込まれていません');
+    }
+
+    if (!firebase.apps.length) {
+      firebase.initializeApp(firebaseConfig);
+    }
+
     const auth = firebase.auth();
     const db = firebase.firestore();
+
     if (!auth || !db) {
-      throw new Error('Firebaseの初期化に失敗しました');
+      throw new Error('Firebaseサービスの初期化に失敗しました');
     }
-  } catch (error) {
-    console.error('Firebase初期化エラー:', error);
-    showStatusMessage('システムの初期化に失敗しました', 'error');
-    return;
-  }
 
-  // ================ ユーティリティ関数 ================
-  function showStatusMessage(message, type = "info") {
-    const statusElement = document.getElementById("status-message");
-    if (!statusElement) return;
-
-    statusElement.textContent = message;
-    statusElement.className = `status-message ${type}`;
-
-    if (type !== "error") {
-      setTimeout(() => {
-        if (statusElement.textContent === message) {
-          statusElement.textContent = "";
-        }
-      }, 3000);
-    }
-  }
-
-  async function fetchWithAuth(endpoint, options = {}) {
-    try {
-      const user = auth.currentUser;
-      if (!user) {
-        throw new Error('認証されていません');
-      }
-
-      const token = await user.getIdToken();
-      const response = await fetch(endpoint, {
-        ...options,
-        headers: {
-          ...options.headers,
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json"
+    // Firestoreの設定
+    db.settings({
+      cacheSizeBytes: firebase.firestore.CACHE_SIZE_UNLIMITED
+    });
+    db.enablePersistence()
+      .catch((err) => {
+        if (err.code === 'failed-precondition') {
+          console.warn('複数タブでの永続化に失敗しました');
+        } else if (err.code === 'unimplemented') {
+          console.warn('ブラウザが永続化に対応していません');
         }
       });
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.message || `APIエラー (${response.status})`);
-      }
-
-      return await response.json();
-    } catch (error) {
-      console.error('API呼び出しエラー:', error);
-      throw error;
-    }
+    return { auth, db };
+  } catch (error) {
+    console.error('Firebase初期化エラー:', error);
+    showStatusMessage('システムの初期化に失敗しました', 'error');
+    throw error;
   }
+};
 
-  // ================ リアルタイム更新 ================
-  function setupRealtimeUpdates() {
-    return db.collection("ai_characters").onSnapshot(
-      (snapshot) => {
-        let hasChanges = false;
-        try {
-          snapshot.docChanges().forEach((change) => {
-            if (change.type === "added") {
-              const newCharacter = { id: change.doc.id, ...change.doc.data() };
-              if (!state.aiCharacters.some(char => char.id === newCharacter.id)) {
-                state.aiCharacters.push({ ...newCharacter, modified: false });
-                hasChanges = true;
-              }
-            } else if (change.type === "modified") {
-              const updatedCharacter = { id: change.doc.id, ...change.doc.data() };
-              const index = state.aiCharacters.findIndex(char => char.id === updatedCharacter.id);
-              if (index !== -1) {
-                state.aiCharacters[index] = { ...updatedCharacter, modified: false };
-                hasChanges = true;
-              }
-            } else if (change.type === "removed") {
-              state.aiCharacters = state.aiCharacters.filter(char => char.id !== change.doc.id);
-              hasChanges = true;
-            }
-          });
+// =================================================================================
+// APIリクエストの共通処理
+// =================================================================================
+// =================================================================================
+// アプリケーションの状態管理
+// =================================================================================
+let state = {
+  admins: [],
+  isSuperAdmin: false,
+  scheduleItems: [],
+  aiCharacters: [],
+  currentUser: null,
+  lastSync: new Date("2025-06-14 04:31:42"),
+  serverTime: new Date("2025-06-14 04:31:42")
+};
 
-          if (hasChanges) {
-            renderAICharactersList();
-          }
-        } catch (error) {
-          console.error('リアルタイム更新処理エラー:', error);
-          showStatusMessage('データの更新処理に失敗しました', 'error');
-        }
-      },
-      (error) => {
-        console.error('Firestoreリスナーエラー:', error);
-        if (error.code === 'permission-denied') {
-          showStatusMessage('アクセス権限がありません', 'error');
-        } else {
-          showStatusMessage('データベース接続エラー', 'error');
-        }
-      }
-    );
+// =================================================================================
+// ユーティリティ関数とエラー処理
+// =================================================================================
+class APIError extends Error {
+  constructor(message, status, retryable = false) {
+    super(message);
+    this.name = 'APIError';
+    this.status = status;
+    this.retryable = retryable;
+    this.timestamp = new Date("2025-06-14 04:31:42");
   }
+}
 
-  // ================ 認証状態監視 ================
-  let unsubscribe = null;
+function showStatusMessage(message, type = "info") {
+  const statusElement = document.getElementById("status-message");
+  if (!statusElement) return;
 
-  auth.onAuthStateChanged(async (user) => {
+  statusElement.textContent = message;
+  statusElement.className = `status-message ${type}`;
+
+  if (type !== "error") {
+    setTimeout(() => {
+      if (statusElement.textContent === message) {
+        statusElement.textContent = "";
+      }
+    }, 3000);
+  }
+}
+
+const handleError = (error, context = '') => {
+  console.error(`${context}エラー [${new Date("2025-06-14 04:31:42").toISOString()}]:`, error);
+  let message = 'エラーが発生しました';
+  
+  if (error.code === 'permission-denied') {
+    message = 'アクセス権限がありません。管理者に連絡してください。';
+  } else if (error.code === 'not-found') {
+    message = '要求されたリソースが見つかりません';
+  } else if (error.message) {
+    message = error.message;
+  }
+  
+  showStatusMessage(`${message}`, 'error');
+};
+
+async function retryOperation(operation, maxRetries = 3, delay = 2000) {
+  let lastError;
+  
+  for (let i = 0; i < maxRetries; i++) {
     try {
-      // ローディング表示の制御
-      loaderContainer.style.display = 'none';
-      pageContainer.style.display = 'block';
-
-      if (user) {
-        console.log('ログインユーザー:', user.email);
-        
-        // UI表示切替
-        authContainer.style.display = 'none';
-        mainContent.style.display = 'block';
-        
-        // データ取得
-        await fetchSettings(user);
-        
-        // リアルタイム更新のセットアップ
-        if (unsubscribe) {
-          unsubscribe();
-        }
-        unsubscribe = setupRealtimeUpdates();
-        
-      } else {
-        console.log('未ログイン状態');
-        
-        if (unsubscribe) {
-          unsubscribe();
-          unsubscribe = null;
-        }
-        
-        // UI表示切替
-        authContainer.style.display = 'block';
-        mainContent.style.display = 'none';
-        loginForm.style.display = 'block';
-        registerForm.style.display = 'none';
-      }
-
+      return await operation();
     } catch (error) {
-      console.error('認証状態変更エラー:', error);
-      showStatusMessage('エラーが発生しました: ' + error.message, 'error');
+      lastError = error;
+      console.log(`[${new Date("2025-06-14 04:31:42").toISOString()}] 操作失敗 (${i + 1}/${maxRetries}):`, error.message);
+      
+      if (error instanceof APIError && !error.retryable) {
+        throw error;
+      }
+      
+      if (i < maxRetries - 1) {
+        await new Promise(resolve => setTimeout(resolve, delay * (i + 1)));
+      }
     }
-  });
+  }
+  
+  throw lastError;
+}
+
+// =================================================================================
+// Firebase初期化
+// =================================================================================
+const initializeFirebase = () => {
+  try {
+    if (!firebase) {
+      throw new Error('Firebase SDKが読み込まれていません');
+    }
+
+    if (!firebase.apps.length) {
+      firebase.initializeApp(firebaseConfig);
+    }
+
+    const auth = firebase.auth();
+    const db = firebase.firestore();
+
+    if (!auth || !db) {
+      throw new Error('Firebaseサービスの初期化に失敗しました');
+    }
+
+    // Firestoreの設定
+    db.settings({
+      cacheSizeBytes: firebase.firestore.CACHE_SIZE_UNLIMITED
+    });
+    db.enablePersistence({
+      synchronizeTabs: true
+    }).catch((err) => {
+      if (err.code === 'failed-precondition') {
+        console.warn('複数タブでの永続化に失敗しました');
+      } else if (err.code === 'unimplemented') {
+        console.warn('ブラウザが永続化に対応していません');
+      }
+    });
+
+    return { auth, db };
+  } catch (error) {
+    console.error('Firebase初期化エラー:', error);
+    showStatusMessage('システムの初期化に失敗しました', 'error');
+    throw error;
+  }
+};
+
+// =================================================================================
+// APIリクエストの共通処理
+// =================================================================================
+async function fetchWithAuth(endpoint, options = {}) {
+  try {
+    const user = firebase.auth().currentUser;
+    if (!user) {
+      throw new APIError('認証されていません', 401, false);
+    }
+
+    // トークンの強制更新
+    const token = await user.getIdToken(true);
+    const response = await fetch(endpoint, {
+      ...options,
+      headers: {
+        ...options.headers,
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0',
+        'X-Request-Time': new Date("2025-06-14 04:31:42").toISOString()
+      }
+    });
+
+    if (response.status === 502) {
+      throw new APIError('サーバーが一時的に利用できません。しばらく待ってから再試行してください。', 502, true);
+    }
+
+    const contentType = response.headers.get('content-type');
+    if (contentType && contentType.includes('text/html')) {
+      throw new APIError('サーバーが正しく応答していません（HTMLが返されました）', 500, true);
+    }
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new APIError(
+        errorData.message || `APIエラー (${response.status})`, 
+        response.status,
+        response.status >= 500
+      );
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error('API呼び出しエラー:', error);
+    throw error;
+  }
+}
 
   loginBtn.addEventListener("click", () => {
     const email = document.getElementById("login-email").value;
