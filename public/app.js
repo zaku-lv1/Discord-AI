@@ -726,9 +726,9 @@ document.addEventListener("DOMContentLoaded", () => {
       try {
         const token = await auth.currentUser.getIdToken();
         const newCharacter = {
-          name: "新規AIキャラクター",
-          baseUserId: "",
-          systemPrompt: "",
+          name: "新規AIキャラクター", // デフォルト名を設定
+          baseUserId: "仮のID", // 仮のIDを設定
+          systemPrompt: "デフォルトのプロンプトです。後で編集してください。", // 仮のプロンプト
           modelMode: "hybrid",
           enableNameRecognition: true,
           enableBotMessageResponse: false,
@@ -762,17 +762,17 @@ document.addEventListener("DOMContentLoaded", () => {
         );
         if (newCard) {
           toggleAIEditForm(newCard);
+          // ユーザーに編集を促すメッセージを表示
+          statusMessage.textContent =
+            "新しいAIキャラクターを作成しました。必要な情報を入力してください。";
         }
-
-        statusMessage.textContent =
-          "新しいAIキャラクターを作成しました。必要な情報を入力してください。";
       } catch (error) {
         console.error("AIキャラクター作成エラー:", error);
         statusMessage.textContent = `エラー: ${error.message}`;
       }
     });
   }
-
+  
   if (aiList) {
     // 編集・削除・保存のイベント処理
     aiList.addEventListener("click", async (e) => {
