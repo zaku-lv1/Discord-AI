@@ -55,6 +55,7 @@ h3 {
 p { line-height: 1.7; }
 hr { border: none; border-top: 1px solid rgba(0, 0, 0, 0.1); margin: 2.5rem 0; }
 
+/* ▼▼▼ このセレクタに select を追加し、appearance と background関連のプロパティを追加しました ▼▼▼ */
 input[type="email"], input[type="password"], input[type="text"], input[type="time"], input[type="number"], textarea, select {
     width: 100%;
     padding: 14px;
@@ -166,6 +167,7 @@ input:checked + .slider:before { transform: translateX(24px); }
 #save-schedule-items-btn { background-image: linear-gradient(to right, #ffc107, #ffb300, #ffa000); box-shadow: 0 4px 15px 0 rgba(255, 193, 7, 0.4); }
 #save-schedule-items-btn:hover:not(:disabled) { background-position: right center; transform: translateY(-2px); box-shadow: 0 6px 20px 0 rgba(255, 193, 7, 0.5); }
 
+
 /* ========== レスポンシブ対応 ========== */
 @media (max-width: 768px) {
     .container { padding: 1.5rem 1rem; }
@@ -181,7 +183,7 @@ input:checked + .slider:before { transform: translateX(24px); }
     .super-admin-label { text-align: right; margin: -10px 0 5px 0; }
 }
 
-/* ロード画面のスタイル */
+/* ▼▼▼ ロード画面のスタイルを追加 ▼▼▼ */
 .loader-container {
     display: flex;
     flex-direction: column;
@@ -390,11 +392,4 @@ input:checked + .slider:before { transform: translateX(24px); }
     background-position: right center;
     transform: translateY(-2px);
     box-shadow: 0 6px 20px 0 rgba(76, 175, 80, 0.5);
-}
-
-/* 必須項目のラベルに * を付ける */
-.form-group label[for] + input[required]::after,
-.form-group label[for] + textarea[required]::after {
-  content: " *";
-  color: red;
 }
