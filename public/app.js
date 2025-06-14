@@ -197,6 +197,14 @@ document.addEventListener("DOMContentLoaded", () => {
     };
   }
 
+  // AIキャラクターの変更を追跡する関数を追加
+  function markAICharacterAsModified(aiId) {
+    const character = state.aiCharacters.find((char) => char.id === aiId);
+    if (character) {
+      character.modified = true;
+    }
+  }
+
   function renderAICharactersList() {
     aiList.innerHTML = "";
     state.aiCharacters.forEach((character) => {
@@ -205,17 +213,20 @@ document.addEventListener("DOMContentLoaded", () => {
       const elements = getAICardElements(cardElement);
 
       cardElement.dataset.aiId = character.id;
-      elements.nameDisplay.textContent = character.name;
-      elements.commandDisplay.textContent = `/${character.commandName}`;
+      elements.nameDisplay.textContent = character.name || "新規AIキャラクター";
+      elements.commandDisplay.textContent = `/${
+        character.commandName || "未設定"
+      }`;
       elements.activeToggle.checked = character.active;
 
-      elements.displayNameInput.value = character.name;
-      elements.baseUserIdInput.value = character.baseUserId;
+      elements.displayNameInput.value = character.name || "";
+      elements.baseUserIdInput.value = character.baseUserId || "";
       elements.modelModeSelect.value = character.modelMode || "hybrid";
       elements.nameRecognitionCheckbox.checked =
-        character.enableNameRecognition;
-      elements.systemPromptTextarea.value = character.systemPrompt;
-      elements.botResponseCheckbox.checked = character.enableBotMessageResponse;
+        character.enableNameRecognition ?? true;
+      elements.systemPromptTextarea.value = character.systemPrompt || "";
+      elements.botResponseCheckbox.checked =
+        character.enableBotMessageResponse ?? false;
       elements.replyDelayInput.value = character.replyDelayMs || 0;
       elements.errorMessageInput.value = character.errorOopsMessage || "";
 
@@ -234,6 +245,12 @@ document.addEventListener("DOMContentLoaded", () => {
       const entry = createNicknameEntry(userId, nickname);
       container.appendChild(entry);
     });
+  }
+
+  function addNicknameToAICharacter(container, aiId) {
+    const entry = createNicknameEntry("", "");
+    container.appendChild(entry);
+    markAICharacterAsModified(aiId);
   }
 
   function toggleAIEditForm(card) {
@@ -335,6 +352,96 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     statusMessage.textContent = finalStatusMessage;
+  }
+
+  // --- AI管理関連のデータ操作関数 ---
+  async function fetchAICharacters() {
+    const user = auth.currentUser;
+    if (!user) return;
+
+    try {
+      const token = await user.getIdToken();
+      const response = await fetch("/api/ai/characters", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(
+          error.message || "AIキャラクター一覧の取得に失敗しました"
+        );
+      }
+
+      state.aiCharacters = (await response.json()).map(char => ({
+        ...char,
+        modified: false  // 修正フラグを追加
+      renderAICharactersList();
+      return state.aiCharacters;
+    } catch (error) {
+      console.error("AIキャラクター一覧取得エラー:", error);
+      statusMessage.textContent = `エラー: ${error.message}`;
+    }
+  }
+
+  async function saveAICharacter(card) {
+    const user = auth.currentUser;
+    if (!user) return;
+
+    const elements = getAICardElements(card);
+    const aiId = card.dataset.aiId;
+
+    try {
+      // ニックネームの収集
+      const nicknames = {};
+      card.querySelectorAll(".nickname-entry").forEach((entry) => {
+        const userId = entry.querySelector(".nickname-id").value.trim();
+        const nickname = entry.querySelector(".nickname-name").value.trim();
+        if (userId && nickname) {
+          nicknames[userId] = nickname;
+        }
+      });
+
+      const data = {
+        name: elements.displayNameInput.value,
+        baseUserId: elements.baseUserIdInput.value,
+        systemPrompt: elements.systemPromptTextarea.value,
+        modelMode: elements.modelModeSelect.value,
+        enableNameRecognition: elements.nameRecognitionCheckbox.checked,
+        enableBotMessageResponse: elements.botResponseCheckbox.checked,
+        replyDelayMs: parseInt(elements.replyDelayInput.value) || 0,
+        errorOopsMessage: elements.errorMessageInput.value,
+        userNicknames: nicknames,
+        active: elements.activeToggle.checked,
+      };
+
+      const token = await user.getIdToken();
+      const response = await fetch(`/api/ai/characters/${aiId}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(data),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || "AIキャラクターの更新に失敗しました");
+      }
+
+      const result = await response.json();
+      const index = state.aiCharacters.findIndex((char) => char.id === aiId);
+      if (index !== -1) {
+        state.aiCharacters[index] = { ...result };
+      }
+
+      renderAICharactersList();
+      statusMessage.textContent = result.message;
+      toggleAIEditForm(card);
+    } catch (error) {
+      console.error("AIキャラクター更新エラー:", error);
+      statusMessage.textContent = `エラー: ${error.message}`;
+    }
   }
 
   saveProfileBtn.addEventListener("click", async () => {
@@ -599,6 +706,138 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
+  // --- AI管理関連のイベントリスナー ---
+  if (addAIBtn) {
+    addAIBtn.addEventListener("click", async () => {
+      try {
+        const token = await auth.currentUser.getIdToken();
+        const response = await fetch("/api/ai/characters", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            name: "",
+            baseUserId: "",
+            systemPrompt: "",
+            modelMode: "hybrid",
+            enableNameRecognition: true,
+            enableBotMessageResponse: false,
+            replyDelayMs: 0,
+            errorOopsMessage: "",
+            userNicknames: {},
+            active: false,
+          }),
+        });
+
+        if (!response.ok) {
+          const error = await response.json();
+          throw new Error(error.message);
+        }
+
+        const newCharacter = await response.json();
+        state.aiCharacters.push(newCharacter);
+        renderAICharactersList();
+
+        // 新しく作成したカードの編集フォームを開く
+        const newCard = aiList.querySelector(
+          `[data-ai-id="${newCharacter.id}"]`
+        );
+        if (newCard) {
+          toggleAIEditForm(newCard);
+        }
+      } catch (error) {
+        console.error("AIキャラクター作成エラー:", error);
+        statusMessage.textContent = `エラー: ${error.message}`;
+      }
+    });
+  }
+
+  if (aiList) {
+    // 編集・削除・保存のイベント
+    aiList.addEventListener("click", async (e) => {
+      const target = e.target;
+      const card = target.closest(".ai-card");
+      if (!card) return;
+
+      const aiId = card.dataset.aiId;
+      const elements = getAICardElements(card);
+
+      if (target.classList.contains("edit-ai-btn")) {
+        toggleAIEditForm(card);
+      } else if (target.classList.contains("delete-ai-btn")) {
+        if (confirm("このAIキャラクターを削除してもよろしいですか？")) {
+          try {
+            const token = await auth.currentUser.getIdToken();
+            const response = await fetch(`/api/ai/characters/${aiId}`, {
+              method: "DELETE",
+              headers: { Authorization: `Bearer ${token}` },
+            });
+
+            if (!response.ok) {
+              const error = await response.json();
+              throw new Error(error.message);
+            }
+
+            state.aiCharacters = state.aiCharacters.filter(
+              (char) => char.id !== aiId
+            );
+            renderAICharactersList();
+            statusMessage.textContent = "削除しました";
+          } catch (error) {
+            console.error("AIキャラクター削除エラー:", error);
+            statusMessage.textContent = `エラー: ${error.message}`;
+          }
+        }
+      } else if (target.classList.contains("save-ai-btn")) {
+        await saveAICharacter(card);
+      } else if (target.classList.contains("cancel-ai-btn")) {
+        toggleAIEditForm(card);
+      } else if (target.classList.contains("add-nickname-btn")) {
+        const nicknamesList = elements.nicknamesList;
+        createNicknameEntry("", "");
+      }
+    });
+
+    // アクティブ状態の切り替え
+    aiList.addEventListener("change", async (e) => {
+      const target = e.target;
+      if (target.classList.contains("ai-active-toggle")) {
+        const card = target.closest(".ai-card");
+        const aiId = card.dataset.aiId;
+        try {
+          const token = await auth.currentUser.getIdToken();
+          const response = await fetch(`/api/ai/characters/${aiId}/status`, {
+            method: "PUT",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({ active: target.checked }),
+          });
+
+          if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.message);
+          }
+
+          const character = state.aiCharacters.find((char) => char.id === aiId);
+          if (character) {
+            character.active = target.checked;
+          }
+
+          const result = await response.json();
+          statusMessage.textContent = result.message;
+        } catch (error) {
+          console.error("AIキャラクター状態更新エラー:", error);
+          statusMessage.textContent = `エラー: ${error.message}`;
+          target.checked = !target.checked; // エラー時は元の状態に戻す
+        }
+      }
+    });
+  }
+
   // --- スケジュールパネル ---
   addScheduleItemBtn.addEventListener("click", () => {
     state.scheduleItems.push(["", "", ""]);
@@ -860,6 +1099,20 @@ document.addEventListener("DOMContentLoaded", () => {
         errorOopsMessage: errorOopsMessageInput.value.trim(),
       };
 
+      // AIキャラクターの保存（変更があるものだけ）
+      const aiPromises = state.aiCharacters
+        .filter((char) => char.modified)
+        .map((char) =>
+          fetch(`/api/ai/characters/${char.id}`, {
+            method: "PUT",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify(char),
+          })
+        );
+
       // スケジュール設定
       const scheduleSettings = {
         remindersEnabled: remindersEnabledCheckbox.checked,
@@ -891,6 +1144,7 @@ document.addEventListener("DOMContentLoaded", () => {
           },
           body: JSON.stringify(scheduleSettings),
         }),
+        ...aiPromises, // AIキャラクター関連のPromiseを追加
       ];
 
       if (state.isSuperAdmin) {
