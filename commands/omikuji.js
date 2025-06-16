@@ -24,12 +24,13 @@ module.exports = {
     // 元のコードでは結果が6つ、重みが7つだったので「大凶」を追加して整合性をとりました。
     // =================================================================================
     const fortunes = [
-      { name: "大吉", imageUrl: "https://i.ibb.co/CwD67y5/5.png", weight: 15 },
-      { name: "中吉", imageUrl: "https://i.ibb.co/CP0P5n5/3.png", weight: 20 },
-      { name: "小吉", imageUrl: "https://i.ibb.co/GRhTSHh/image.png", weight: 25 },
-      { name: "吉", imageUrl: "https://i.ibb.co/TqnpK7Q/4.png", weight: 20 },
-      { name: "末吉", imageUrl: "https://i.ibb.co/5rXXv7b/2.png", weight: 15 },
-      { name: "凶", imageUrl: "https://i.ibb.co/W6y4YrN/1.png", weight: 10 },
+      { name: "大吉", imageUrl: "https://i.imgur.com/IIatUFN.png", weight: 15 },
+      { name: "中吉", imageUrl: "https://i.imgur.com/eG581X3.png", weight: 20 },
+      { name: "小吉", imageUrl: "https://i.imgur.com/ynGiAM7.png", weight: 25 },
+      { name: "吉", imageUrl: "https://i.imgur.com/TFPScYW.png", weight: 20 },
+      { name: "末吉", imageUrl: "https://i.imgur.com/4WITf7Q.png", weight: 15 },
+      { name: "凶", imageUrl: "https://i.imgur.com/pAUIGeM.png", weight: 10 },
+      { name: "大凶", imageUrl: "https://i.imgur.com/Wvh3mdz.png", weight: 5 },
     ];
 
     // --- 重み付け抽選ロジック ---
@@ -64,13 +65,23 @@ module.exports = {
 
 # ルール
 - 30文字程度で、簡潔にしてください。
-- 詩的で、少しユーモアのある表現を心がけてください。
+- 野獣先輩や淫夢厨の発言を元作って。
 - 前置きや挨拶、結果の繰り返し（「${selectedFortune.name}ですね」など）は一切不要です。
 - アドバイスの文章そのものだけを出力してください。
 
 # 例
-結果が「大吉」の場合の出力例: 天高く馬肥ゆる秋、食べ過ぎには注意。
-結果が「凶」の場合の出力例: 落とし穴は、忘れた頃にやってくる。`;
+- 「お前のことが好きだったんだよ！」 思いがけない幸運が訪れる。待ち人、来ますねぇ！
+- ああ＾～いいっすね～ 何をやってもうまくいく絶頂の一日。願い事も叶う。
+- やりますねぇ！ 努力が認められる時。ただし油断は（アカン）。
+- まずうちさぁ、寄ってかない？ 良い出会いや新しい発見がありそう。
+- アイスティーしかなかったけど… ささやかな幸せに満たされる一日。高望みは禁物。
+- 今日はもう帰って、どうぞ。 何事もなく平穏無事。休息が吉。
+- しょうがねぇなぁ。 少し苦労するが、助けが現れ、最終的には解決する。
+- 24歳、学生です。 初心に帰ることで道が開ける。学びが鍵。
+- アツゥイ！ 人間関係のトラブルや火の元に要注意。冷静になろう。
+- （間に合わな）いかな。 計画に遅れが生じる暗示。早めに見直しを。
+- ファッ！？ すべてが水の泡になる可能性。もう眠るしかない。
+- どうしてくれんのこれ。 四面楚歌。誰も助けてくれない。しばらくは我慢。`;
 
       const result = await model.generateContent(prompt);
       const response = await result.response;
