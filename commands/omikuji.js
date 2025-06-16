@@ -110,6 +110,7 @@ module.exports = {
 - 見たけりゃ見せてやるよ
 - アッー!
 - 最後が気持ちよかった(小並感)
+- ま、多少はね？
 `;
 
       const result = await model.generateContent(prompt);
