@@ -1,8 +1,4 @@
 document.addEventListener("DOMContentLoaded", () => {
-  // ================ Firebase初期化 ================
-  firebase.initializeApp(firebaseConfig);
-  const auth = firebase.auth();
-
   // ================ DOM要素の参照 ================
   // --- 共通要素 ---
   const loaderContainer = document.getElementById("loader-container");
@@ -12,14 +8,9 @@ document.addEventListener("DOMContentLoaded", () => {
   const statusMessage = document.getElementById("status-message");
 
   // --- 認証関連要素 ---
-  const loginForm = document.getElementById("login-form");
-  const registerForm = document.getElementById("register-form");
-  const loginBtn = document.getElementById("login-btn");
-  const registerBtn = document.getElementById("register-btn");
-  const forgotPasswordLink = document.getElementById("forgot-password-link");
-  const showRegisterFormLink = document.getElementById("show-register-form-link");
-  const showLoginFormLink = document.getElementById("show-login-form-link");
-  const userEmailEl = document.getElementById("user-email");
+  const discordLoginForm = document.getElementById("discord-login-form");
+  const userDisplayNameEl = document.getElementById("user-display-name");
+  const userAvatarEl = document.getElementById("user-avatar");
   const logoutBtn = document.getElementById("logout-btn");
 
   // --- ナビゲーション要素 ---
@@ -30,6 +21,8 @@ document.addEventListener("DOMContentLoaded", () => {
   // --- プロファイル要素 ---
   const profileDisplayNameInput = document.getElementById("profile-display-name");
   const profileEmailInput = document.getElementById("profile-email");
+  const discordUsernameInput = document.getElementById("discord-username");
+  const discordIdInput = document.getElementById("discord-id");
   const saveProfileBtn = document.getElementById("save-profile-btn");
 
   // --- AI管理要素 ---
@@ -51,21 +44,86 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // ================ アプリケーションの状態 ================
   let state = {
+    user: null,
     admins: [],
     isSuperAdmin: false,
     aiList: [],
     currentEditingAi: null
   };
 
+  // ================ 認証状態チェック ================
+  async function checkAuthStatus() {
+    try {
+      const response = await fetch('/auth/user', {
+        credentials: 'include'
+      });
+      const authData = await response.json();
+      
+      if (authData.authenticated) {
+        state.user = authData.user;
+        showMainContent();
+        await fetchSettings();
+      } else {
+        showAuthContainer();
+      }
+    } catch (error) {
+      console.error('認証状態の確認に失敗:', error);
+      showAuthContainer();
+    }
+  }
+
+  function showAuthContainer() {
+    loaderContainer.style.display = "none";
+    pageContainer.style.display = "block";
+    authContainer.style.display = "block";
+    mainContent.style.display = "none";
+    
+    // URLパラメータをチェックして認証エラーを表示
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('error') === 'auth_failed') {
+      statusMessage.textContent = 'Discord認証に失敗しました。再度お試しください。';
+    } else if (urlParams.get('auth') === 'success') {
+      statusMessage.textContent = '認証に成功しました。読み込み中...';
+      // 成功時は少し待ってから再チェック
+      setTimeout(checkAuthStatus, 1000);
+    }
+  }
+
+  function showMainContent() {
+    loaderContainer.style.display = "none";
+    pageContainer.style.display = "block";
+    authContainer.style.display = "none";
+    mainContent.style.display = "block";
+    
+    // ユーザー情報を表示
+    if (state.user) {
+      userDisplayNameEl.textContent = state.user.username + 
+        (state.user.discriminator ? `#${state.user.discriminator}` : '');
+      
+      if (state.user.avatar) {
+        const avatarUrl = `https://cdn.discordapp.com/avatars/${state.user.id}/${state.user.avatar}.png?size=64`;
+        userAvatarEl.src = avatarUrl;
+        userAvatarEl.style.display = 'block';
+      }
+      
+      // プロファイル情報を設定
+      if (discordUsernameInput) {
+        discordUsernameInput.value = state.user.username + 
+          (state.user.discriminator ? `#${state.user.discriminator}` : '');
+      }
+      if (discordIdInput) {
+        discordIdInput.value = state.user.id;
+      }
+    }
+  }
+
   // ================ AI管理関数 ================
   async function fetchAiList() {
-    const user = auth.currentUser;
-    if (!user) return;
+    if (!state.user) return;
 
     try {
-      const token = await user.getIdToken();
       const response = await fetch("/api/ais", {
-        headers: { Authorization: `Bearer ${token}` }
+        credentials: 'include'
       });
 
       if (response.ok) {
@@ -125,17 +183,15 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   async function createAi(aiData) {
-    const user = auth.currentUser;
-    if (!user) return;
+    if (!state.user) return;
 
     try {
-      const token = await user.getIdToken();
       const response = await fetch("/api/ais", {
         method: "POST",
         headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`
+          "Content-Type": "application/json"
         },
+        credentials: 'include',
         body: JSON.stringify(aiData)
       });
 
@@ -156,17 +212,15 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   async function updateAi(aiId, aiData) {
-    const user = auth.currentUser;
-    if (!user) return;
+    if (!state.user) return;
 
     try {
-      const token = await user.getIdToken();
       const response = await fetch(`/api/ais/${aiId}`, {
         method: "PUT",
         headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`
+          "Content-Type": "application/json"
         },
+        credentials: 'include',
         body: JSON.stringify(aiData)
       });
 
@@ -186,14 +240,12 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   async function deleteAiById(aiId) {
-    const user = auth.currentUser;
-    if (!user) return;
+    if (!state.user) return;
 
     try {
-      const token = await user.getIdToken();
       const response = await fetch(`/api/ais/${aiId}`, {
         method: "DELETE",
-        headers: { Authorization: `Bearer ${token}` }
+        credentials: 'include'
       });
 
       const result = await response.json();
@@ -282,14 +334,15 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // ================ データ取得関数 ================
-  async function fetchSettings(user) {
+  async function fetchSettings() {
+    if (!state.user) return;
+    
     statusMessage.textContent = "読込中...";
     let finalStatusMessage = "設定を読み込みました。";
 
     try {
-      const token = await user.getIdToken();
       const tokaRes = await fetch("/api/settings/toka", {
-        headers: { Authorization: `Bearer ${token}` },
+        credentials: 'include'
       });
 
       if (tokaRes.status === 403 || tokaRes.status === 401) {
@@ -299,17 +352,17 @@ document.addEventListener("DOMContentLoaded", () => {
       if (tokaRes.ok) {
         const data = await tokaRes.json();
         const currentUserAdminInfo = (data.admins || []).find(
-          (admin) => admin.email === user.email
+          (admin) => admin.email === state.user.email || admin.discordId === state.user.id
         );
 
         if (currentUserAdminInfo) {
           profileDisplayNameInput.value = currentUserAdminInfo.name || "";
-          profileEmailInput.value = user.email || "";
+          profileEmailInput.value = currentUserAdminInfo.email || "";
+        } else {
+          // 新規ユーザーの場合、Discord情報を初期値に設定
+          profileDisplayNameInput.value = state.user.username || "";
+          profileEmailInput.value = state.user.email || "";
         }
-
-        userEmailEl.textContent = currentUserAdminInfo && currentUserAdminInfo.name
-          ? currentUserAdminInfo.name
-          : user.email;
 
         state.admins = data.admins || [];
         state.isSuperAdmin = data.currentUser && data.currentUser.isSuperAdmin;
@@ -322,9 +375,11 @@ document.addEventListener("DOMContentLoaded", () => {
           document.getElementById("invite-code-generator-section").style.display = "none";
         }
       } else if (tokaRes.status === 404) {
-        userEmailEl.textContent = user.displayName || user.email;
+        // 初回セットアップの場合
         state.isSuperAdmin = true;
         adminNavItem.style.display = "block";
+        profileDisplayNameInput.value = state.user.username || "";
+        profileEmailInput.value = state.user.email || "";
       } else {
         const errData = await tokaRes.json().catch(() => ({}));
         throw new Error(errData.message || "設定の読み込みに失敗");
@@ -351,90 +406,15 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   // --- 認証関連 ---
-  auth.onAuthStateChanged((user) => {
-    loaderContainer.style.display = "none";
-    pageContainer.style.display = "block";
-    if (user) {
-      authContainer.style.display = "none";
-      mainContent.style.display = "block";
-      fetchSettings(user);
-    } else {
-      authContainer.style.display = "block";
-      mainContent.style.display = "none";
-      loginForm.style.display = "block";
-      registerForm.style.display = "none";
-    }
-  });
+  // 初期化時に認証状態をチェック
+  checkAuthStatus();
 
-  loginBtn.addEventListener("click", () => {
-    const email = document.getElementById("login-email").value;
-    const password = document.getElementById("login-password").value;
-    auth.signInWithEmailAndPassword(email, password).catch((err) => {
-      statusMessage.textContent = `ログインエラー: ${err.message}`;
+  // ログアウトボタン
+  if (logoutBtn) {
+    logoutBtn.addEventListener("click", () => {
+      window.location.href = '/auth/logout';
     });
-  });
-
-  logoutBtn.addEventListener("click", () => auth.signOut());
-
-  forgotPasswordLink.addEventListener("click", (e) => {
-    e.preventDefault();
-    const email = document.getElementById("login-email").value;
-    if (!email) {
-      statusMessage.textContent = "メールアドレスを入力してください。";
-      return;
-    }
-
-    auth.sendPasswordResetEmail(email)
-      .then(() => {
-        statusMessage.textContent = `${email} にパスワード再設定用のメールを送信しました。`;
-      })
-      .catch((err) => {
-        statusMessage.textContent = `エラー: ${err.message}`;
-      });
-  });
-
-  showRegisterFormLink.addEventListener("click", (e) => {
-    e.preventDefault();
-    loginForm.style.display = "none";
-    registerForm.style.display = "block";
-    statusMessage.textContent = "";
-  });
-
-  showLoginFormLink.addEventListener("click", (e) => {
-    e.preventDefault();
-    registerForm.style.display = "none";
-    loginForm.style.display = "block";
-    statusMessage.textContent = "";
-  });
-
-  // --- 登録処理 ---
-  registerBtn.addEventListener("click", async () => {
-    const inviteCode = document.getElementById("register-invite-code").value.trim();
-    const displayName = document.getElementById("register-display-name").value.trim();
-    const email = document.getElementById("register-email").value.trim();
-    const password = document.getElementById("register-password").value;
-
-    statusMessage.textContent = "登録中...";
-    registerBtn.disabled = true;
-
-    try {
-      const res = await fetch("/api/register-with-invite", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ inviteCode, displayName, email, password }),
-      });
-
-      const result = await res.json();
-      if (!res.ok) throw new Error(result.message || "登録に失敗しました。");
-
-      statusMessage.textContent = result.message;
-      registerForm.reset();
-      await auth.signInWithEmailAndPassword(email, password);
-    } catch (err) {
-      statusMessage.textContent = `エラー: ${err.message}`;
-      registerBtn.disabled = false;
-    }
-  });
+  }
 
   // --- AI作成フォーム ---
   createAiForm.addEventListener("submit", async (e) => {
@@ -508,61 +488,69 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   // --- プロファイル設定 ---
-  saveProfileBtn.addEventListener("click", async () => {
-    const user = auth.currentUser;
-    if (!user || saveProfileBtn.disabled) return;
+  if (saveProfileBtn) {
+    saveProfileBtn.addEventListener("click", async () => {
+      if (!state.user || saveProfileBtn.disabled) return;
 
-    saveProfileBtn.disabled = true;
-    statusMessage.textContent = "プロファイルを更新中...";
+      saveProfileBtn.disabled = true;
+      statusMessage.textContent = "プロファイルを更新中...";
 
-    try {
-      const newDisplayName = profileDisplayNameInput.value.trim();
-      const newEmail = profileEmailInput.value.trim();
-      const currentEmail = user.email;
+      try {
+        const newDisplayName = profileDisplayNameInput.value.trim();
+        const newEmail = profileEmailInput.value.trim();
 
-      const token = await user.getIdToken(true);
-      const res = await fetch("/api/update-profile", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ displayName: newDisplayName }),
-      });
+        const res = await fetch("/api/update-profile", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          credentials: 'include',
+          body: JSON.stringify({ displayName: newDisplayName }),
+        });
 
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.message || "更新に失敗しました");
-      }
+        if (!res.ok) {
+          const data = await res.json();
+          throw new Error(data.message || "更新に失敗しました");
+        }
 
-      if (newEmail && newEmail !== currentEmail) {
-        try {
-          await user.verifyBeforeUpdateEmail(newEmail);
-          statusMessage.textContent = `プロファイルを更新しました。新しいメールアドレス（${newEmail}）に確認メールを送信しました。`;
-          alert(`新しいメールアドレス（${newEmail}）に確認メールを送信しました。メールを確認してリンクをクリックしてください。`);
-        } catch (emailError) {
-          if (emailError.code === "auth/requires-recent-login") {
-            await auth.signOut();
-            alert("セキュリティ保護のため、メールアドレスを変更するには再ログインが必要です。");
-            window.location.reload();
-            return;
-          } else {
-            throw new Error(`メールアドレスの更新に失敗しました。エラー: ${emailError.message}`);
+        const result = await res.json();
+        statusMessage.textContent = result.message;
+
+        // メールアドレスが変更された場合の処理
+        if (newEmail && newEmail !== state.user.email) {
+          try {
+            const emailRes = await fetch("/api/update-email", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json"
+              },
+              credentials: 'include',
+              body: JSON.stringify({ 
+                oldEmail: state.user.email, 
+                newEmail: newEmail 
+              }),
+            });
+
+            if (emailRes.ok) {
+              statusMessage.textContent = "プロファイルとメールアドレスを更新しました。";
+            } else {
+              const emailError = await emailRes.json();
+              statusMessage.textContent = `プロファイルは更新されましたが、メールアドレスの更新に失敗: ${emailError.message}`;
+            }
+          } catch (emailError) {
+            statusMessage.textContent = `プロファイルは更新されましたが、メールアドレスの更新に失敗: ${emailError.message}`;
           }
         }
-      } else {
-        statusMessage.textContent = "プロファイルを更新しました。";
-      }
 
-      await fetchSettings(user);
-    } catch (err) {
-      console.error("プロファイル更新エラー:", err);
-      statusMessage.textContent = `エラー: ${err.message}`;
-      alert(`エラーが発生しました: ${err.message}`);
-    } finally {
-      saveProfileBtn.disabled = false;
-    }
-  });
+        await fetchSettings();
+      } catch (err) {
+        console.error("プロファイル更新エラー:", err);
+        statusMessage.textContent = `エラー: ${err.message}`;
+      } finally {
+        saveProfileBtn.disabled = false;
+      }
+    });
+  }
 
   // --- 管理者パネル ---
   addAdminBtn.addEventListener("click", () => {
@@ -592,16 +580,14 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   generateInviteCodeBtn.addEventListener("click", async () => {
-    const user = auth.currentUser;
-    if (!user || !state.isSuperAdmin) return;
+    if (!state.user || !state.isSuperAdmin) return;
 
     generateInviteCodeBtn.disabled = true;
 
     try {
-      const token = await user.getIdToken();
       const res = await fetch("/api/generate-invite-code", {
         method: "POST",
-        headers: { Authorization: `Bearer ${token}` },
+        credentials: 'include'
       });
 
       const result = await res.json();
@@ -623,22 +609,20 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   saveAdminsBtn.addEventListener("click", async () => {
-    const user = auth.currentUser;
-    if (!user || saveAdminsBtn.disabled) return;
+    if (!state.user || saveAdminsBtn.disabled) return;
 
     saveAdminsBtn.disabled = true;
     statusMessage.textContent = "管理者リストを保存中...";
 
     try {
-      const token = await user.getIdToken();
       const adminsArray = state.admins.filter((admin) => admin.email && admin.name);
 
       const res = await fetch("/api/settings/admins", {
         method: "POST",
         headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json"
         },
+        credentials: 'include',
         body: JSON.stringify({ admins: adminsArray }),
       });
 
@@ -646,7 +630,7 @@ document.addEventListener("DOMContentLoaded", () => {
       if (!res.ok) throw new Error(result.message);
 
       statusMessage.textContent = result.message;
-      await fetchSettings(user);
+      await fetchSettings();
     } catch (err) {
       statusMessage.textContent = `エラー: ${err.message}`;
     } finally {

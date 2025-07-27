@@ -230,6 +230,11 @@ button:disabled {
   border: 1px solid var(--border-color);
 }
 
+.user-profile {
+  display: flex;
+  align-items: center;
+}
+
 .user-info p {
   margin: 0;
   font-weight: 500;
@@ -485,6 +490,41 @@ input:checked + .slider:before {
   background: var(--secondary-bg);
   padding: 2rem;
   border-radius: 16px;
+  border: 1px solid var(--border-color);
+}
+
+#discord-login-form {
+  text-align: center;
+}
+
+#discord-login-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+  width: 100%;
+  margin-bottom: 1rem;
+}
+
+.discord-info {
+  margin-top: 2rem;
+  padding: 1rem;
+  background: var(--accent-bg);
+  border-radius: 8px;
+  border-left: 4px solid var(--accent-color);
+}
+
+.discord-info p {
+  margin: 0.5rem 0;
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+}
+
+.discord-profile-info {
+  background: var(--accent-bg);
+  padding: 1.5rem;
+  border-radius: 12px;
+  margin-bottom: 2rem;
   border: 1px solid var(--border-color);
 }
 
