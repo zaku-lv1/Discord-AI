@@ -79,12 +79,40 @@ const getServerTimestamp = () => {
 };
 
 // =================================================================================
+// Environment Detection and URL Construction Helper
+// =================================================================================
+const isProduction = process.env.NODE_ENV === 'production' || 
+                    process.env.ADMIN_DOMAIN && !process.env.ADMIN_DOMAIN.includes('localhost');
+const protocol = isProduction ? 'https' : 'http';
+const port = process.env.PORT || (isProduction ? 443 : 80);
+const domain = process.env.ADMIN_DOMAIN || 'localhost';
+
+// Construct callback URL based on environment
+const getCallbackURL = () => {
+  // If explicit callback URL is provided, use it
+  if (process.env.DISCORD_CALLBACK_URL) {
+    return process.env.DISCORD_CALLBACK_URL;
+  }
+  
+  // For production or when using standard ports, don't include port in URL
+  if (isProduction || port === 80 || port === 443) {
+    return `${protocol}://${domain}/auth/discord/callback`;
+  }
+  
+  // For development with custom ports
+  return `${protocol}://${domain}:${port}/auth/discord/callback`;
+};
+
+console.log(`[情報] 認証環境: ${isProduction ? 'Production' : 'Development'}`);
+console.log(`[情報] Discord OAuth Callback URL: ${getCallbackURL()}`);
+
+// =================================================================================
 // Passport Discord OAuth設定
 // =================================================================================
 passport.use(new DiscordStrategy({
   clientID: process.env.DISCORD_CLIENT_ID,
   clientSecret: process.env.DISCORD_CLIENT_SECRET,
-  callbackURL: `http://${process.env.ADMIN_DOMAIN}:${process.env.PORT || 80}/auth/discord/callback`,
+  callbackURL: getCallbackURL(),
   scope: ['identify', 'email', 'guilds']
 }, async (accessToken, refreshToken, profile, done) => {
   try {
@@ -159,7 +187,6 @@ if (fs.existsSync(commandsPath)) {
 // Expressサーバーの設定
 // =================================================================================
 const app = express();
-const port = process.env.PORT || 80;
 const adminRouter = express.Router();
 
 // セッション設定
@@ -168,8 +195,10 @@ app.use(session({
   resave: false,
   saveUninitialized: false,
   cookie: { 
-    secure: false, // HTTPSを使用する場合はtrueに設定
-    maxAge: 24 * 60 * 60 * 1000 // 24時間
+    secure: isProduction, // HTTPS required in production
+    httpOnly: true, // Prevent XSS attacks
+    maxAge: 24 * 60 * 60 * 1000, // 24時間
+    sameSite: isProduction ? 'none' : 'lax' // Cross-site compatibility for production
   }
 }));
 
@@ -277,7 +306,10 @@ adminRouter.get("/", (req, res) => {
   // Discord OAuth用の設定を渡す
   const discordOAuthConfig = {
     clientId: process.env.DISCORD_CLIENT_ID,
-    redirectUri: `http://${process.env.ADMIN_DOMAIN}:${process.env.PORT || 80}/auth/discord/callback`
+    redirectUri: getCallbackURL(),
+    isProduction: isProduction,
+    domain: domain,
+    protocol: protocol
   };
   res.render("index", { discordOAuthConfig });
 });
@@ -857,6 +889,22 @@ adminRouter.post("/api/register-with-invite", async (req, res) => {
         .json({ message: "このメールアドレスは既に使用されています。" });
     res.status(500).json({ message: "アカウントの作成に失敗しました。" });
   }
+});
+
+// =================================================================================
+// Health Check and Configuration Info (Global endpoint)
+// =================================================================================
+app.get('/api/health', (req, res) => {
+  res.json({
+    status: 'ok',
+    timestamp: new Date().toISOString(),
+    environment: isProduction ? 'production' : 'development',
+    callbackUrl: getCallbackURL(),
+    discordConfigured: !!(process.env.DISCORD_CLIENT_ID && process.env.DISCORD_CLIENT_SECRET),
+    sessionSecure: isProduction,
+    hostname: req.hostname,
+    adminDomain: process.env.ADMIN_DOMAIN
+  });
 });
 
 app.use((req, res, next) => {
