@@ -102,6 +102,17 @@ document.addEventListener("DOMContentLoaded", () => {
     const urlParams = new URLSearchParams(window.location.search);
     if (urlParams.get('error') === 'auth_failed') {
       statusMessage.textContent = 'Discord認証に失敗しました。再度お試しください。';
+    } else if (urlParams.get('error') === 'oauth_error') {
+      statusMessage.textContent = 'Discord認証でエラーが発生しました。しばらく時間をおいて再度お試しください。';
+    } else if (urlParams.get('error') === 'session_error') {
+      statusMessage.textContent = 'セッションの作成に失敗しました。再度お試しください。';
+    } else if (urlParams.get('error') === 'config_error') {
+      statusMessage.innerHTML = `
+        <div style="background: #ff4444; color: white; padding: 15px; border-radius: 8px; margin: 15px 0;">
+          <h3>⚠️ Discord設定エラー</h3>
+          <p>Discord OAuth の設定に問題があります。管理者に連絡してください。</p>
+        </div>
+      `;
     } else if (urlParams.get('auth') === 'success') {
       statusMessage.textContent = '認証に成功しました。読み込み中...';
       // 成功時は少し待ってから再チェック
