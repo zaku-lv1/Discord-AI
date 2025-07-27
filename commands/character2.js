@@ -11,8 +11,8 @@ const { EmbedBuilder, SlashCommandBuilder, ChannelType } = require('discord.js')
 
 module.exports = {
   data: new SlashCommandBuilder()
-    .setName('ktt')
-    .setDescription('KTTと井原先生を召喚したり退出させたりします。'),
+    .setName('character2')
+    .setDescription('キャラクター2を召喚したり退出させたりします。'),
   async execute(interaction) {
 
     if (!interaction.inGuild() || !interaction.channel || interaction.channel.type === ChannelType.DM) {

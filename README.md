@@ -1,215 +1,215 @@
 # 🤖 Discord AI Bot - AI管理システム
 
-Discord bot with AI capabilities and web-based administration panel featuring Discord OAuth login.
+Discord OAuthログインを特徴とするAI機能と Webベース管理パネルを備えたDiscord Bot
 
-## ✨ Features
+## ✨ 機能
 
-- **🤖 AI-Powered Discord Bot**: Multiple AI personalities with customizable prompts
-- **🌐 Web Admin Panel**: User-friendly interface for managing AI configurations
-- **🔐 Discord OAuth Login**: Secure authentication using Discord accounts
-- **🔥 Firebase Integration**: Real-time database for settings and user management
-- **🧠 Google Gemini AI**: Advanced AI responses with multiple model modes
-- **👥 Multi-Admin Support**: Hierarchical admin system with invite codes
-- **📱 Responsive Design**: Modern dark theme with mobile support
+- **🤖 AI搭載Discord Bot**: カスタマイズ可能なプロンプトを持つ複数のAIパーソナリティ
+- **🌐 Web管理パネル**: AI設定を管理するためのユーザーフレンドリーなインターフェース
+- **🔐 Discord OAuthログイン**: Discordアカウントを使用したセキュアな認証
+- **🔥 Firebase統合**: 設定とユーザー管理のためのリアルタイムデータベース
+- **🧠 Google Gemini AI**: 複数のモデルモードを持つ高度なAI応答
+- **👥 マルチ管理者サポート**: 招待コード付きの階層管理者システム
+- **📱 レスポンシブデザイン**: モバイルサポート付きのモダンダークテーマ
 
-## 🛠️ Setup Instructions
+## 🛠️ セットアップ手順
 
-### Prerequisites
+### 前提条件
 
-- Node.js 18.0.0 or higher
-- Discord application and bot token
-- Firebase project
-- Google Gemini API key
+- Node.js 18.0.0以上
+- Discordアプリケーションとボットトークン
+- Firebaseプロジェクト
+- Google Gemini APIキー
 
-### 1. Discord Application Setup
+### 1. Discordアプリケーションのセットアップ
 
-1. Go to [Discord Developer Portal](https://discord.com/developers/applications)
-2. Create a new application or select existing one
-3. Go to "Bot" section:
-   - Create a bot and copy the token
-   - Enable necessary intents: `Guilds`, `Guild Messages`, `Message Content`
-4. Go to "OAuth2" section:
-   - Add redirect URIs based on your deployment:
-     - **Development**: `http://localhost:8080/auth/discord/callback`
-     - **Production**: `https://your-domain.com/auth/discord/callback`
+1. [Discord Developer Portal](https://discord.com/developers/applications)にアクセス
+2. 新しいアプリケーションを作成するか、既存のものを選択
+3. 「Bot」セクションに移動:
+   - ボットを作成してトークンをコピー
+   - 必要なインテントを有効化: `Guilds`, `Guild Messages`, `Message Content`
+4. 「OAuth2」セクションに移動:
+   - デプロイメントに基づいてリダイレクトURIを追加:
+     - **開発環境**: `http://localhost:8080/auth/discord/callback`
+     - **本番環境**: `https://your-domain.com/auth/discord/callback`
      - **Railway/Heroku**: `https://your-app.railway.app/auth/discord/callback`
-   - Copy Client ID and Client Secret
+   - Client IDとClient Secretをコピー
 
-### 2. Firebase Setup
+### 2. Firebaseのセットアップ
 
-1. Create a new project at [Firebase Console](https://console.firebase.google.com/)
-2. Enable Firestore Database
-3. Go to Project Settings:
-   - Copy your web app configuration values
-4. Go to Service Accounts:
-   - Generate new private key and download the JSON file
+1. [Firebase Console](https://console.firebase.google.com/)で新しいプロジェクトを作成
+2. Firestore Databaseを有効化
+3. プロジェクト設定に移動:
+   - Webアプリの設定値をコピー
+4. サービスアカウントに移動:
+   - 新しい秘密鍵を生成してJSONファイルをダウンロード
 
-### 3. Google Gemini API Setup
+### 3. Google Gemini APIのセットアップ
 
-1. Visit [Google AI Studio](https://ai.google.dev/)
-2. Create an API key for Gemini
+1. [Google AI Studio](https://ai.google.dev/)にアクセス
+2. Gemini用のAPIキーを作成
 
-### 4. Installation
+### 4. インストール
 
-1. Clone the repository:
+1. リポジトリをクローン:
    ```bash
    git clone https://github.com/zaku-lv1/Discord-AI.git
    cd Discord-AI
    ```
 
-2. Install dependencies:
+2. 依存関係をインストール:
    ```bash
    npm install
    ```
 
-3. Set up environment variables:
+3. 環境変数をセットアップ:
    ```bash
    cp .env.example .env
    ```
    
-4. Edit `.env` file with your actual values:
-   - Fill in all the required tokens and credentials
-   - Make sure to format the Firebase service account JSON properly
+4. `.env`ファイルを実際の値で編集:
+   - 必要なトークンと認証情報をすべて入力
+   - Firebase サービスアカウントJSONを適切にフォーマット
 
-### 5. Running the Application
+### 5. アプリケーションの実行
 
-1. Start the bot:
+1. ボットを起動:
    ```bash
    npm start
    ```
 
-2. Access the admin panel:
-   - Open your browser and go to `http://localhost:8080`
-   - Click "Login with Discord" to authenticate
+2. 管理パネルにアクセス:
+   - ブラウザで `http://localhost:8080` にアクセス
+   - 「Discordでログイン」をクリックして認証
 
-## 🎯 Usage
+## 🎯 使用方法
 
-### Bot Commands
+### ボットコマンド
 
-The bot includes various slash commands:
-- `/toka` - AI conversation with customizable personality
-- `/gemini` - Direct Gemini AI interaction
-- `/image` - Image-related commands
-- `/echo` - Echo messages
-- And many more...
+ボットには様々なスラッシュコマンドが含まれています:
+- `/ai` - カスタマイズ可能なパーソナリティによるAI会話
+- `/gemini` - 直接のGemini AI相互作用
+- `/image` - 画像関連コマンド
+- `/echo` - メッセージのエコー
+- その他多数...
 
-### Web Admin Panel
+### Web管理パネル
 
-1. **Login**: Use Discord OAuth to authenticate
-2. **AI Management**: Create and configure multiple AI personalities
-3. **User Management**: Manage admin users and permissions
-4. **Settings**: Configure global bot settings
+1. **ログイン**: Discord OAuthを使用して認証
+2. **AI管理**: 複数のAIパーソナリティを作成・設定
+3. **ユーザー管理**: 管理者ユーザーと権限を管理
+4. **設定**: グローバルボット設定を構成
 
-### AI Configuration
+### AI設定
 
-- **System Prompts**: Define AI personality and behavior
-- **Model Modes**: Choose between Hybrid (high quality) or Flash (fast)
-- **Response Settings**: Configure delays and error messages
-- **User Recognition**: Enable personalized interactions
+- **システムプロンプト**: AIのパーソナリティと動作を定義
+- **モデルモード**: Hybrid（高品質）またはFlash（高速）から選択
+- **応答設定**: 遅延とエラーメッセージを設定
+- **ユーザー認識**: パーソナライズされた相互作用を有効化
 
-## 🔧 Configuration
+## 🔧 設定
 
-### Environment Variables
+### 環境変数
 
-See `.env.example` for a complete list of required environment variables.
+必要な環境変数の完全なリストについては `.env.example` を参照してください。
 
-### Firebase Security Rules
+### Firebase セキュリティルール
 
-Make sure your Firestore has appropriate security rules configured for the collections:
+Firestoreに以下のコレクション用の適切なセキュリティルールが設定されていることを確認してください:
 - `bot_settings`
 - `invitation_codes`
 
-### Discord Bot Permissions
+### Discordボット権限
 
-Required bot permissions:
-- Send Messages
-- Read Message History
-- Use Slash Commands
-- Embed Links
-- Attach Files
+必要なボット権限:
+- メッセージを送信
+- メッセージ履歴を読む
+- スラッシュコマンドを使用
+- リンクを埋め込み
+- ファイルを添付
 
-## 🚀 Deployment
+## 🚀 デプロイメント
 
-### Production Setup
+### 本番環境セットアップ
 
-The application automatically detects the environment and configures authentication accordingly:
+アプリケーションは環境を自動検出し、それに応じて認証を設定します:
 
-#### Environment Configuration
+#### 環境設定
 
-1. **Development (localhost)**:
+1. **開発環境 (localhost)**:
    ```bash
    NODE_ENV=development
    ADMIN_DOMAIN=localhost
    PORT=8080
    ```
-   - Uses HTTP protocol
-   - Includes port in callback URL
-   - Less strict session security
+   - HTTPプロトコルを使用
+   - コールバックURLにポートを含める
+   - セッションセキュリティを緩和
 
-2. **Production (custom domain)**:
+2. **本番環境 (カスタムドメイン)**:
    ```bash
    NODE_ENV=production
    ADMIN_DOMAIN=your-domain.com
    PORT=443
    ```
-   - Uses HTTPS protocol
-   - No port in callback URL
-   - Enhanced session security
-   - Secure cookies
+   - HTTPSプロトコルを使用
+   - コールバックURLにポートを含めない
+   - セッションセキュリティを強化
+   - セキュアクッキー
 
-3. **Cloud Platforms (Railway, Heroku, etc.)**:
+3. **クラウドプラットフォーム (Railway, Heroku等)**:
    ```bash
    NODE_ENV=production
    ADMIN_DOMAIN=your-app.railway.app
    PORT=80
    ```
-   - Automatically uses HTTPS
-   - Platform handles SSL termination
+   - 自動的にHTTPSを使用
+   - プラットフォームがSSL終端を処理
 
-#### Discord OAuth Configuration
+#### Discord OAuth設定
 
-The callback URL is automatically constructed based on your environment:
+コールバックURLは環境に基づいて自動的に構築されます:
 
-- **Development**: `http://localhost:8080/auth/discord/callback`
-- **Production**: `https://your-domain.com/auth/discord/callback`
-- **Custom**: Set `DISCORD_CALLBACK_URL` to override automatic detection
+- **開発環境**: `http://localhost:8080/auth/discord/callback`
+- **本番環境**: `https://your-domain.com/auth/discord/callback`
+- **カスタム**: `DISCORD_CALLBACK_URL`を設定して自動検出を上書き
 
-#### Manual Callback URL Override
+#### 手動コールバックURL上書き
 
-For complex deployment scenarios, you can manually specify the callback URL:
+複雑なデプロイメントシナリオでは、コールバックURLを手動で指定できます:
 
 ```bash
 DISCORD_CALLBACK_URL=https://your-custom-domain.com/auth/discord/callback
 ```
 
-### Platform-Specific Deployment
+### プラットフォーム固有のデプロイメント
 
 #### Railway
 ```bash
 NODE_ENV=production
 ADMIN_DOMAIN=your-app.railway.app
-# Other environment variables...
+# その他の環境変数...
 ```
 
 #### Heroku
 ```bash
 NODE_ENV=production
 ADMIN_DOMAIN=your-app.herokuapp.com
-# Other environment variables...
+# その他の環境変数...
 ```
 
-#### VPS/Custom Server
+#### VPS/カスタムサーバー
 ```bash
 NODE_ENV=production
 ADMIN_DOMAIN=your-domain.com
 PORT=443
-# Other environment variables...
+# その他の環境変数...
 ```
 
-### Docker Deployment
+### Dockerデプロイメント
 
 ```dockerfile
-# Example Dockerfile
+# Dockerfileの例
 FROM node:18-alpine
 WORKDIR /app
 COPY package*.json ./
@@ -219,72 +219,72 @@ EXPOSE 8080
 CMD ["npm", "start"]
 ```
 
-## 🛡️ Security
+## 🛡️ セキュリティ
 
-- Environment variables are excluded from git
-- Firebase service account credentials are securely stored
-- Discord OAuth provides secure authentication
-- Admin permissions are hierarchical with super admin controls
+- 環境変数はgitから除外されています
+- Firebase サービスアカウント認証情報は安全に保存
+- Discord OAuthによるセキュアな認証
+- スーパー管理者コントロール付きの階層管理者権限
 
-## 🐛 Troubleshooting
+## 🐛 トラブルシューティング
 
-### Common Issues
+### よくある問題
 
-1. **Bot not responding**: Check Discord token and bot permissions
-2. **Login fails**: 
-   - Verify Discord OAuth redirect URI matches exactly
-   - Check if callback URL is correctly configured for your environment
-   - Ensure HTTPS is used in production
-3. **Firebase errors**: Ensure service account JSON is properly formatted
-4. **AI not working**: Check Gemini API key and quota
-5. **Session issues in production**: 
-   - Verify `SESSION_SECRET` is set to a strong value
-   - Check if `NODE_ENV=production` is set
-   - Ensure HTTPS is properly configured
+1. **ボットが応答しない**: Discordトークンとボット権限を確認
+2. **ログインが失敗する**: 
+   - Discord OAuthリダイレクトURIが正確に一致することを確認
+   - 環境に合わせてコールバックURLが正しく設定されているか確認
+   - 本番環境でHTTPSが使用されているか確認
+3. **Firebaseエラー**: サービスアカウントJSONが適切にフォーマットされているか確認
+4. **AIが動作しない**: Gemini APIキーと使用量制限を確認
+5. **本番環境でのセッション問題**: 
+   - `SESSION_SECRET`が強力な値に設定されているか確認
+   - `NODE_ENV=production`が設定されているか確認
+   - HTTPSが適切に設定されているか確認
 
-### Authentication Troubleshooting
+### 認証のトラブルシューティング
 
-If authentication fails:
+認証が失敗する場合:
 
-1. **Check environment variables**:
+1. **環境変数を確認**:
    ```bash
    echo $NODE_ENV
    echo $ADMIN_DOMAIN
    echo $DISCORD_CLIENT_ID
    ```
 
-2. **Verify callback URL**: The Discord OAuth callback URL must exactly match what's configured in Discord Developer Portal
+2. **コールバックURLを確認**: Discord OAuth コールバックURLはDiscord Developer Portalで設定されたものと正確に一致する必要があります
 
-3. **Test callback URL construction**: Use the included test script:
+3. **コールバックURL構築をテスト**: 付属のテストスクリプトを使用:
    ```bash
    node test_auth.js
    ```
 
-4. **Check browser console**: Look for any JavaScript errors or network issues
+4. **ブラウザコンソールを確認**: JavaScriptエラーやネットワーク問題がないか確認
 
-### Logs
+### ログ
 
-Check console output for detailed error messages and debugging information.
+詳細なエラーメッセージとデバッグ情報については、コンソール出力を確認してください。
 
-## 🤝 Contributing
+## 🤝 貢献
 
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Test thoroughly
-5. Submit a pull request
+1. リポジトリをフォーク
+2. 機能ブランチを作成
+3. 変更を加える
+4. 徹底的にテスト
+5. プルリクエストを送信
 
-## 📄 License
+## 📄 ライセンス
 
-This project is licensed under the ISC License.
+このプロジェクトはISCライセンスの下でライセンスされています。
 
-## 🙏 Acknowledgments
+## 🙏 謝辞
 
-- Discord.js for Discord API integration
-- Google Generative AI for AI capabilities
-- Firebase for backend services
-- Express.js for web server functionality
+- Discord API統合のためのDiscord.js
+- AI機能のためのGoogle Generative AI
+- バックエンドサービスのためのFirebase
+- Webサーバー機能のためのExpress.js
 
 ---
 
-For support or questions, please create an issue in the repository.
+サポートや質問については、リポジトリでIssueを作成してください。

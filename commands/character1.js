@@ -102,8 +102,8 @@ async function getTamaResponse(userMessage, history = [], authorName = 'ユー�
 
 module.exports = {
   data: new SlashCommandBuilder()
-    .setName('tamai')
-    .setDescription('たまたまを召喚したり退出させたりします。'),
+    .setName('character1')
+    .setDescription('キャラクター1を召喚したり退出させたりします。'),
   async execute(interaction) {
     try {
       await interaction.deferReply({ ephemeral: true });
