@@ -146,7 +146,7 @@ module.exports = {
       // Webhook検索・作成時の名前として webhookCharacterName を使用
       const existingWebhook = webhooks.find((wh) => wh.name === webhookCharacterName && wh.owner?.id === interaction.client.user.id);
       // コレクターキーもキャラクター名ベースでユニークに
-      const collectorKey = `${channel.id}_tamai_${webhookCharacterName.replace(/\s+/g, '_')}`;
+      const collectorKey = `${channel.id}_character1_${webhookCharacterName.replace(/\s+/g, '_')}`;
 
       if (existingWebhook) {
         try {
@@ -242,7 +242,7 @@ module.exports = {
       if (!interaction.deferred && !interaction.replied) {
         await interaction.reply({ content: 'エラーが発生しました。', ephemeral: true });
       }
-      console.error("コマンドエラー (tamai):", err);
+      console.error("コマンドエラー (character1):", err);
     }
   },
 };

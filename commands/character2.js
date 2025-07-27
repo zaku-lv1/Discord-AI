@@ -53,7 +53,7 @@ module.exports = {
     if (!interaction.client.activeCollectors) {
         interaction.client.activeCollectors = new Map();
     }
-    const collectorKey = `${channel.id}_ktt`; // このコマンド専用のコレクターキー
+    const collectorKey = `${channel.id}_character2`; // このコマンド専用のコレクターキー
 
     if (kttWebhook && iharaWebhook) {
       try {
