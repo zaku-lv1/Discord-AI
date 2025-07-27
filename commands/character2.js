@@ -11,8 +11,8 @@ const { EmbedBuilder, SlashCommandBuilder, ChannelType } = require('discord.js')
 
 module.exports = {
   data: new SlashCommandBuilder()
-    .setName('ktt')
-    .setDescription('KTTと井原先生を召喚したり退出させたりします。'),
+    .setName('character2')
+    .setDescription('キャラクター2を召喚したり退出させたりします。'),
   async execute(interaction) {
 
     if (!interaction.inGuild() || !interaction.channel || interaction.channel.type === ChannelType.DM) {
@@ -53,7 +53,7 @@ module.exports = {
     if (!interaction.client.activeCollectors) {
         interaction.client.activeCollectors = new Map();
     }
-    const collectorKey = `${channel.id}_ktt`; // このコマンド専用のコレクターキー
+    const collectorKey = `${channel.id}_character2`; // このコマンド専用のコレクターキー
 
     if (kttWebhook && iharaWebhook) {
       try {
