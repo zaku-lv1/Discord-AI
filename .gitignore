@@ -38,3 +38,4 @@ firebase-debug.log
 # Other
 .tmp/
 temp/
+index.js.backup
