@@ -124,6 +124,15 @@ document.addEventListener("DOMContentLoaded", () => {
         const avatarUrl = `https://cdn.discordapp.com/avatars/${state.user.id}/${state.user.avatar}.png?size=64`;
         userAvatarEl.src = avatarUrl;
         userAvatarEl.style.display = 'block';
+        
+        // プロファイル画面のアバターも更新
+        const profileAvatar = document.getElementById('profile-avatar-display');
+        if (profileAvatar) {
+          profileAvatar.src = avatarUrl;
+          profileAvatar.style.display = 'block';
+          const placeholder = document.querySelector('.avatar-placeholder');
+          if (placeholder) placeholder.style.display = 'none';
+        }
       }
       
       // プロファイル情報を設定
@@ -133,6 +142,13 @@ document.addEventListener("DOMContentLoaded", () => {
       }
       if (discordIdInput) {
         discordIdInput.value = state.user.id;
+      }
+      
+      // プロファイル概要を更新
+      const profileNameDisplay = document.getElementById('profile-name-display');
+      if (profileNameDisplay) {
+        profileNameDisplay.textContent = state.user.username + 
+          (state.user.discriminator ? `#${state.user.discriminator}` : '');
       }
     }
   }
