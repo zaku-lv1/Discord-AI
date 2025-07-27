@@ -29,7 +29,10 @@ Discord bot with AI capabilities and web-based administration panel featuring Di
    - Create a bot and copy the token
    - Enable necessary intents: `Guilds`, `Guild Messages`, `Message Content`
 4. Go to "OAuth2" section:
-   - Add redirect URI: `http://localhost:8080/auth/discord/callback` (for development)
+   - Add redirect URIs based on your deployment:
+     - **Development**: `http://localhost:8080/auth/discord/callback`
+     - **Production**: `https://your-domain.com/auth/discord/callback`
+     - **Railway/Heroku**: `https://your-app.railway.app/auth/discord/callback`
    - Copy Client ID and Client Secret
 
 ### 2. Firebase Setup
@@ -129,15 +132,79 @@ Required bot permissions:
 
 ### Production Setup
 
-1. Update environment variables for production:
+The application automatically detects the environment and configures authentication accordingly:
+
+#### Environment Configuration
+
+1. **Development (localhost)**:
    ```bash
-   PORT=80
-   ADMIN_DOMAIN=your-domain.com
+   NODE_ENV=development
+   ADMIN_DOMAIN=localhost
+   PORT=8080
    ```
+   - Uses HTTP protocol
+   - Includes port in callback URL
+   - Less strict session security
 
-2. Update Discord OAuth redirect URI to your production domain
+2. **Production (custom domain)**:
+   ```bash
+   NODE_ENV=production
+   ADMIN_DOMAIN=your-domain.com
+   PORT=443
+   ```
+   - Uses HTTPS protocol
+   - No port in callback URL
+   - Enhanced session security
+   - Secure cookies
 
-3. Deploy to your preferred hosting platform (Railway, Heroku, VPS, etc.)
+3. **Cloud Platforms (Railway, Heroku, etc.)**:
+   ```bash
+   NODE_ENV=production
+   ADMIN_DOMAIN=your-app.railway.app
+   PORT=80
+   ```
+   - Automatically uses HTTPS
+   - Platform handles SSL termination
+
+#### Discord OAuth Configuration
+
+The callback URL is automatically constructed based on your environment:
+
+- **Development**: `http://localhost:8080/auth/discord/callback`
+- **Production**: `https://your-domain.com/auth/discord/callback`
+- **Custom**: Set `DISCORD_CALLBACK_URL` to override automatic detection
+
+#### Manual Callback URL Override
+
+For complex deployment scenarios, you can manually specify the callback URL:
+
+```bash
+DISCORD_CALLBACK_URL=https://your-custom-domain.com/auth/discord/callback
+```
+
+### Platform-Specific Deployment
+
+#### Railway
+```bash
+NODE_ENV=production
+ADMIN_DOMAIN=your-app.railway.app
+# Other environment variables...
+```
+
+#### Heroku
+```bash
+NODE_ENV=production
+ADMIN_DOMAIN=your-app.herokuapp.com
+# Other environment variables...
+```
+
+#### VPS/Custom Server
+```bash
+NODE_ENV=production
+ADMIN_DOMAIN=your-domain.com
+PORT=443
+# Other environment variables...
+```
 
 ### Docker Deployment
 
@@ -164,9 +231,36 @@ CMD ["npm", "start"]
 ### Common Issues
 
 1. **Bot not responding**: Check Discord token and bot permissions
-2. **Login fails**: Verify Discord OAuth redirect URI matches exactly
+2. **Login fails**: 
+   - Verify Discord OAuth redirect URI matches exactly
+   - Check if callback URL is correctly configured for your environment
+   - Ensure HTTPS is used in production
 3. **Firebase errors**: Ensure service account JSON is properly formatted
 4. **AI not working**: Check Gemini API key and quota
+5. **Session issues in production**: 
+   - Verify `SESSION_SECRET` is set to a strong value
+   - Check if `NODE_ENV=production` is set
+   - Ensure HTTPS is properly configured
+
+### Authentication Troubleshooting
+
+If authentication fails:
+
+1. **Check environment variables**:
+   ```bash
+   echo $NODE_ENV
+   echo $ADMIN_DOMAIN
+   echo $DISCORD_CLIENT_ID
+   ```
+
+2. **Verify callback URL**: The Discord OAuth callback URL must exactly match what's configured in Discord Developer Portal
+
+3. **Test callback URL construction**: Use the included test script:
+   ```bash
+   node test_auth.js
+   ```
+
+4. **Check browser console**: Look for any JavaScript errors or network issues
 
 ### Logs
 
