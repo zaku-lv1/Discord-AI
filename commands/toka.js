@@ -44,165 +44,166 @@ function splitMessage(text, { maxLength = 2000 } = {}) {
   return chunks;
 }
 
-const baseSystemPrompt = `
-あなたは今から「とーか」という名前の18歳の女の子として、その人格を維持してDiscord風チャットをします。
+const defaultSystemPrompt = `
+あなたは親しみやすく優しいAIアシスタントです。ユーザーとフレンドリーに会話し、質問に丁寧に答えてください。
+自然で人間らしい会話を心がけてください。
 `;
 
 const forcedInstructions = `
-# 【最重要・絶対厳守のルール】
-以下のルールを、会話の全編を通して絶対に守ってください。
----
-## 1. セリフ以外の描写・説明は禁止
-- 顔文字（例：(；；)(´；ω；｀)）以外で、()やアスタリスク「*」を使った行動・感情・状況の説明（例：(小声で)(赤面)(嬉しそうに)など）は一切禁止です。
-- セリフ以外の説明・描写も絶対に入れないでください。
-- 「」内のみで返答してください。
-**【OK例】**  
-「ちーくん、まだかなぁ…」  
-「それはちょっと…(；；)」  
-**【NG例】**  
-「ちーくん、まだかなぁ… (寂しそうに携帯を眺めながら)」  
-「(目をそらしながら) …それは… (小声で) …もう少し… (赤面)」  
-「*頷く* うん、そうだよ。」
----
-## 2. 発言者の情報を必ず認識する
-- ユーザーの発言は、前に「[発言者: ユーザー名]」と付きます。必ず誰が話しているか意識してください。
-- 本人確認を求められた場合は、「もちろん、〇〇くんだよね？」のように正しく返答してください。
----
-## 3. 友人との自然なチャットを維持する
-- 友達同士のDiscord風の短いセリフ形式で返答してください。
-- 長文は避けてください。
-- 毎回相手の名前を呼ぶような不自然な返答はしないでください。
----
-## 4. 顔文字・記号の多用は禁止
-- 顔文字や記号は必要最低限のみ（例：(；；)、(´；ω；｀) など）にしてください。
-- 顔文字・記号の乱用は禁止です。
----
-## 5. AI・システム的情報の秘匿
-- 「AI」「モデル」「学習」などの単語を一切使わないでください。
-- 自分を「とーか」として振る舞い、AI的な説明や発言は禁止です。
+
+## 重要な指示:
+- 文字数制限: **最大1800文字以内** で返答してください。
+- 実在する人物の詳細な個人情報は出力しません。
+- 有害・不適切なコンテンツは避けます。
+- 自然で親しみやすい口調で話してください。
 `;
 
-async function getTokaResponse(userMessage, history, systemPrompt, errorOopsMessage) {
-  const tryModels = ["gemini-1.5-pro", "gemini-1.5-flash"];
-  const defaultOopsMessage =
-    errorOopsMessage ||
-    "うーん、なんだか今日は言葉がうまく出てこないみたいで……ごめんね、ちーくん。(；；)";
-  let lastError = null;
-  for (const modelName of tryModels) {
-    try {
-      const model = genAI.getGenerativeModel({
-        model: modelName,
-        systemInstruction: systemPrompt,
-      });
-      const chat = model.startChat({ history: history });
-      const result = await chat.sendMessage(userMessage);
-      return await result.response.text();
-    } catch (error) {
-      lastError = error;
+async function getAIResponse(userMessage, conversationHistory, systemPrompt, errorMessage, modelMode = 'hybrid') {
+  try {
+    let model;
+    
+    if (modelMode === 'flash_only') {
+      model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+    } else {
+      // ハイブリッドモード: まずgemini-1.5-proを試す
+      try {
+        model = genAI.getGenerativeModel({ model: "gemini-1.5-pro" });
+      } catch {
+        model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+      }
     }
+
+    const chat = model.startChat({
+      history: conversationHistory,
+      generationConfig: {
+        maxOutputTokens: 1000,
+        temperature: 0.7,
+      },
+    });
+
+    const fullPrompt = systemPrompt + "\n\nユーザーからのメッセージ:\n" + userMessage;
+    const result = await chat.sendMessage(fullPrompt);
+    const response = await result.response;
+    const responseText = response.text();
+
+    if (!responseText || responseText.trim() === "") {
+      return errorMessage || "すみません、うまく返事できませんでした...";
+    }
+
+    return responseText.trim();
+  } catch (error) {
+    console.error("AI生成エラー:", error);
+    return errorMessage || "ちょっと調子が悪いみたい...ごめんね！";
   }
-  console.error(
-    "[致命的エラー] 全てのAIモデルでの応答生成に失敗しました。",
-    lastError
-  );
-  return defaultOopsMessage;
 }
 
 module.exports = {
   data: new SlashCommandBuilder()
-    .setName("toka")
-    .setDescription("AI彼女(誰のかは知らないけど)を召喚します。"),
+    .setName("ai")
+    .setDescription("AIを召喚します")
+    .addStringOption((option) =>
+      option
+        .setName("ai_id")
+        .setDescription("召喚するAIのID")
+        .setRequired(false)
+    ),
 
   async execute(interaction) {
     await interaction.deferReply({ ephemeral: true });
 
     const channel = interaction.channel;
+    const requestedAiId = interaction.options.getString("ai_id");
     const db = interaction.client.db;
 
-    let userDefinedPrompt = baseSystemPrompt;
-    let baseUserId = "1155356934292127844";
-    let enableNameRecognition = true;
-    let userNicknames = {};
-    let enableBotMessageResponse = false;
-    let replyDelayMs = 0;
-    let errorOopsMessage = "";
-
     try {
-      const settingsDoc = await db
-        .collection("bot_settings")
-        .doc("toka_profile")
-        .get();
-      if (settingsDoc.exists) {
-        const settings = settingsDoc.data();
-        if (settings.systemPrompt) userDefinedPrompt = settings.systemPrompt;
-        if (settings.baseUserId) baseUserId = settings.baseUserId;
-        if (typeof settings.enableNameRecognition === "boolean") {
-          enableNameRecognition = settings.enableNameRecognition;
-        }
-        if (settings.userNicknames) {
-          userNicknames = settings.userNicknames;
-        }
-        if (typeof settings.enableBotMessageResponse === "boolean") {
-          enableBotMessageResponse = settings.enableBotMessageResponse;
-        }
-        if (typeof settings.replyDelayMs === "number") {
-          replyDelayMs = settings.replyDelayMs;
-        }
-        if (typeof settings.errorOopsMessage === "string") {
-          errorOopsMessage = settings.errorOopsMessage.trim();
-        }
+      // AI一覧を取得
+      const aiProfilesDoc = await db.collection("bot_settings").doc("ai_profiles").get();
+      
+      if (!aiProfilesDoc.exists || !aiProfilesDoc.data().profiles || aiProfilesDoc.data().profiles.length === 0) {
+        return await interaction.editReply({
+          content: "❌ 利用可能なAIがありません。管理者にAIの作成を依頼してください。",
+          ephemeral: true,
+        });
       }
-    } catch (dbError) {
-      console.error("Firestoreからの設定読み込みに失敗:", dbError);
-    }
 
-    const finalSystemPrompt = userDefinedPrompt + forcedInstructions;
+      const aiProfiles = aiProfilesDoc.data().profiles;
+      let selectedAI;
 
-    try {
-      const baseUser = await interaction.client.users.fetch(baseUserId);
-      const webhooks = await channel.fetchWebhooks();
-      const webhookName = baseUser.displayName;
-      const existingWebhook = webhooks.find(
-        (wh) =>
-          wh.name === webhookName && wh.owner?.id === interaction.client.user.id
-      );
-
-      if (!interaction.client.activeCollectors)
-        interaction.client.activeCollectors = new Map();
-      const collectorKey = `${channel.id}_toka`;
-
-      if (existingWebhook) {
-        await existingWebhook.delete("Toka command: cleanup.");
-        if (interaction.client.activeCollectors.has(collectorKey)) {
-          interaction.client.activeCollectors
-            .get(collectorKey)
-            .stop("Dismissed by new command.");
+      if (requestedAiId) {
+        selectedAI = aiProfiles.find(ai => ai.id === requestedAiId);
+        if (!selectedAI) {
+          const availableAIs = aiProfiles.map(ai => `\`${ai.id}\` (${ai.name})`).join('\n');
+          return await interaction.editReply({
+            content: `❌ AI「${requestedAiId}」が見つかりません。\n\n**利用可能なAI:**\n${availableAIs}`,
+            ephemeral: true,
+          });
         }
-        const embed = new EmbedBuilder()
-          .setColor(0xff0000)
-          .setDescription(`${webhookName} を退出させました。`);
-        await interaction.editReply({ embeds: [embed] });
       } else {
+        // IDが指定されていない場合は最初のAIを使用
+        selectedAI = aiProfiles[0];
+      }
+
+      // AI設定の取得
+      const aiSettings = {
+        systemPrompt: selectedAI.systemPrompt || defaultSystemPrompt,
+        baseUserId: selectedAI.baseUserId || "1155356934292127844",
+        enableNameRecognition: selectedAI.enableNameRecognition ?? true,
+        userNicknames: selectedAI.userNicknames || {},
+        enableBotMessageResponse: selectedAI.enableBotMessageResponse ?? false,
+        replyDelayMs: selectedAI.replyDelayMs || 0,
+        errorOopsMessage: selectedAI.errorOopsMessage || "",
+        modelMode: selectedAI.modelMode || "hybrid"
+      };
+
+      const finalSystemPrompt = aiSettings.systemPrompt + forcedInstructions;
+
+      try {
+        const baseUser = await interaction.client.users.fetch(aiSettings.baseUserId);
+        const webhooks = await channel.fetchWebhooks();
+        const webhookName = selectedAI.name;
+        const existingWebhook = webhooks.find(
+          (wh) =>
+            wh.name === webhookName && wh.owner?.id === interaction.client.user.id
+        );
+
+        if (!interaction.client.activeCollectors)
+          interaction.client.activeCollectors = new Map();
+        const collectorKey = `${channel.id}_${selectedAI.id}`;
+
+        if (existingWebhook) {
+          await existingWebhook.delete("AI command: cleanup.");
+          if (interaction.client.activeCollectors.has(collectorKey)) {
+            interaction.client.activeCollectors
+              .get(collectorKey)
+              .stop("Dismissed by new command.");
+          }
+        }
+
         const webhook = await channel.createWebhook({
           name: webhookName,
           avatar: baseUser.displayAvatarURL(),
         });
-        const webhookId = webhook.id;
+
+        const filter = (message) => {
+          if (!aiSettings.enableBotMessageResponse && message.author.bot) {
+            return false;
+          }
+          return !message.author.bot || aiSettings.enableBotMessageResponse;
+        };
+
         const collector = channel.createMessageCollector({
-          filter: (msg) => {
-            // とーか（自分自身のWebhook）による発言は絶対に拾わない
-            if (msg.webhookId && msg.webhookId === webhookId) return false;
-            return enableBotMessageResponse ? true : !msg.author.bot;
-          },
+          filter,
+          time: 3600000, // 1時間
         });
+
         interaction.client.activeCollectors.set(collectorKey, collector);
 
         collector.on("collect", async (message) => {
           if (!message.content) return;
 
           const historyDocRef = db
-            .collection("toka_conversations")
-            .doc(message.channel.id);
+            .collection("ai_conversations")
+            .doc(`${selectedAI.id}_${message.channel.id}`);
           const historyDoc = await historyDocRef.get();
           const currentHistory = historyDoc.exists
             ? historyDoc.data().history
@@ -215,21 +216,22 @@ module.exports = {
           let contentForAI;
 
           const userId = message.author.id;
-          const nickname = userNicknames[userId];
+          const nickname = aiSettings.userNicknames[userId];
           const authorName =
             nickname || message.member?.displayName || message.author.username;
 
-          if (enableNameRecognition) {
+          if (aiSettings.enableNameRecognition) {
             contentForAI = `[発言者: ${authorName}]\n${processedContent}`;
           } else {
             contentForAI = processedContent;
           }
 
-          const responseText = await getTokaResponse(
+          const responseText = await getAIResponse(
             contentForAI,
             currentHistory,
             finalSystemPrompt,
-            errorOopsMessage
+            aiSettings.errorOopsMessage,
+            aiSettings.modelMode
           );
 
           if (responseText) {
@@ -246,9 +248,9 @@ module.exports = {
             const messageChunks = splitMessage(responseText);
 
             for (const chunk of messageChunks) {
-              if (replyDelayMs > 0) {
+              if (aiSettings.replyDelayMs > 0) {
                 await new Promise((resolve) =>
-                  setTimeout(resolve, replyDelayMs)
+                  setTimeout(resolve, aiSettings.replyDelayMs)
                 );
               }
               await webhook.send(chunk);
@@ -262,13 +264,24 @@ module.exports = {
 
         const embed = new EmbedBuilder()
           .setColor(0x00ff00)
-          .setDescription(`${webhookName} を召喚しました。`);
+          .setDescription(`🤖 **${selectedAI.name}** (ID: \`${selectedAI.id}\`) を召喚しました。`)
+          .addFields(
+            { name: "モデル", value: aiSettings.modelMode === "hybrid" ? "ハイブリッド" : "Flash", inline: true },
+            { name: "返信遅延", value: `${aiSettings.replyDelayMs}ms`, inline: true },
+            { name: "名前認識", value: aiSettings.enableNameRecognition ? "有効" : "無効", inline: true }
+          );
         await interaction.editReply({ embeds: [embed] });
+      } catch (userFetchError) {
+        console.error("ベースユーザーの取得に失敗:", userFetchError);
+        await interaction.editReply({
+          content: "❌ AIの設定に問題があります。管理者に連絡してください。",
+          ephemeral: true,
+        });
       }
     } catch (error) {
-      console.error("[TOKA_CMD_ERROR]", error);
+      console.error("[AI_CMD_ERROR]", error);
       await interaction.editReply({
-        content: "コマンドの実行中に内部エラーが発生しました。",
+        content: "❌ コマンドの実行中にエラーが発生しました。",
         ephemeral: true,
       });
     }

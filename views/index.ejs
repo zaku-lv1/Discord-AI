@@ -2,7 +2,7 @@
 <html lang="ja">
   <head>
     <meta charset="UTF-8" />
-    <title>ボット設定管理パネル</title>
+    <title>AI管理システム</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <link rel="icon" href="/favicon.ico" type="image/x-icon" />
 
@@ -10,7 +10,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&family=Noto+Sans+JP:wght@400;500;700&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
       rel="stylesheet"
     />
 
@@ -35,12 +35,12 @@
     <!-- ローディング画面 -->
     <div id="loader-container" class="loader-container">
       <div class="spinner"></div>
-      <p class="loader-text">読み込み中...</p>
+      <p class="loader-text">システム起動中...</p>
     </div>
 
     <!-- メインコンテナ -->
     <div class="container" style="display: none;">
-      <h1>ボット設定管理パネル</h1>
+      <h1>🤖 AI管理システム</h1>
 
       <!-- 認証コンテナ -->
       <div id="auth-container" style="display: none;">
@@ -122,249 +122,182 @@
           <nav id="dashboard-nav">
             <ul>
               <li>
-                <a href="#" class="nav-link active" data-target="panel-toka"
-                  >とーか設定</a
+                <a href="#" class="nav-link active" data-target="panel-ai-list"
+                  >🤖 AI一覧</a
                 >
               </li>
               <li>
-                <a href="#" class="nav-link" data-target="panel-schedule"
-                  >スケジュール設定</a
+                <a href="#" class="nav-link" data-target="panel-create-ai"
+                  >➕ AI作成</a
                 >
               </li>
               <li>
                 <a href="#" class="nav-link" data-target="panel-profile"
-                  >プロファイル設定</a
+                  >👤 プロファイル</a
                 >
               </li>
               <li id="nav-item-admin" style="display: none;">
                 <a href="#" class="nav-link" data-target="panel-admins"
-                  >管理者設定</a
+                  >👑 管理者設定</a
                 >
               </li>
             </ul>
           </nav>
 
-          <!-- プロファイル設定パネル -->
-          <div
-            id="panel-profile"
-            class="dashboard-panel"
-            style="display: none;"
-          >
-            <h2>プロファイル設定</h2>
-
-            <div class="form-group">
-              <label for="profile-display-name">ユーザー名</label>
-              <input
-                type="text"
-                id="profile-display-name"
-                placeholder="あなたのユーザー名"
-              />
-              <small>管理者から設定されたユーザー名を変更できます。</small>
-            </div>
-
-            <div class="form-group">
-              <label for="profile-email">メールアドレス</label>
-              <input
-                type="email"
-                id="profile-email"
-                placeholder="新しいメールアドレス"
-              />
-              <small
-                >メールアドレスを変更する場合、確認メールが送信されます。</small
-              >
-            </div>
-
-            <div class="button-group">
-              <button id="save-profile-btn" class="save-btn">
-                プロファイルを保存
-              </button>
-            </div>
-          </div>
-
-          <!-- パネルコンテンツ -->
+          <!-- メインコンテンツエリア -->
           <main id="dashboard-content">
-            <!-- とーか設定パネル -->
-            <div id="panel-toka" class="dashboard-panel">
-              <h2>とーか 設定</h2>
-              <div class="form-group">
-                <label for="toka-model-mode">AIモデルモード</label>
-                <select id="toka-model-mode">
-                  <option value="hybrid">ハイブリッド (高品質)</option>
-                  <option value="flash_only">Flash (高速)</option>
-                </select>
-                <small>使用するAIモデルを選択します。</small>
-              </div>
-              <div>
-                <label for="base-user-id-input">ベースユーザーID</label>
-                <input
-                  type="text"
-                  id="base-user-id-input"
-                  placeholder="とーかの見た目と名前の元になるDiscordユーザーID"
-                />
-              </div>
-              <div class="form-group">
-                <div class="toggle-container">
-                  <label for="name-recognition-checkbox" class="toggle-label">
-                    個別の名前認識を有効にする
-                  </label>
-                  <label class="toggle-switch">
-                    <input type="checkbox" id="name-recognition-checkbox" />
-                    <span class="slider"></span>
-                  </label>
-                </div>
-              </div>
-              <div class="form-group">
-                <div class="toggle-container">
-                  <label
-                    for="bot-message-response-checkbox"
-                    class="toggle-label"
-                  >
-                    Botユーザーのメッセージにも反応する
-                  </label>
-                  <label class="toggle-switch">
-                    <input type="checkbox" id="bot-message-response-checkbox" />
-                    <span class="slider"></span>
-                  </label>
-                </div>
-                <small
-                  >ONにするとBotユーザーの発言にもとーかが反応します。</small
-                >
-              </div>
-              <div class="form-group">
-                <label for="reply-delay-ms-input"
-                  >返信ディレイ（ms単位, 0で即時返信）</label
-                >
-                <input
-                  type="number"
-                  id="reply-delay-ms-input"
-                  min="0"
-                  max="10000"
-                  step="100"
-                  placeholder="例: 0(即時) ~ 10000(最大10秒)"
-                />
-                <small>1000=1秒。とーかが返事するまでの遅延。0で即時。</small>
-              </div>
-              <div class="form-group">
-                <label for="error-oops-message-input"
-                  >AIエラー時のメッセージ</label
-                >
-                <input
-                  type="text"
-                  id="error-oops-message-input"
-                  maxlength="200"
-                  placeholder="例: うーん、なんだか今日は言葉がうまく出てこないみたいで……ごめんね、ちーくん。(；；)"
-                />
-                <small>Geminiが使えないときの返答。空ならデフォルト文。</small>
-              </div>
-              <div class="form-group">
-                <label for="prompt-textarea"
-                  >システムプロンプト (キャラクター設定)</label
-                >
-                <textarea
-                  id="prompt-textarea"
-                  rows="10"
-                  placeholder="ここにキャラクター設定を入力..."
-                ></textarea>
-              </div>
-              <div class="form-group">
-                <label>ニックネーム設定</label>
-                <div id="nicknames-list-container"></div>
-                <button
-                  type="button"
-                  id="add-nickname-btn"
-                  class="secondary-btn"
-                >
-                  ＋ ニックネームを追加
-                </button>
-              </div>
-              <div class="button-group">
-                <button id="save-toka-btn" class="save-btn">
-                  とーか設定を保存
-                </button>
+            <!-- AI一覧パネル -->
+            <div id="panel-ai-list" class="dashboard-panel active">
+              <h2>AI一覧</h2>
+              <div id="ai-list-container">
+                <!-- AIカードがここに動的に追加されます -->
               </div>
             </div>
 
-            <!-- スケジュール設定パネル -->
-            <div
-              id="panel-schedule"
-              class="dashboard-panel"
-              style="display: none;"
-            >
-              <h2>スケジュール設定</h2>
-              <div class="form-group">
-                <div class="toggle-container">
-                  <label for="reminders-enabled-checkbox" class="toggle-label">
-                    宿題リマインダーを有効にする
-                  </label>
-                  <label class="toggle-switch">
-                    <input type="checkbox" id="reminders-enabled-checkbox" />
-                    <span class="slider"></span>
-                  </label>
+            <!-- AI作成パネル -->
+            <div id="panel-create-ai" class="dashboard-panel">
+              <h2>新しいAIを作成</h2>
+              <form id="create-ai-form">
+                <div class="form-group">
+                  <label for="ai-id">AI ID</label>
+                  <input
+                    type="text"
+                    id="ai-id"
+                    placeholder="例: my-assistant"
+                    required
+                  />
+                  <small>英数字、ハイフン、アンダースコアのみ使用可能です。</small>
                 </div>
-              </div>
+                
+                <div class="form-group">
+                  <label for="ai-name">AI名</label>
+                  <input
+                    type="text"
+                    id="ai-name"
+                    placeholder="例: アシスタント太郎"
+                    required
+                  />
+                  <small>Discordで表示される名前です。</small>
+                </div>
+
+                <div class="form-group">
+                  <label for="ai-model-mode">AIモデルモード</label>
+                  <select id="ai-model-mode">
+                    <option value="hybrid">ハイブリッド (高品質)</option>
+                    <option value="flash_only">Flash (高速)</option>
+                  </select>
+                  <small>使用するAIモデルを選択します。</small>
+                </div>
+
+                <div class="form-group">
+                  <label for="ai-base-user-id">ベースユーザーID</label>
+                  <input
+                    type="text"
+                    id="ai-base-user-id"
+                    placeholder="AIの見た目と名前の元になるDiscordユーザーID"
+                  />
+                  <small>空白の場合はボットのデフォルト設定を使用します。</small>
+                </div>
+
+                <div class="form-group">
+                  <div class="toggle-container">
+                    <label for="ai-name-recognition" class="toggle-label">
+                      個別の名前認識を有効にする
+                    </label>
+                    <label class="toggle-switch">
+                      <input type="checkbox" id="ai-name-recognition" checked />
+                      <span class="slider"></span>
+                    </label>
+                  </div>
+                </div>
+
+                <div class="form-group">
+                  <div class="toggle-container">
+                    <label for="ai-bot-response" class="toggle-label">
+                      Botユーザーのメッセージにも反応する
+                    </label>
+                    <label class="toggle-switch">
+                      <input type="checkbox" id="ai-bot-response" />
+                      <span class="slider"></span>
+                    </label>
+                  </div>
+                  <small>ONにするとBotユーザーの発言にもAIが反応します。</small>
+                </div>
+
+                <div class="form-group">
+                  <label for="ai-reply-delay">返信ディレイ（ms単位）</label>
+                  <input
+                    type="number"
+                    id="ai-reply-delay"
+                    min="0"
+                    max="10000"
+                    step="100"
+                    value="0"
+                    placeholder="0 (即時返信)"
+                  />
+                  <small>1000=1秒。AIが返事するまでの遅延。0で即時。</small>
+                </div>
+
+                <div class="form-group">
+                  <label for="ai-error-message">AIエラー時のメッセージ</label>
+                  <input
+                    type="text"
+                    id="ai-error-message"
+                    maxlength="200"
+                    placeholder="例: ちょっと調子が悪いみたい...ごめんね！"
+                  />
+                  <small>Geminiが使えないときの返答。空白ならデフォルト文。</small>
+                </div>
+
+                <div class="form-group">
+                  <label for="ai-system-prompt">システムプロンプト (キャラクター設定)</label>
+                  <textarea
+                    id="ai-system-prompt"
+                    rows="8"
+                    placeholder="ここにAIのキャラクター設定を入力..."
+                  ></textarea>
+                  <small>AIの性格や口調、役割などを詳しく設定してください。</small>
+                </div>
+
+                <div class="button-group">
+                  <button type="submit" class="save-btn">AIを作成</button>
+                </div>
+              </form>
+            </div>
+
+            <!-- プロファイル設定パネル -->
+            <div id="panel-profile" class="dashboard-panel">
+              <h2>プロファイル設定</h2>
+
               <div class="form-group">
-                <label for="reminder-time-input"
-                  >リマインダー時刻 (24時間表記)</label
-                >
-                <input type="time" id="reminder-time-input" />
-                <small
-                  >毎日この時刻に、翌日提出の課題がDMに通知されます。</small
-                >
-              </div>
-              <div class="form-group">
-                <label for="google-sheet-id-input"
-                  >GoogleスプレッドシートID</label
-                >
+                <label for="profile-display-name">ユーザー名</label>
                 <input
                   type="text"
-                  id="google-sheet-id-input"
-                  placeholder="予定を管理するスプレッドシートのID"
+                  id="profile-display-name"
+                  placeholder="あなたのユーザー名"
                 />
+                <small>管理者から設定されたユーザー名を変更できます。</small>
               </div>
+
               <div class="form-group">
-                <label for="reminder-guild-id-input">Discord サーバーID</label>
+                <label for="profile-email">メールアドレス</label>
                 <input
-                  type="text"
-                  id="reminder-guild-id-input"
-                  placeholder="リマインダーを送信するDiscordサーバーのID"
+                  type="email"
+                  id="profile-email"
+                  placeholder="新しいメールアドレス"
                 />
+                <small>メールアドレスを変更する場合、確認メールが送信されます。</small>
               </div>
-              <div class="form-group">
-                <label for="reminder-role-id-input">Discord ロールID</label>
-                <input
-                  type="text"
-                  id="reminder-role-id-input"
-                  placeholder="通知するロールのID"
-                />
-              </div>
+
               <div class="button-group">
-                <button id="save-schedule-settings-btn" class="save-btn">
-                  スケジュール設定を保存
-                </button>
-              </div>
-              <hr />
-              <h3>予定リストエディター</h3>
-              <div id="schedule-items-container"></div>
-              <button
-                type="button"
-                id="add-schedule-item-btn"
-                class="secondary-btn"
-              >
-                ＋ 予定を追加
-              </button>
-              <div class="button-group">
-                <button id="save-schedule-items-btn" class="save-btn">
-                  予定リストをシートに保存
+                <button id="save-profile-btn" class="save-btn">
+                  プロファイルを保存
                 </button>
               </div>
             </div>
 
             <!-- 管理者設定パネル -->
-            <div
-              id="panel-admins"
-              class="dashboard-panel"
-              style="display: none;"
-            >
+            <div id="panel-admins" class="dashboard-panel">
               <div id="invite-code-generator-section">
                 <div class="form-group">
                   <label>新しい管理者を招待</label>
@@ -378,19 +311,19 @@
                   <div id="invite-code-display" style="display:none;">
                     <p>このコードを新しい管理者に伝えてください。</p>
                     <input type="text" id="new-invite-code" readonly />
-                    <button type="button" id="copy-invite-code-btn">
+                    <button type="button" id="copy-invite-code-btn" class="secondary-btn">
                       コピー
                     </button>
                   </div>
                 </div>
               </div>
-              <hr />
-              <h2>管理者アカウント</h2>
+              
+              <h3>管理者アカウント</h3>
               <div class="form-group">
                 <label>管理者リスト</label>
                 <div id="admins-list-container"></div>
                 <button type="button" id="add-admin-btn" class="secondary-btn">
-                  ＋ 管理者を追加
+                  ➕ 管理者を追加
                 </button>
                 <small>リストの一番上の管理者が「最高管理者」です。</small>
               </div>
@@ -402,15 +335,83 @@
             </div>
           </main>
         </div>
-
-        <!-- 全体の保存ボタン -->
-        <div class="button-group-main">
-          <button id="save-all-btn" class="save-btn">すべての設定を保存</button>
-        </div>
       </div>
 
       <!-- ステータスメッセージ -->
-      <p id="status-message"></p>
+      <div id="status-message"></div>
+    </div>
+
+    <!-- AI編集モーダル -->
+    <div id="edit-ai-modal" class="modal">
+      <div class="modal-content">
+        <span class="close">&times;</span>
+        <h2>AIを編集</h2>
+        <form id="edit-ai-form">
+          <input type="hidden" id="edit-ai-id" />
+          
+          <div class="form-group">
+            <label for="edit-ai-name">AI名</label>
+            <input type="text" id="edit-ai-name" required />
+          </div>
+
+          <div class="form-group">
+            <label for="edit-ai-model-mode">AIモデルモード</label>
+            <select id="edit-ai-model-mode">
+              <option value="hybrid">ハイブリッド (高品質)</option>
+              <option value="flash_only">Flash (高速)</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label for="edit-ai-base-user-id">ベースユーザーID</label>
+            <input type="text" id="edit-ai-base-user-id" />
+          </div>
+
+          <div class="form-group">
+            <div class="toggle-container">
+              <label for="edit-ai-name-recognition" class="toggle-label">
+                個別の名前認識を有効にする
+              </label>
+              <label class="toggle-switch">
+                <input type="checkbox" id="edit-ai-name-recognition" />
+                <span class="slider"></span>
+              </label>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <div class="toggle-container">
+              <label for="edit-ai-bot-response" class="toggle-label">
+                Botユーザーのメッセージにも反応する
+              </label>
+              <label class="toggle-switch">
+                <input type="checkbox" id="edit-ai-bot-response" />
+                <span class="slider"></span>
+              </label>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="edit-ai-reply-delay">返信ディレイ（ms単位）</label>
+            <input type="number" id="edit-ai-reply-delay" min="0" max="10000" step="100" />
+          </div>
+
+          <div class="form-group">
+            <label for="edit-ai-error-message">AIエラー時のメッセージ</label>
+            <input type="text" id="edit-ai-error-message" maxlength="200" />
+          </div>
+
+          <div class="form-group">
+            <label for="edit-ai-system-prompt">システムプロンプト</label>
+            <textarea id="edit-ai-system-prompt" rows="8"></textarea>
+          </div>
+
+          <div class="button-group">
+            <button type="button" class="secondary-btn" id="cancel-edit-btn">キャンセル</button>
+            <button type="submit" class="save-btn">変更を保存</button>
+          </div>
+        </form>
+      </div>
     </div>
   </body>
 </html>
