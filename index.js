@@ -107,14 +107,46 @@ console.log(`[情報] 認証環境: ${isProduction ? 'Production' : 'Development
 console.log(`[情報] Discord OAuth Callback URL: ${getCallbackURL()}`);
 
 // =================================================================================
+// Discord OAuth設定の検証
+// =================================================================================
+function validateDiscordConfig() {
+  const clientId = process.env.DISCORD_CLIENT_ID;
+  const clientSecret = process.env.DISCORD_CLIENT_SECRET;
+  
+  if (!clientId || !clientSecret) {
+    throw new Error('DISCORD_CLIENT_ID と DISCORD_CLIENT_SECRET が設定されていません。');
+  }
+  
+  // Discord Client IDは数値のsnowflake IDである必要があります
+  if (!/^\d{17,19}$/.test(clientId)) {
+    throw new Error(
+      `DISCORD_CLIENT_ID が無効です: "${clientId}"\n` +
+      'Discord Client IDは17-19桁の数値である必要があります。\n' +
+      'Discord Developer Portal (https://discord.com/developers/applications) で正しいClient IDを確認してください。'
+    );
+  }
+  
+  console.log(`[情報] Discord Client ID検証完了: ${clientId}`);
+}
+
+// Discord設定を検証
+try {
+  validateDiscordConfig();
+} catch (error) {
+  console.error(`[致命的エラー] Discord OAuth設定が無効です: ${error.message}`);
+  console.log('[情報] Discord OAuth機能を無効にして続行します。');
+}
+
+// =================================================================================
 // Passport Discord OAuth設定
 // =================================================================================
-passport.use(new DiscordStrategy({
-  clientID: process.env.DISCORD_CLIENT_ID,
-  clientSecret: process.env.DISCORD_CLIENT_SECRET,
-  callbackURL: getCallbackURL(),
-  scope: ['identify', 'email', 'guilds']
-}, async (accessToken, refreshToken, profile, done) => {
+if (process.env.DISCORD_CLIENT_ID && /^\d{17,19}$/.test(process.env.DISCORD_CLIENT_ID)) {
+  passport.use(new DiscordStrategy({
+    clientID: process.env.DISCORD_CLIENT_ID,
+    clientSecret: process.env.DISCORD_CLIENT_SECRET,
+    callbackURL: getCallbackURL(),
+    scope: ['identify', 'email', 'guilds']
+  }, async (accessToken, refreshToken, profile, done) => {
   try {
     // Discordプロファイル情報をFirebaseに保存/更新
     const userRef = db.collection('discord_users').doc(profile.id);
@@ -152,6 +184,12 @@ passport.deserializeUser(async (id, done) => {
     done(error, null);
   }
 });
+} else {
+  console.log('[警告] Discord OAuth設定が無効なため、認証機能を無効にします。');
+  // モック設定
+  passport.serializeUser((user, done) => done(null, user));
+  passport.deserializeUser((user, done) => done(null, user));
+}
 
 // =================================================================================
 // Discordクライアントの初期化とコマンド読み込み
@@ -218,9 +256,21 @@ adminRouter.use(express.json({ limit: "5mb" }));
 // =================================================================================
 // Discord OAuth ルート
 // =================================================================================
-adminRouter.get('/auth/discord', passport.authenticate('discord'));
+function checkDiscordConfigured(req, res, next) {
+  if (!process.env.DISCORD_CLIENT_ID || !/^\d{17,19}$/.test(process.env.DISCORD_CLIENT_ID)) {
+    return res.status(500).json({
+      error: 'Discord OAuth設定エラー',
+      message: 'Discord Client IDが正しく設定されていません。管理者に連絡してください。',
+      details: 'DISCORD_CLIENT_IDは17-19桁の数値である必要があります。'
+    });
+  }
+  next();
+}
+
+adminRouter.get('/auth/discord', checkDiscordConfigured, passport.authenticate('discord'));
 
 adminRouter.get('/auth/discord/callback', 
+  checkDiscordConfigured,
   passport.authenticate('discord', { failureRedirect: '/?error=auth_failed' }),
   (req, res) => {
     // 認証成功時にリダイレクト
@@ -303,13 +353,18 @@ const verifyAuthentication = async (req, res, next) => {
 };
 
 adminRouter.get("/", (req, res) => {
-  // Discord OAuth用の設定を渡す
+  // Discord OAuth用の設定を渡す（有効な場合のみ）
+  const isDiscordConfigured = process.env.DISCORD_CLIENT_ID && 
+    /^\d{17,19}$/.test(process.env.DISCORD_CLIENT_ID);
+  
   const discordOAuthConfig = {
-    clientId: process.env.DISCORD_CLIENT_ID,
-    redirectUri: getCallbackURL(),
+    clientId: isDiscordConfigured ? process.env.DISCORD_CLIENT_ID : null,
+    redirectUri: isDiscordConfigured ? getCallbackURL() : null,
     isProduction: isProduction,
     domain: domain,
-    protocol: protocol
+    protocol: protocol,
+    configured: isDiscordConfigured,
+    error: isDiscordConfigured ? null : 'Discord Client IDが正しく設定されていません'
   };
   res.render("index", { discordOAuthConfig });
 });
