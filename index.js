@@ -911,7 +911,9 @@ app.use((req, res, next) => {
   if (req.hostname === process.env.ADMIN_DOMAIN) {
     adminRouter(req, res, next);
   } else {
-    next();
+    // For hostnames that don't match ADMIN_DOMAIN, still route to adminRouter
+    // This ensures the application works regardless of hostname
+    adminRouter(req, res, next);
   }
 });
 app.listen(port, () => {
