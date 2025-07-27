@@ -9,10 +9,28 @@ router.get('/discord', checkDiscordConfigured, passport.authenticate('discord'))
 
 router.get('/discord/callback', 
   checkDiscordConfigured,
-  passport.authenticate('discord', { failureRedirect: '/?error=auth_failed' }),
-  (req, res) => {
-    // 認証成功時にリダイレクト
-    res.redirect('/?auth=success');
+  (req, res, next) => {
+    passport.authenticate('discord', { 
+      failureRedirect: '/?error=auth_failed',
+      session: true 
+    }, (err, user, info) => {
+      if (err) {
+        console.error('Discord OAuth認証エラー:', err);
+        return res.redirect('/?error=oauth_error');
+      }
+      if (!user) {
+        console.log('Discord OAuth認証失敗:', info);
+        return res.redirect('/?error=auth_failed');
+      }
+      req.logIn(user, (err) => {
+        if (err) {
+          console.error('ログインセッション作成エラー:', err);
+          return res.redirect('/?error=session_error');
+        }
+        console.log('Discord OAuth認証成功:', user.username);
+        return res.redirect('/?auth=success');
+      });
+    })(req, res, next);
   }
 );
 

@@ -48,11 +48,12 @@ const verifyAuthentication = async (req, res, next) => {
 
 const checkDiscordConfigured = (req, res, next) => {
   if (!process.env.DISCORD_CLIENT_ID || !/^\d{17,19}$/.test(process.env.DISCORD_CLIENT_ID)) {
-    return res.status(500).json({
-      error: 'Discord OAuth設定エラー',
-      message: 'Discord Client IDが正しく設定されていません。管理者に連絡してください。',
-      details: 'DISCORD_CLIENT_IDは17-19桁の数値である必要があります。'
-    });
+    console.error('Discord設定エラー: Client IDが無効です');
+    return res.redirect('/?error=config_error');
+  }
+  if (!process.env.DISCORD_CLIENT_SECRET) {
+    console.error('Discord設定エラー: Client Secretが未設定です');
+    return res.redirect('/?error=config_error');
   }
   next();
 };
