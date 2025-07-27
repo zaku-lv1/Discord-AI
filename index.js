@@ -9,9 +9,8 @@ const express = require("express");
 const admin = require("firebase-admin");
 const ejs = require("ejs");
 const { v4: uuidv4 } = require("uuid");
-const cron = require("node-cron");
-const { google } = require("googleapis");
-const { JWT } = require("google-auth-library");
+
+
 
 dotenv.config();
 
@@ -62,69 +61,9 @@ if (fs.existsSync(commandsPath)) {
   }
 }
 
-// =================================================================================
-// Google Sheets API クライアント取得ヘルパー関数
-// =================================================================================
-async function getSheetsClient() {
-  const credentialsJson = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
-  if (!credentialsJson)
-    throw new Error(
-      "GoogleサービスアカウントのJSON認証情報が.envに設定されていません。"
-    );
-  const serviceAccountCreds = JSON.parse(credentialsJson);
-  const jwtClient = new JWT({
-    email: serviceAccountCreds.client_email,
-    key: serviceAccountCreds.private_key,
-    scopes: ["https://www.googleapis.com/auth/spreadsheets"],
-  });
-  return google.sheets({ version: "v4", auth: jwtClient });
-}
 
-// =================================================================================
-// リマインダー スケジューラー
-// =================================================================================
-let dailyReminderTask = null;
-async function setupReminderSchedule() {
-  if (dailyReminderTask) {
-    dailyReminderTask.stop();
-    console.log("[リマインダー] 既存のスケジュールを停止しました。");
-  }
-  try {
-    const settingsDoc = await db
-      .collection("bot_settings")
-      .doc("schedule_settings")
-      .get();
-    if (!settingsDoc.exists) return;
-    const settings = settingsDoc.data();
-    if (settings.remindersEnabled && settings.reminderTime) {
-      const [hour, minute] = settings.reminderTime.split(":");
-      const cronExpression = `${minute} ${hour} * * *`;
-      if (cron.validate(cronExpression)) {
-        const scheduleCommand = client.commands.get("schedule");
-        if (
-          scheduleCommand &&
-          typeof scheduleCommand.scheduleDailyReminder === "function"
-        ) {
-          dailyReminderTask = cron.schedule(
-            cronExpression,
-            () => {
-              scheduleCommand.scheduleDailyReminder(client, db);
-            },
-            { scheduled: true, timezone: "Asia/Tokyo" }
-          );
-          console.log(
-            `[リマインダー] セットアップ完了。毎日 ${settings.reminderTime} にリマインダーが送信されます。`
-          );
-        }
-      }
-    }
-  } catch (error) {
-    console.error(
-      "[リマインダー] スケジュールセットアップ中にエラーが発生しました:",
-      error
-    );
-  }
-}
+
+
 
 // =================================================================================
 // Expressサーバーの設定
@@ -185,6 +124,164 @@ adminRouter.get("/", (req, res) => {
   res.render("index", { firebaseConfig });
 });
 
+// --- AI管理API ---
+adminRouter.get("/api/ais", verifyFirebaseToken, async (req, res) => {
+  try {
+    const doc = await db.collection("bot_settings").doc("ai_profiles").get();
+    if (!doc.exists) {
+      return res.status(200).json([]);
+    }
+    
+    const data = doc.data();
+    const aiProfiles = data.profiles || [];
+    
+    res.status(200).json(aiProfiles);
+  } catch (error) {
+    console.error("AI取得エラー:", error);
+    res.status(500).json({ message: "サーバーエラー" });
+  }
+});
+
+adminRouter.post("/api/ais", verifyFirebaseToken, async (req, res) => {
+  try {
+    const {
+      id,
+      name,
+      systemPrompt,
+      modelMode,
+      baseUserId,
+      enableNameRecognition,
+      enableBotMessageResponse,
+      replyDelayMs,
+      errorOopsMessage,
+      userNicknames
+    } = req.body;
+
+    if (!id || !name) {
+      return res.status(400).json({ message: "IDと名前は必須です。" });
+    }
+
+    const doc = await db.collection("bot_settings").doc("ai_profiles").get();
+    const existingProfiles = doc.exists ? (doc.data().profiles || []) : [];
+    
+    // ID重複チェック
+    if (existingProfiles.some(profile => profile.id === id)) {
+      return res.status(400).json({ message: "このIDは既に使用されています。" });
+    }
+
+    const newProfile = {
+      id,
+      name,
+      systemPrompt: systemPrompt || "",
+      modelMode: modelMode || "hybrid",
+      baseUserId: baseUserId || null,
+      enableNameRecognition: enableNameRecognition ?? true,
+      enableBotMessageResponse: enableBotMessageResponse ?? false,
+      replyDelayMs: replyDelayMs ?? 0,
+      errorOopsMessage: errorOopsMessage || "",
+      userNicknames: userNicknames || {},
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      updatedAt: admin.firestore.FieldValue.serverTimestamp()
+    };
+
+    existingProfiles.push(newProfile);
+
+    await db.collection("bot_settings").doc("ai_profiles").set({
+      profiles: existingProfiles,
+      updatedAt: admin.firestore.FieldValue.serverTimestamp()
+    }, { merge: true });
+
+    res.status(201).json({ message: `AI "${name}" を作成しました。`, ai: newProfile });
+  } catch (error) {
+    console.error("AI作成エラー:", error);
+    res.status(500).json({ message: "サーバーエラー" });
+  }
+});
+
+adminRouter.put("/api/ais/:id", verifyFirebaseToken, async (req, res) => {
+  try {
+    const aiId = req.params.id;
+    const {
+      name,
+      systemPrompt,
+      modelMode,
+      baseUserId,
+      enableNameRecognition,
+      enableBotMessageResponse,
+      replyDelayMs,
+      errorOopsMessage,
+      userNicknames
+    } = req.body;
+
+    const doc = await db.collection("bot_settings").doc("ai_profiles").get();
+    if (!doc.exists) {
+      return res.status(404).json({ message: "AIが見つかりません。" });
+    }
+
+    const existingProfiles = doc.data().profiles || [];
+    const profileIndex = existingProfiles.findIndex(profile => profile.id === aiId);
+    
+    if (profileIndex === -1) {
+      return res.status(404).json({ message: "AIが見つかりません。" });
+    }
+
+    existingProfiles[profileIndex] = {
+      ...existingProfiles[profileIndex],
+      name: name || existingProfiles[profileIndex].name,
+      systemPrompt: systemPrompt !== undefined ? systemPrompt : existingProfiles[profileIndex].systemPrompt,
+      modelMode: modelMode || existingProfiles[profileIndex].modelMode,
+      baseUserId: baseUserId !== undefined ? baseUserId : existingProfiles[profileIndex].baseUserId,
+      enableNameRecognition: enableNameRecognition !== undefined ? enableNameRecognition : existingProfiles[profileIndex].enableNameRecognition,
+      enableBotMessageResponse: enableBotMessageResponse !== undefined ? enableBotMessageResponse : existingProfiles[profileIndex].enableBotMessageResponse,
+      replyDelayMs: replyDelayMs !== undefined ? replyDelayMs : existingProfiles[profileIndex].replyDelayMs,
+      errorOopsMessage: errorOopsMessage !== undefined ? errorOopsMessage : existingProfiles[profileIndex].errorOopsMessage,
+      userNicknames: userNicknames !== undefined ? userNicknames : existingProfiles[profileIndex].userNicknames,
+      updatedAt: admin.firestore.FieldValue.serverTimestamp()
+    };
+
+    await db.collection("bot_settings").doc("ai_profiles").set({
+      profiles: existingProfiles,
+      updatedAt: admin.firestore.FieldValue.serverTimestamp()
+    }, { merge: true });
+
+    res.status(200).json({ message: `AI "${existingProfiles[profileIndex].name}" を更新しました。` });
+  } catch (error) {
+    console.error("AI更新エラー:", error);
+    res.status(500).json({ message: "サーバーエラー" });
+  }
+});
+
+adminRouter.delete("/api/ais/:id", verifyFirebaseToken, async (req, res) => {
+  try {
+    const aiId = req.params.id;
+
+    const doc = await db.collection("bot_settings").doc("ai_profiles").get();
+    if (!doc.exists) {
+      return res.status(404).json({ message: "AIが見つかりません。" });
+    }
+
+    const existingProfiles = doc.data().profiles || [];
+    const profileIndex = existingProfiles.findIndex(profile => profile.id === aiId);
+    
+    if (profileIndex === -1) {
+      return res.status(404).json({ message: "AIが見つかりません。" });
+    }
+
+    const deletedName = existingProfiles[profileIndex].name;
+    existingProfiles.splice(profileIndex, 1);
+
+    await db.collection("bot_settings").doc("ai_profiles").set({
+      profiles: existingProfiles,
+      updatedAt: admin.firestore.FieldValue.serverTimestamp()
+    }, { merge: true });
+
+    res.status(200).json({ message: `AI "${deletedName}" を削除しました。` });
+  } catch (error) {
+    console.error("AI削除エラー:", error);
+    res.status(500).json({ message: "サーバーエラー" });
+  }
+});
+
 // --- 設定取得API ---
 adminRouter.get("/api/settings/toka", verifyFirebaseToken, async (req, res) => {
   try {
@@ -214,50 +311,7 @@ adminRouter.get("/api/settings/toka", verifyFirebaseToken, async (req, res) => {
   }
 });
 
-adminRouter.get(
-  "/api/settings/schedule",
-  verifyFirebaseToken,
-  async (req, res) => {
-    try {
-      const doc = await db
-        .collection("bot_settings")
-        .doc("schedule_settings")
-        .get();
-      if (!doc.exists)
-        return res.status(404).json({ message: "設定がまだありません。" });
-      res.status(200).json(doc.data());
-    } catch (error) {
-      res.status(500).json({ message: "サーバーエラー" });
-    }
-  }
-);
 
-adminRouter.get(
-  "/api/schedule/items",
-  verifyFirebaseToken,
-  async (req, res) => {
-    try {
-      const settingsDoc = await db
-        .collection("bot_settings")
-        .doc("schedule_settings")
-        .get();
-      if (!settingsDoc.exists || !settingsDoc.data().googleSheetId)
-        return res.status(404).json([]);
-      const { googleSheetId } = settingsDoc.data();
-      const sheetsClient = await getSheetsClient();
-      const response = await sheetsClient.spreadsheets.values.get({
-        spreadsheetId: googleSheetId,
-        range: "シート1!A2:C",
-      });
-      res.status(200).json(response.data.values || []);
-    } catch (error) {
-      console.error("GET /api/schedule/items エラー:", error);
-      res
-        .status(500)
-        .json({ message: "スプレッドシートの予定読み込みに失敗しました。" });
-    }
-  }
-);
 
 // --- 設定保存API ---
 // 1. 設定取得API・保存APIの該当部分を修正
@@ -325,36 +379,7 @@ adminRouter.post(
   }
 );
 
-adminRouter.post(
-  "/api/settings/schedule",
-  verifyFirebaseToken,
-  async (req, res) => {
-    try {
-      const {
-        remindersEnabled,
-        reminderTime,
-        googleSheetId,
-        reminderRoleId,
-        reminderGuildId,
-      } = req.body;
-      const dataToSave = {
-        remindersEnabled,
-        reminderTime,
-        googleSheetId,
-        reminderRoleId,
-        reminderGuildId,
-      };
-      await db
-        .collection("bot_settings")
-        .doc("schedule_settings")
-        .set(dataToSave, { merge: true });
-      await setupReminderSchedule();
-      res.status(200).json({ message: "スケジュール設定を更新しました。" });
-    } catch (error) {
-      res.status(500).json({ message: "サーバーエラー" });
-    }
-  }
-);
+
 
 adminRouter.post(
   "/api/settings/admins",
@@ -403,45 +428,7 @@ adminRouter.post(
   }
 );
 
-adminRouter.post(
-  "/api/schedule/items",
-  verifyFirebaseToken,
-  async (req, res) => {
-    try {
-      const { items } = req.body;
-      if (!Array.isArray(items))
-        return res.status(400).json({ message: "無効なデータ形式です。" });
-      const settingsDoc = await db
-        .collection("bot_settings")
-        .doc("schedule_settings")
-        .get();
-      if (!settingsDoc.exists || !settingsDoc.data().googleSheetId)
-        return res
-          .status(400)
-          .json({ message: "スプレッドシートが設定されていません。" });
-      const { googleSheetId } = settingsDoc.data();
-      const sheets = await getSheetsClient();
-      const range = "シート1!A2:C";
-      await sheets.spreadsheets.values.clear({
-        spreadsheetId: googleSheetId,
-        range,
-      });
-      if (items.length > 0) {
-        await sheets.spreadsheets.values.update({
-          spreadsheetId: googleSheetId,
-          range,
-          valueInputOption: "USER_ENTERED",
-          resource: { values: items },
-        });
-      }
-      res
-        .status(200)
-        .json({ message: "予定リストをスプレッドシートに保存しました。" });
-    } catch (error) {
-      res.status(500).json({ message: "予定リストの保存に失敗しました。" });
-    }
-  }
-);
+
 
 // メールアドレス更新用のエンドポイント
 app.post("/api/update-email", verifyFirebaseToken, async (req, res) => {
@@ -490,184 +477,7 @@ app.post("/api/update-email", verifyFirebaseToken, async (req, res) => {
   }
 });
 
-// 公開APIエンドポイント
-app.get("/api/schedule/public", async (req, res) => {
-  try {
-    const settingsDoc = await db
-      .collection("bot_settings")
-      .doc("schedule_settings")
-      .get();
 
-    if (!settingsDoc.exists || !settingsDoc.data().googleSheetId) {
-      return res.status(404).json({
-        items: [],
-        settings: {},
-      });
-    }
-
-    const settings = settingsDoc.data();
-    const sheets = await getSheetsClient();
-    const response = await sheets.spreadsheets.values.get({
-      spreadsheetId: settings.googleSheetId,
-      range: "シート1!A2:C",
-    });
-
-    res.status(200).json({
-      items: response.data.values || [],
-      settings: {
-        googleSheetId: settings.googleSheetId,
-        remindersEnabled: settings.remindersEnabled,
-        reminderTime: settings.reminderTime,
-        reminderGuildId: settings.reminderGuildId,
-        reminderRoleId: settings.reminderRoleId,
-      },
-    });
-  } catch (error) {
-    console.error("GET /api/schedule/public エラー:", error);
-    res.status(500).json({
-      message: "スケジュール情報の取得に失敗しました。",
-      error: error.message,
-    });
-  }
-});
-
-app.post("/api/schedule/public/add", async (req, res) => {
-  try {
-    const { items } = req.body;
-    if (!Array.isArray(items)) {
-      return res.status(400).json({ message: "無効なデータ形式です。" });
-    }
-
-    const settingsDoc = await db
-      .collection("bot_settings")
-      .doc("schedule_settings")
-      .get();
-
-    if (!settingsDoc.exists || !settingsDoc.data().googleSheetId) {
-      return res
-        .status(404)
-        .json({ message: "スケジュール設定が見つかりません。" });
-    }
-
-    const { googleSheetId } = settingsDoc.data();
-    const sheets = await getSheetsClient();
-
-    await sheets.spreadsheets.values.append({
-      spreadsheetId: googleSheetId,
-      range: "シート1",
-      valueInputOption: "USER_ENTERED",
-      resource: { values: items },
-    });
-
-    res.status(200).json({
-      message: "予定を追加しました。",
-      count: items.length,
-    });
-  } catch (error) {
-    console.error("POST /api/schedule/public/add エラー:", error);
-    res.status(500).json({ message: "予定の追加に失敗しました。" });
-  }
-});
-
-app.post("/api/schedule/public/update", async (req, res) => {
-  try {
-    const { index, item } = req.body;
-    if (!Array.isArray(item) || typeof index !== "number") {
-      return res.status(400).json({ message: "無効なデータ形式です。" });
-    }
-
-    const settingsDoc = await db
-      .collection("bot_settings")
-      .doc("schedule_settings")
-      .get();
-
-    if (!settingsDoc.exists || !settingsDoc.data().googleSheetId) {
-      return res
-        .status(404)
-        .json({ message: "スケジュール設定が見つかりません。" });
-    }
-
-    const { googleSheetId } = settingsDoc.data();
-    const sheets = await getSheetsClient();
-
-    await sheets.spreadsheets.values.update({
-      spreadsheetId: googleSheetId,
-      range: `シート1!A${index + 2}:C${index + 2}`,
-      valueInputOption: "USER_ENTERED",
-      resource: { values: [item] },
-    });
-
-    res.status(200).json({ message: "予定を更新しました。" });
-  } catch (error) {
-    console.error("POST /api/schedule/public/update エラー:", error);
-    res.status(500).json({ message: "予定の更新に失敗しました。" });
-  }
-});
-
-app.post("/api/schedule/public/delete", async (req, res) => {
-  try {
-    const { indices } = req.body;
-    if (!Array.isArray(indices)) {
-      return res.status(400).json({ message: "無効なデータ形式です。" });
-    }
-
-    const settingsDoc = await db
-      .collection("bot_settings")
-      .doc("schedule_settings")
-      .get();
-
-    if (!settingsDoc.exists || !settingsDoc.data().googleSheetId) {
-      return res
-        .status(404)
-        .json({ message: "スケジュール設定が見つかりません。" });
-    }
-
-    const { googleSheetId } = settingsDoc.data();
-    const sheets = await getSheetsClient();
-
-    // スプレッドシート情報の取得
-    const spreadsheetInfo = await sheets.spreadsheets.get({
-      spreadsheetId: googleSheetId,
-    });
-
-    const sheet1 = spreadsheetInfo.data.sheets.find(
-      (s) => s.properties.title === "シート1"
-    );
-
-    if (!sheet1) {
-      throw new Error("シート1が見つかりません。");
-    }
-
-    const deleteRequests = indices
-      .filter((idx) => typeof idx === "number" && idx >= 0)
-      .sort((a, b) => b - a)
-      .map((index) => ({
-        deleteDimension: {
-          range: {
-            sheetId: sheet1.properties.sheetId,
-            dimension: "ROWS",
-            startIndex: index + 1,
-            endIndex: index + 2,
-          },
-        },
-      }));
-
-    if (deleteRequests.length > 0) {
-      await sheets.spreadsheets.batchUpdate({
-        spreadsheetId: googleSheetId,
-        resource: { requests: deleteRequests },
-      });
-    }
-
-    res.status(200).json({
-      message: "予定を削除しました。",
-      count: deleteRequests.length,
-    });
-  } catch (error) {
-    console.error("POST /api/schedule/public/delete エラー:", error);
-    res.status(500).json({ message: "予定の削除に失敗しました。" });
-  }
-});
 
 // プロファイル更新API
 app.post("/api/update-profile", verifyFirebaseToken, async (req, res) => {
@@ -860,8 +670,7 @@ app.listen(port, () => {
 client.once(Events.ClientReady, (c) => {
   console.log(`✅ ボット起動: ${c.user.tag}`);
   c.application.commands.set(client.commands.map((cmd) => cmd.data.toJSON()));
-  setupReminderSchedule();
-  client.user.setActivity("Pornhub", { type: 3 }); // type: 3 = Watching
+  client.user.setActivity("AI管理システム", { type: 3 }); // type: 3 = Watching
 });
 client.on(Events.InteractionCreate, async (interaction) => {
   if (!interaction.isChatInputCommand()) return;

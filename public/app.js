@@ -10,7 +10,6 @@ document.addEventListener("DOMContentLoaded", () => {
   const authContainer = document.getElementById("auth-container");
   const mainContent = document.getElementById("main-content");
   const statusMessage = document.getElementById("status-message");
-  const saveAllBtn = document.getElementById("save-all-btn");
 
   // --- 認証関連要素 ---
   const loginForm = document.getElementById("login-form");
@@ -18,9 +17,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const loginBtn = document.getElementById("login-btn");
   const registerBtn = document.getElementById("register-btn");
   const forgotPasswordLink = document.getElementById("forgot-password-link");
-  const showRegisterFormLink = document.getElementById(
-    "show-register-form-link"
-  );
+  const showRegisterFormLink = document.getElementById("show-register-form-link");
   const showLoginFormLink = document.getElementById("show-login-form-link");
   const userEmailEl = document.getElementById("user-email");
   const logoutBtn = document.getElementById("logout-btn");
@@ -31,62 +28,20 @@ document.addEventListener("DOMContentLoaded", () => {
   const adminNavItem = document.getElementById("nav-item-admin");
 
   // --- プロファイル要素 ---
-  const profilePanel = document.getElementById("panel-profile");
-  const profileDisplayNameInput = document.getElementById(
-    "profile-display-name"
-  );
+  const profileDisplayNameInput = document.getElementById("profile-display-name");
   const profileEmailInput = document.getElementById("profile-email");
   const saveProfileBtn = document.getElementById("save-profile-btn");
 
-  // --- とーかパネル要素 ---
-  const tokaModelModeSelect = document.getElementById("toka-model-mode");
-  const baseUserIdInput = document.getElementById("base-user-id-input");
-  const promptTextarea = document.getElementById("prompt-textarea");
-  const nameRecognitionCheckbox = document.getElementById(
-    "name-recognition-checkbox"
-  );
-  const botMessageResponseCheckbox = document.getElementById(
-    "bot-message-response-checkbox"
-  );
-  const replyDelayMsInput = document.getElementById("reply-delay-ms-input");
-  const errorOopsMessageInput = document.getElementById(
-    "error-oops-message-input"
-  );
-  const nicknamesListContainer = document.getElementById(
-    "nicknames-list-container"
-  );
-  const addNicknameBtn = document.getElementById("add-nickname-btn");
-  const saveTokaBtn = document.getElementById("save-toka-btn");
-
-  // --- スケジュールパネル要素 ---
-  const remindersEnabledCheckbox = document.getElementById(
-    "reminders-enabled-checkbox"
-  );
-  const reminderTimeInput = document.getElementById("reminder-time-input");
-  const googleSheetIdInput = document.getElementById("google-sheet-id-input");
-  const reminderGuildIdInput = document.getElementById(
-    "reminder-guild-id-input"
-  );
-  const reminderRoleIdInput = document.getElementById("reminder-role-id-input");
-  const saveScheduleSettingsBtn = document.getElementById(
-    "save-schedule-settings-btn"
-  );
-  const scheduleItemsContainer = document.getElementById(
-    "schedule-items-container"
-  );
-  const addScheduleItemBtn = document.getElementById("add-schedule-item-btn");
-  const saveScheduleItemsBtn = document.getElementById(
-    "save-schedule-items-btn"
-  );
+  // --- AI管理要素 ---
+  const aiListContainer = document.getElementById("ai-list-container");
+  const createAiForm = document.getElementById("create-ai-form");
+  const editAiModal = document.getElementById("edit-ai-modal");
+  const editAiForm = document.getElementById("edit-ai-form");
+  const closeModalBtn = document.querySelector(".close");
+  const cancelEditBtn = document.getElementById("cancel-edit-btn");
 
   // --- 管理者パネル要素 ---
-  const adminSettingsSection = document.getElementById("panel-admins");
-  const inviteCodeGeneratorSection = document.getElementById(
-    "invite-code-generator-section"
-  );
-  const generateInviteCodeBtn = document.getElementById(
-    "generate-invite-code-btn"
-  );
+  const generateInviteCodeBtn = document.getElementById("generate-invite-code-btn");
   const inviteCodeDisplay = document.getElementById("invite-code-display");
   const newInviteCodeInput = document.getElementById("new-invite-code");
   const copyInviteCodeBtn = document.getElementById("copy-invite-code-btn");
@@ -98,28 +53,208 @@ document.addEventListener("DOMContentLoaded", () => {
   let state = {
     admins: [],
     isSuperAdmin: false,
-    scheduleItems: [],
+    aiList: [],
+    currentEditingAi: null
   };
 
-  // ================ UI関連の関数 ================
-  function renderNicknameList(nicknames = {}) {
-    nicknamesListContainer.innerHTML = "";
-    Object.entries(nicknames).forEach(([id, name]) =>
-      createNicknameEntry(id, name)
-    );
+  // ================ AI管理関数 ================
+  async function fetchAiList() {
+    const user = auth.currentUser;
+    if (!user) return;
+
+    try {
+      const token = await user.getIdToken();
+      const response = await fetch("/api/ais", {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+
+      if (response.ok) {
+        state.aiList = await response.json();
+        renderAiList();
+      } else {
+        console.error("AI一覧の取得に失敗:", response.status);
+        state.aiList = [];
+        renderAiList();
+      }
+    } catch (error) {
+      console.error("AI一覧の取得エラー:", error);
+      statusMessage.textContent = `エラー: AI一覧の取得に失敗しました - ${error.message}`;
+    }
   }
 
-  function createNicknameEntry(id = "", name = "") {
-    const entryDiv = document.createElement("div");
-    entryDiv.className = "nickname-entry";
-    entryDiv.innerHTML = `
-            <input type="text" class="nickname-id" placeholder="ユーザーID" value="${id}">
-            <input type="text" class="nickname-name" placeholder="ニックネーム" value="${name}">
-            <button type="button" class="delete-btn">削除</button>
-        `;
-    nicknamesListContainer.appendChild(entryDiv);
+  function renderAiList() {
+    aiListContainer.innerHTML = "";
+
+    if (state.aiList.length === 0) {
+      aiListContainer.innerHTML = `
+        <div class="empty-state">
+          <h3>AIがまだ作成されていません</h3>
+          <p>「AI作成」タブから新しいAIを作成してください。</p>
+          <button onclick="switchToPanel('panel-create-ai')" class="save-btn">AIを作成する</button>
+        </div>
+      `;
+      return;
+    }
+
+    const aiGrid = document.createElement("div");
+    aiGrid.className = "ai-grid";
+
+    state.aiList.forEach(ai => {
+      const aiCard = document.createElement("div");
+      aiCard.className = "ai-card";
+      aiCard.innerHTML = `
+        <div class="ai-card-header">
+          <h3 class="ai-card-title">${escapeHtml(ai.name)}</h3>
+          <span class="ai-card-id">${escapeHtml(ai.id)}</span>
+        </div>
+        <div class="ai-details">
+          <p><strong>モデル:</strong> ${ai.modelMode === 'hybrid' ? 'ハイブリッド' : 'Flash'}</p>
+          <p><strong>返信遅延:</strong> ${ai.replyDelayMs || 0}ms</p>
+          <p><strong>名前認識:</strong> ${ai.enableNameRecognition ? '有効' : '無効'}</p>
+          <p><strong>Bot反応:</strong> ${ai.enableBotMessageResponse ? '有効' : '無効'}</p>
+        </div>
+        <div class="ai-card-actions">
+          <button class="secondary-btn" onclick="editAi('${escapeHtml(ai.id)}')">編集</button>
+          <button class="delete-btn" onclick="deleteAi('${escapeHtml(ai.id)}', '${escapeHtml(ai.name)}')">削除</button>
+        </div>
+      `;
+      aiGrid.appendChild(aiCard);
+    });
+
+    aiListContainer.appendChild(aiGrid);
   }
 
+  async function createAi(aiData) {
+    const user = auth.currentUser;
+    if (!user) return;
+
+    try {
+      const token = await user.getIdToken();
+      const response = await fetch("/api/ais", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify(aiData)
+      });
+
+      const result = await response.json();
+      
+      if (response.ok) {
+        statusMessage.textContent = result.message;
+        await fetchAiList();
+        switchToPanel('panel-ai-list');
+        createAiForm.reset();
+      } else {
+        throw new Error(result.message);
+      }
+    } catch (error) {
+      console.error("AI作成エラー:", error);
+      statusMessage.textContent = `エラー: ${error.message}`;
+    }
+  }
+
+  async function updateAi(aiId, aiData) {
+    const user = auth.currentUser;
+    if (!user) return;
+
+    try {
+      const token = await user.getIdToken();
+      const response = await fetch(`/api/ais/${aiId}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify(aiData)
+      });
+
+      const result = await response.json();
+      
+      if (response.ok) {
+        statusMessage.textContent = result.message;
+        await fetchAiList();
+        editAiModal.style.display = "none";
+      } else {
+        throw new Error(result.message);
+      }
+    } catch (error) {
+      console.error("AI更新エラー:", error);
+      statusMessage.textContent = `エラー: ${error.message}`;
+    }
+  }
+
+  async function deleteAiById(aiId) {
+    const user = auth.currentUser;
+    if (!user) return;
+
+    try {
+      const token = await user.getIdToken();
+      const response = await fetch(`/api/ais/${aiId}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` }
+      });
+
+      const result = await response.json();
+      
+      if (response.ok) {
+        statusMessage.textContent = result.message;
+        await fetchAiList();
+      } else {
+        throw new Error(result.message);
+      }
+    } catch (error) {
+      console.error("AI削除エラー:", error);
+      statusMessage.textContent = `エラー: ${error.message}`;
+    }
+  }
+
+  // ================ グローバル関数（HTMLから呼び出される） ================
+  window.switchToPanel = function(panelId) {
+    navLinks.forEach(link => link.classList.remove("active"));
+    panels.forEach(panel => panel.classList.remove("active"));
+    
+    const targetPanel = document.getElementById(panelId);
+    const targetLink = document.querySelector(`[data-target="${panelId}"]`);
+    
+    if (targetPanel) targetPanel.classList.add("active");
+    if (targetLink) targetLink.classList.add("active");
+  };
+
+  window.editAi = function(aiId) {
+    const ai = state.aiList.find(a => a.id === aiId);
+    if (!ai) return;
+
+    state.currentEditingAi = ai;
+    
+    // フォームに現在の値を設定
+    document.getElementById("edit-ai-id").value = ai.id;
+    document.getElementById("edit-ai-name").value = ai.name;
+    document.getElementById("edit-ai-model-mode").value = ai.modelMode || 'hybrid';
+    document.getElementById("edit-ai-base-user-id").value = ai.baseUserId || '';
+    document.getElementById("edit-ai-name-recognition").checked = ai.enableNameRecognition ?? true;
+    document.getElementById("edit-ai-bot-response").checked = ai.enableBotMessageResponse ?? false;
+    document.getElementById("edit-ai-reply-delay").value = ai.replyDelayMs || 0;
+    document.getElementById("edit-ai-error-message").value = ai.errorOopsMessage || '';
+    document.getElementById("edit-ai-system-prompt").value = ai.systemPrompt || '';
+
+    editAiModal.style.display = "block";
+  };
+
+  window.deleteAi = function(aiId, aiName) {
+    if (confirm(`AI「${aiName}」を削除しますか？この操作は取り消せません。`)) {
+      deleteAiById(aiId);
+    }
+  };
+
+  function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+  }
+
+  // ================ 管理者関連関数 ================
   function renderAdminList() {
     adminsListContainer.innerHTML = "";
     (state.admins || []).forEach((admin, index) => {
@@ -129,13 +264,11 @@ document.addEventListener("DOMContentLoaded", () => {
       entryDiv.dataset.index = index;
 
       let html = `
-                <input type="text" class="admin-name" data-field="name" 
-                       placeholder="表示名" value="${admin.name || ""}">
-                <input type="email" class="admin-email" data-field="email" 
-                       placeholder="管理者メールアドレス" value="${
-                         admin.email || ""
-                       }">
-            `;
+        <input type="text" class="admin-name" data-field="name" 
+               placeholder="表示名" value="${admin.name || ""}">
+        <input type="email" class="admin-email" data-field="email" 
+               placeholder="管理者メールアドレス" value="${admin.email || ""}">
+      `;
 
       if (index === 0) {
         entryDiv.classList.add("super-admin");
@@ -148,32 +281,13 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  function renderScheduleList() {
-    scheduleItemsContainer.innerHTML = "";
-    state.scheduleItems.forEach((item, index) => {
-      const entryDiv = document.createElement("div");
-      entryDiv.className = "schedule-item-entry";
-      entryDiv.dataset.index = index;
-      entryDiv.innerHTML = `
-                <input type="text" class="item-type" data-field="0" 
-                       placeholder="種別" value="${item[0] || ""}">
-                <input type="text" class="item-task" data-field="1" 
-                       placeholder="内容" value="${item[1] || ""}">
-                <input type="text" class="item-due" data-field="2" 
-                       placeholder="期限" value="${item[2] || ""}">
-                <button type="button" class="delete-btn">削除</button>
-            `;
-      scheduleItemsContainer.appendChild(entryDiv);
-    });
-  }
-
-  // ================ データ取得と保存の関数 ================
+  // ================ データ取得関数 ================
   async function fetchSettings(user) {
     statusMessage.textContent = "読込中...";
-    const token = await user.getIdToken();
     let finalStatusMessage = "設定を読み込みました。";
 
     try {
+      const token = await user.getIdToken();
       const tokaRes = await fetch("/api/settings/toka", {
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -184,15 +298,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
       if (tokaRes.ok) {
         const data = await tokaRes.json();
-        tokaModelModeSelect.value = data.modelMode || "hybrid";
-        baseUserIdInput.value = data.baseUserId || "";
-        promptTextarea.value = data.systemPrompt || "";
-        nameRecognitionCheckbox.checked = data.enableNameRecognition ?? true;
-        botMessageResponseCheckbox.checked = !!data.enableBotMessageResponse;
-        renderNicknameList(data.userNicknames || {});
-        replyDelayMsInput.value = data.replyDelayMs ?? 0;
-        errorOopsMessageInput.value = data.errorOopsMessage || "";
-
         const currentUserAdminInfo = (data.admins || []).find(
           (admin) => admin.email === user.email
         );
@@ -202,10 +307,9 @@ document.addEventListener("DOMContentLoaded", () => {
           profileEmailInput.value = user.email || "";
         }
 
-        userEmailEl.textContent =
-          currentUserAdminInfo && currentUserAdminInfo.name
-            ? currentUserAdminInfo.name
-            : user.email;
+        userEmailEl.textContent = currentUserAdminInfo && currentUserAdminInfo.name
+          ? currentUserAdminInfo.name
+          : user.email;
 
         state.admins = data.admins || [];
         state.isSuperAdmin = data.currentUser && data.currentUser.isSuperAdmin;
@@ -213,15 +317,9 @@ document.addEventListener("DOMContentLoaded", () => {
         renderAdminList();
 
         if (!state.isSuperAdmin) {
-          document
-            .querySelectorAll("#panel-admins input, #panel-admins button")
+          document.querySelectorAll("#panel-admins input, #panel-admins button")
             .forEach((el) => (el.disabled = true));
-          inviteCodeGeneratorSection.style.display = "none";
-        } else {
-          document
-            .querySelectorAll("#panel-admins input, #panel-admins button")
-            .forEach((el) => (el.disabled = false));
-          inviteCodeGeneratorSection.style.display = "block";
+          document.getElementById("invite-code-generator-section").style.display = "none";
         }
       } else if (tokaRes.status === 404) {
         userEmailEl.textContent = user.displayName || user.email;
@@ -229,134 +327,17 @@ document.addEventListener("DOMContentLoaded", () => {
         adminNavItem.style.display = "block";
       } else {
         const errData = await tokaRes.json().catch(() => ({}));
-        throw new Error(errData.message || "とーか設定の読み込みに失敗");
+        throw new Error(errData.message || "設定の読み込みに失敗");
       }
     } catch (err) {
       finalStatusMessage = `エラー: ${err.message}`;
-      console.error("とーか/管理者設定の読み込みエラー:", err);
+      console.error("設定の読み込みエラー:", err);
     }
 
-    try {
-      const scheduleRes = await fetch("/api/settings/schedule", {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-
-      if (scheduleRes.ok) {
-        const data = await scheduleRes.json();
-        remindersEnabledCheckbox.checked = data.remindersEnabled ?? false;
-        reminderTimeInput.value = data.reminderTime || "";
-        googleSheetIdInput.value = data.googleSheetId || "";
-        reminderGuildIdInput.value = data.reminderGuildId || "";
-        reminderRoleIdInput.value = data.reminderRoleId || "";
-      } else if (scheduleRes.status !== 404) {
-        const errData = await scheduleRes.json().catch(() => ({}));
-        throw new Error(errData.message || "スケジュール設定の読み込みに失敗");
-      }
-    } catch (err) {
-      console.error("スケジュール設定の読み込みエラー:", err);
-      finalStatusMessage =
-        `${finalStatusMessage}\nスケジュール設定の読み込みに失敗しました。`.trim();
-    }
-
+    // AI一覧を取得
+    await fetchAiList();
+    
     statusMessage.textContent = finalStatusMessage;
-  }
-
-  saveProfileBtn.addEventListener("click", async () => {
-    const user = auth.currentUser;
-    if (!user || saveProfileBtn.disabled) return;
-
-    saveProfileBtn.disabled = true;
-    statusMessage.textContent = "プロファイルを更新中...";
-
-    try {
-      const newDisplayName = profileDisplayNameInput.value.trim();
-      const newEmail = profileEmailInput.value.trim();
-      const currentEmail = user.email;
-
-      // 表示名の更新
-      const token = await user.getIdToken(true);
-      const res = await fetch("/api/update-profile", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          displayName: newDisplayName,
-        }),
-      });
-
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.message || "更新に失敗しました");
-      }
-
-      // メールアドレスの変更がある場合
-      if (newEmail && newEmail !== currentEmail) {
-        try {
-          await user.verifyBeforeUpdateEmail(newEmail);
-          statusMessage.textContent = `プロファイルを更新しました。
-                    新しいメールアドレス（${newEmail}）に確認メールを送信しました。
-                    確認メールのリンクをクリックしてメールアドレスの変更を完了してください。
-                    メールが届かない場合は、スパムフォルダもご確認ください。`;
-
-          alert(`新しいメールアドレス（${newEmail}）に確認メールを送信しました。
-                    メールを確認してリンクをクリックしてください。
-                    ※メールが届かない場合は、スパムフォルダもご確認ください。`);
-        } catch (emailError) {
-          console.error("メール更新エラー:", emailError);
-          if (emailError.code === "auth/requires-recent-login") {
-            await auth.signOut();
-            alert(
-              "セキュリティ保護のため、メールアドレスを変更するには再ログインが必要です。\nログアウトしましたので、再度ログインしてからお試しください。"
-            );
-            window.location.reload();
-            return;
-          } else {
-            throw new Error(
-              `メールアドレスの更新に失敗しました。エラー: ${emailError.message}`
-            );
-          }
-        }
-      } else {
-        statusMessage.textContent = "プロファイルを更新しました。";
-      }
-
-      await fetchSettings(user);
-    } catch (err) {
-      console.error("プロファイル更新エラー:", err);
-      statusMessage.textContent = `エラー: ${err.message}`;
-      alert(`エラーが発生しました: ${err.message}`);
-    } finally {
-      saveProfileBtn.disabled = false;
-    }
-  });
-
-  async function fetchScheduleItems() {
-    const user = auth.currentUser;
-    if (!user) return;
-
-    statusMessage.textContent = "予定リストを読み込み中...";
-    try {
-      const token = await user.getIdToken();
-      const res = await fetch("/api/schedule/items", {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-
-      if (!res.ok) {
-        const errorData = await res
-          .json()
-          .catch(() => ({ message: "予定リストの読み込みに失敗しました。" }));
-        throw new Error(errorData.message);
-      }
-
-      const items = await res.json();
-      state.scheduleItems = items;
-      renderScheduleList();
-      statusMessage.textContent = "予定リストを読み込みました。";
-    } catch (err) {
-      statusMessage.textContent = `エラー: ${err.message}`;
-    }
   }
 
   // ================ イベントリスナーの設定 ================
@@ -365,14 +346,7 @@ document.addEventListener("DOMContentLoaded", () => {
     link.addEventListener("click", (e) => {
       e.preventDefault();
       const targetId = link.dataset.target;
-      navLinks.forEach((l) => l.classList.remove("active"));
-      panels.forEach((p) => (p.style.display = "none"));
-      link.classList.add("active");
-      const targetPanel = document.getElementById(targetId);
-      if (targetPanel) targetPanel.style.display = "block";
-      if (targetId === "panel-schedule") {
-        fetchScheduleItems();
-      }
+      switchToPanel(targetId);
     });
   });
 
@@ -410,8 +384,7 @@ document.addEventListener("DOMContentLoaded", () => {
       return;
     }
 
-    auth
-      .sendPasswordResetEmail(email)
+    auth.sendPasswordResetEmail(email)
       .then(() => {
         statusMessage.textContent = `${email} にパスワード再設定用のメールを送信しました。`;
       })
@@ -436,12 +409,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // --- 登録処理 ---
   registerBtn.addEventListener("click", async () => {
-    const inviteCode = document
-      .getElementById("register-invite-code")
-      .value.trim();
-    const displayName = document
-      .getElementById("register-display-name")
-      .value.trim();
+    const inviteCode = document.getElementById("register-invite-code").value.trim();
+    const displayName = document.getElementById("register-display-name").value.trim();
     const email = document.getElementById("register-email").value.trim();
     const password = document.getElementById("register-password").value;
 
@@ -459,7 +428,7 @@ document.addEventListener("DOMContentLoaded", () => {
       if (!res.ok) throw new Error(result.message || "登録に失敗しました。");
 
       statusMessage.textContent = result.message;
-      document.getElementById("register-form").reset();
+      registerForm.reset();
       await auth.signInWithEmailAndPassword(email, password);
     } catch (err) {
       statusMessage.textContent = `エラー: ${err.message}`;
@@ -467,161 +436,131 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
-  // --- とーかパネル ---
-  addNicknameBtn.addEventListener("click", () => createNicknameEntry());
+  // --- AI作成フォーム ---
+  createAiForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    
+    const aiData = {
+      id: document.getElementById("ai-id").value.trim(),
+      name: document.getElementById("ai-name").value.trim(),
+      modelMode: document.getElementById("ai-model-mode").value,
+      baseUserId: document.getElementById("ai-base-user-id").value.trim() || null,
+      enableNameRecognition: document.getElementById("ai-name-recognition").checked,
+      enableBotMessageResponse: document.getElementById("ai-bot-response").checked,
+      replyDelayMs: parseInt(document.getElementById("ai-reply-delay").value) || 0,
+      errorOopsMessage: document.getElementById("ai-error-message").value.trim(),
+      systemPrompt: document.getElementById("ai-system-prompt").value.trim(),
+      userNicknames: {}
+    };
 
-  nicknamesListContainer.addEventListener("click", (e) => {
-    if (e.target.classList.contains("delete-btn")) {
-      e.target.closest(".nickname-entry").remove();
+    // ID検証
+    if (!/^[a-zA-Z0-9_-]+$/.test(aiData.id)) {
+      statusMessage.textContent = "AI IDは英数字、ハイフン、アンダースコアのみ使用可能です。";
+      return;
+    }
+
+    createAiForm.querySelector('button[type="submit"]').disabled = true;
+    statusMessage.textContent = "AIを作成中...";
+
+    await createAi(aiData);
+    
+    createAiForm.querySelector('button[type="submit"]').disabled = false;
+  });
+
+  // --- AI編集フォーム ---
+  editAiForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    
+    const aiId = document.getElementById("edit-ai-id").value;
+    const aiData = {
+      name: document.getElementById("edit-ai-name").value.trim(),
+      modelMode: document.getElementById("edit-ai-model-mode").value,
+      baseUserId: document.getElementById("edit-ai-base-user-id").value.trim() || null,
+      enableNameRecognition: document.getElementById("edit-ai-name-recognition").checked,
+      enableBotMessageResponse: document.getElementById("edit-ai-bot-response").checked,
+      replyDelayMs: parseInt(document.getElementById("edit-ai-reply-delay").value) || 0,
+      errorOopsMessage: document.getElementById("edit-ai-error-message").value.trim(),
+      systemPrompt: document.getElementById("edit-ai-system-prompt").value.trim(),
+      userNicknames: state.currentEditingAi?.userNicknames || {}
+    };
+
+    editAiForm.querySelector('button[type="submit"]').disabled = true;
+    statusMessage.textContent = "AIを更新中...";
+
+    await updateAi(aiId, aiData);
+    
+    editAiForm.querySelector('button[type="submit"]').disabled = false;
+  });
+
+  // --- モーダル制御 ---
+  closeModalBtn.addEventListener("click", () => {
+    editAiModal.style.display = "none";
+  });
+
+  cancelEditBtn.addEventListener("click", () => {
+    editAiModal.style.display = "none";
+  });
+
+  window.addEventListener("click", (e) => {
+    if (e.target === editAiModal) {
+      editAiModal.style.display = "none";
     }
   });
 
-  saveTokaBtn.addEventListener("click", async () => {
+  // --- プロファイル設定 ---
+  saveProfileBtn.addEventListener("click", async () => {
     const user = auth.currentUser;
-    if (!user || saveTokaBtn.disabled) return;
+    if (!user || saveProfileBtn.disabled) return;
 
-    saveTokaBtn.disabled = true;
-    statusMessage.textContent = "とーか設定を保存中...";
+    saveProfileBtn.disabled = true;
+    statusMessage.textContent = "プロファイルを更新中...";
 
     try {
-      const token = await user.getIdToken();
-      const nicknamesObject = {};
-      document.querySelectorAll(".nickname-entry").forEach((entry) => {
-        const id = entry.querySelector(".nickname-id").value.trim();
-        const name = entry.querySelector(".nickname-name").value.trim();
-        if (id) nicknamesObject[id] = name;
-      });
+      const newDisplayName = profileDisplayNameInput.value.trim();
+      const newEmail = profileEmailInput.value.trim();
+      const currentEmail = user.email;
 
-      const settings = {
-        baseUserId: baseUserIdInput.value,
-        systemPrompt: promptTextarea.value,
-        enableNameRecognition: nameRecognitionCheckbox.checked,
-        enableBotMessageResponse: botMessageResponseCheckbox.checked,
-        userNicknames: nicknamesObject,
-        modelMode: tokaModelModeSelect.value,
-        replyDelayMs: Number(replyDelayMsInput.value) || 0,
-        errorOopsMessage: errorOopsMessageInput.value.trim(),
-      };
-
-      const res = await fetch("/api/settings/toka", {
+      const token = await user.getIdToken(true);
+      const res = await fetch("/api/update-profile", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify(settings),
+        body: JSON.stringify({ displayName: newDisplayName }),
       });
 
-      const result = await res.json();
-      if (!res.ok) throw new Error(result.message);
-
-      statusMessage.textContent = result.message;
-    } catch (err) {
-      statusMessage.textContent = `エラー: ${err.message}`;
-    } finally {
-      saveTokaBtn.disabled = false;
-    }
-  });
-
-  // --- スケジュールパネル ---
-  addScheduleItemBtn.addEventListener("click", () => {
-    state.scheduleItems.push(["", "", ""]);
-    renderScheduleList();
-  });
-
-  scheduleItemsContainer.addEventListener("click", (e) => {
-    if (e.target.classList.contains("delete-btn")) {
-      const entry = e.target.closest(".schedule-item-entry");
-      const index = parseInt(entry.dataset.index, 10);
-      state.scheduleItems.splice(index, 1);
-      renderScheduleList();
-    }
-  });
-
-  scheduleItemsContainer.addEventListener("input", (e) => {
-    const input = e.target;
-    if (
-      input.classList.contains("item-type") ||
-      input.classList.contains("item-task") ||
-      input.classList.contains("item-due")
-    ) {
-      const entry = input.closest(".schedule-item-entry");
-      const index = parseInt(entry.dataset.index, 10);
-      const fieldIndex = parseInt(input.dataset.field, 10);
-      if (state.scheduleItems[index]) {
-        state.scheduleItems[index][fieldIndex] = input.value;
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.message || "更新に失敗しました");
       }
-    }
-  });
 
-  saveScheduleSettingsBtn.addEventListener("click", async () => {
-    const user = auth.currentUser;
-    if (!user || saveScheduleSettingsBtn.disabled) return;
+      if (newEmail && newEmail !== currentEmail) {
+        try {
+          await user.verifyBeforeUpdateEmail(newEmail);
+          statusMessage.textContent = `プロファイルを更新しました。新しいメールアドレス（${newEmail}）に確認メールを送信しました。`;
+          alert(`新しいメールアドレス（${newEmail}）に確認メールを送信しました。メールを確認してリンクをクリックしてください。`);
+        } catch (emailError) {
+          if (emailError.code === "auth/requires-recent-login") {
+            await auth.signOut();
+            alert("セキュリティ保護のため、メールアドレスを変更するには再ログインが必要です。");
+            window.location.reload();
+            return;
+          } else {
+            throw new Error(`メールアドレスの更新に失敗しました。エラー: ${emailError.message}`);
+          }
+        }
+      } else {
+        statusMessage.textContent = "プロファイルを更新しました。";
+      }
 
-    saveScheduleSettingsBtn.disabled = true;
-    statusMessage.textContent = "スケジュール設定を保存中...";
-
-    try {
-      const token = await user.getIdToken();
-      const settings = {
-        remindersEnabled: remindersEnabledCheckbox.checked,
-        reminderTime: reminderTimeInput.value,
-        googleSheetId: googleSheetIdInput.value,
-        reminderGuildId: reminderGuildIdInput.value,
-        reminderRoleId: reminderRoleIdInput.value,
-      };
-
-      const res = await fetch("/api/settings/schedule", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(settings),
-      });
-
-      const result = await res.json();
-      if (!res.ok) throw new Error(result.message);
-
-      statusMessage.textContent = result.message;
+      await fetchSettings(user);
     } catch (err) {
+      console.error("プロファイル更新エラー:", err);
       statusMessage.textContent = `エラー: ${err.message}`;
+      alert(`エラーが発生しました: ${err.message}`);
     } finally {
-      saveScheduleSettingsBtn.disabled = false;
-    }
-  });
-
-  saveScheduleItemsBtn.addEventListener("click", async () => {
-    const user = auth.currentUser;
-    if (!user) return;
-
-    saveScheduleItemsBtn.disabled = true;
-    statusMessage.textContent = "予定リストをシートに保存中...";
-
-    try {
-      const token = await user.getIdToken();
-      const itemsToSave = state.scheduleItems.filter(
-        (item) => item[0] || item[1] || item[2]
-      );
-
-      const res = await fetch("/api/schedule/items", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ items: itemsToSave }),
-      });
-
-      const result = await res.json();
-      if (!res.ok) throw new Error(result.message);
-
-      statusMessage.textContent = result.message;
-      await fetchScheduleItems();
-    } catch (err) {
-      statusMessage.textContent = `エラー: ${err.message}`;
-    } finally {
-      saveScheduleItemsBtn.disabled = false;
+      saveProfileBtn.disabled = false;
     }
   });
 
@@ -644,49 +583,12 @@ document.addEventListener("DOMContentLoaded", () => {
 
   adminsListContainer.addEventListener("input", (e) => {
     const input = e.target;
-    if (
-      input.classList.contains("admin-name") ||
-      input.classList.contains("admin-email")
-    ) {
+    if (input.classList.contains("admin-name") || input.classList.contains("admin-email")) {
       const entry = input.closest(".admin-entry");
       const index = parseInt(entry.dataset.index, 10);
       const field = input.dataset.field;
       if (state.admins[index]) state.admins[index][field] = input.value;
     }
-  });
-
-  let draggedIndex = null;
-
-  adminsListContainer.addEventListener("dragstart", (e) => {
-    if (!state.isSuperAdmin || !e.target.classList.contains("admin-entry"))
-      return;
-    draggedIndex = parseInt(e.target.dataset.index, 10);
-    setTimeout(() => e.target.classList.add("dragging"), 0);
-  });
-
-  adminsListContainer.addEventListener("dragend", (e) => {
-    if (!e.target.classList.contains("admin-entry")) return;
-    e.target.classList.remove("dragging");
-    if (draggedIndex !== null) renderAdminList();
-    draggedIndex = null;
-  });
-
-  adminsListContainer.addEventListener("drop", (e) => {
-    if (!state.isSuperAdmin || draggedIndex === null) return;
-    e.preventDefault();
-    const dropTarget = e.target.closest(".admin-entry");
-    if (dropTarget) {
-      const dropIndex = parseInt(dropTarget.dataset.index, 10);
-      if (draggedIndex === dropIndex) return;
-      const draggedItem = state.admins.splice(draggedIndex, 1)[0];
-      state.admins.splice(dropIndex, 0, draggedItem);
-      renderAdminList();
-    }
-  });
-
-  adminsListContainer.addEventListener("dragover", (e) => {
-    if (!state.isSuperAdmin) return;
-    e.preventDefault();
   });
 
   generateInviteCodeBtn.addEventListener("click", async () => {
@@ -729,9 +631,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     try {
       const token = await user.getIdToken();
-      const adminsArray = state.admins.filter(
-        (admin) => admin.email && admin.name
-      );
+      const adminsArray = state.admins.filter((admin) => admin.email && admin.name);
 
       const res = await fetch("/api/settings/admins", {
         method: "POST",
@@ -751,105 +651,6 @@ document.addEventListener("DOMContentLoaded", () => {
       statusMessage.textContent = `エラー: ${err.message}`;
     } finally {
       saveAdminsBtn.disabled = false;
-    }
-  });
-
-  // --- すべての設定を保存 ---
-  saveAllBtn.addEventListener("click", async () => {
-    const user = auth.currentUser;
-    if (!user || saveAllBtn.disabled) return;
-
-    saveAllBtn.disabled = true;
-    statusMessage.textContent = "すべての設定を保存中...";
-
-    try {
-      const token = await user.getIdToken();
-
-      // とーか設定
-      const nicknamesObject = {};
-      document.querySelectorAll(".nickname-entry").forEach((entry) => {
-        const id = entry.querySelector(".nickname-id").value.trim();
-        const name = entry.querySelector(".nickname-name").value.trim();
-        if (id) nicknamesObject[id] = name;
-      });
-
-      const tokaSettings = {
-        baseUserId: baseUserIdInput.value,
-        systemPrompt: promptTextarea.value,
-        enableNameRecognition: nameRecognitionCheckbox.checked,
-        enableBotMessageResponse: botMessageResponseCheckbox.checked,
-        userNicknames: nicknamesObject,
-        modelMode: tokaModelModeSelect.value,
-        replyDelayMs: Number(replyDelayMsInput.value) || 0,
-        errorOopsMessage: errorOopsMessageInput.value.trim(),
-      };
-
-      // スケジュール設定
-      const scheduleSettings = {
-        remindersEnabled: remindersEnabledCheckbox.checked,
-        reminderTime: reminderTimeInput.value,
-        googleSheetId: googleSheetIdInput.value,
-        reminderGuildId: reminderGuildIdInput.value,
-        reminderRoleId: reminderRoleIdInput.value,
-      };
-
-      // 管理者設定
-      const adminsArray = state.admins.filter(
-        (admin) => admin.email && admin.name
-      );
-
-      const savePromises = [
-        fetch("/api/settings/toka", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify(tokaSettings),
-        }),
-        fetch("/api/settings/schedule", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify(scheduleSettings),
-        }),
-      ];
-
-      if (state.isSuperAdmin) {
-        savePromises.push(
-          fetch("/api/settings/admins", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${token}`,
-            },
-            body: JSON.stringify({ admins: adminsArray }),
-          })
-        );
-      }
-
-      const responses = await Promise.all(savePromises);
-
-      for (const res of responses) {
-        if (!res.ok) {
-          const error = await res.json();
-          throw new Error(
-            error.message || "設定の保存中にエラーが発生しました。"
-          );
-        }
-      }
-
-      await fetchSettings(user);
-      await fetchScheduleItems();
-
-      statusMessage.textContent = "すべての設定を保存しました。";
-    } catch (err) {
-      console.error("設定の保存エラー:", err);
-      statusMessage.textContent = `エラー: ${err.message}`;
-    } finally {
-      saveAllBtn.disabled = false;
     }
   });
 });
