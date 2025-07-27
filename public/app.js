@@ -78,6 +78,26 @@ document.addEventListener("DOMContentLoaded", () => {
     authContainer.style.display = "block";
     mainContent.style.display = "none";
     
+    // Discord設定エラーをチェック
+    if (discordOAuthConfig && !discordOAuthConfig.configured) {
+      statusMessage.innerHTML = `
+        <div style="background: #ff4444; color: white; padding: 15px; border-radius: 8px; margin: 15px 0;">
+          <h3>⚠️ Discord OAuth設定エラー</h3>
+          <p>${discordOAuthConfig.error}</p>
+          <p><strong>管理者へ:</strong> DISCORD_CLIENT_IDを17-19桁の数値に設定してください。</p>
+          <p>Discord Developer Portal で正しいClient IDを確認できます。</p>
+        </div>
+      `;
+      // ログインボタンを無効化
+      const loginBtn = document.getElementById("discord-login-btn");
+      if (loginBtn) {
+        loginBtn.style.opacity = '0.5';
+        loginBtn.style.pointerEvents = 'none';
+        loginBtn.innerHTML = '🚫 Discord設定エラー';
+      }
+      return;
+    }
+    
     // URLパラメータをチェックして認証エラーを表示
     const urlParams = new URLSearchParams(window.location.search);
     if (urlParams.get('error') === 'auth_failed') {
