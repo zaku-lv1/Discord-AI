@@ -128,10 +128,16 @@ document.addEventListener("DOMContentLoaded", () => {
     
     // ユーザー情報を表示
     if (state.user) {
-      userDisplayNameEl.textContent = state.user.username + 
-        (state.user.discriminator ? `#${state.user.discriminator}` : '');
+      // ユーザー名の表示（Discord用とローカル用で異なる）
+      if (state.user.type === 'local') {
+        userDisplayNameEl.textContent = state.user.username;
+      } else {
+        userDisplayNameEl.textContent = state.user.username + 
+          (state.user.discriminator ? `#${state.user.discriminator}` : '');
+      }
       
-      if (state.user.avatar) {
+      // アバター画像の表示（Discordユーザーのみ）
+      if (state.user.avatar && state.user.type !== 'local') {
         const avatarUrl = `https://cdn.discordapp.com/avatars/${state.user.id}/${state.user.avatar}.png?size=64`;
         userAvatarEl.src = avatarUrl;
         userAvatarEl.style.display = 'block';
@@ -144,22 +150,61 @@ document.addEventListener("DOMContentLoaded", () => {
           const placeholder = document.querySelector('.avatar-placeholder');
           if (placeholder) placeholder.style.display = 'none';
         }
+      } else {
+        // ローカルユーザーまたはアバターがない場合はデフォルト表示
+        userAvatarEl.style.display = 'none';
+        const profileAvatar = document.getElementById('profile-avatar-display');
+        if (profileAvatar) {
+          profileAvatar.style.display = 'none';
+          const placeholder = document.querySelector('.avatar-placeholder');
+          if (placeholder) placeholder.style.display = 'block';
+        }
       }
       
       // プロファイル情報を設定
-      if (discordUsernameInput) {
-        discordUsernameInput.value = state.user.username + 
-          (state.user.discriminator ? `#${state.user.discriminator}` : '');
-      }
-      if (discordIdInput) {
-        discordIdInput.value = state.user.id;
+      if (state.user.type === 'local') {
+        // ローカルユーザーの場合
+        if (discordUsernameInput) {
+          discordUsernameInput.value = '（ローカルアカウント）';
+          discordUsernameInput.disabled = true;
+        }
+        if (discordIdInput) {
+          discordIdInput.value = state.user.id;
+          discordIdInput.disabled = true;
+        }
+        
+        // Discord情報セクションを非表示または無効化
+        const discordInfoSection = document.querySelector('.discord-profile-info');
+        if (discordInfoSection) {
+          discordInfoSection.style.opacity = '0.5';
+        }
+      } else {
+        // Discordユーザーの場合
+        if (discordUsernameInput) {
+          discordUsernameInput.value = state.user.username + 
+            (state.user.discriminator ? `#${state.user.discriminator}` : '');
+          discordUsernameInput.disabled = true;
+        }
+        if (discordIdInput) {
+          discordIdInput.value = state.user.id;
+          discordIdInput.disabled = true;
+        }
+        
+        const discordInfoSection = document.querySelector('.discord-profile-info');
+        if (discordInfoSection) {
+          discordInfoSection.style.opacity = '1';
+        }
       }
       
       // プロファイル概要を更新
       const profileNameDisplay = document.getElementById('profile-name-display');
       if (profileNameDisplay) {
-        profileNameDisplay.textContent = state.user.username + 
-          (state.user.discriminator ? `#${state.user.discriminator}` : '');
+        if (state.user.type === 'local') {
+          profileNameDisplay.textContent = state.user.username;
+        } else {
+          profileNameDisplay.textContent = state.user.username + 
+            (state.user.discriminator ? `#${state.user.discriminator}` : '');
+        }
       }
     }
   }
@@ -684,4 +729,142 @@ document.addEventListener("DOMContentLoaded", () => {
       saveAdminsBtn.disabled = false;
     }
   });
+
+  // --- 新しい認証システム用のイベントリスナー ---
+  const localLoginForm = document.getElementById("local-login-form-element");
+  const localRegisterForm = document.getElementById("local-register-form-element");
+
+  if (localLoginForm) {
+    localLoginForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      
+      const username = document.getElementById("login-username").value.trim();
+      const password = document.getElementById("login-password").value;
+      
+      if (!username || !password) {
+        statusMessage.textContent = "ユーザー名とパスワードを入力してください。";
+        return;
+      }
+      
+      const submitBtn = localLoginForm.querySelector('button[type="submit"]');
+      submitBtn.disabled = true;
+      statusMessage.textContent = "ログイン中...";
+      
+      try {
+        const response = await fetch('/auth/login', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          credentials: 'include',
+          body: JSON.stringify({ username, password })
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+          statusMessage.textContent = result.message;
+          // ログイン成功時、少し待ってから認証状態をチェック
+          setTimeout(() => {
+            checkAuthStatus();
+          }, 1000);
+        } else {
+          statusMessage.textContent = result.message;
+        }
+      } catch (error) {
+        console.error('ログインエラー:', error);
+        statusMessage.textContent = 'ログインに失敗しました。';
+      } finally {
+        submitBtn.disabled = false;
+      }
+    });
+  }
+
+  if (localRegisterForm) {
+    localRegisterForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      
+      const username = document.getElementById("register-username").value.trim();
+      const password = document.getElementById("register-password").value;
+      const email = document.getElementById("register-email").value.trim();
+      
+      if (!username || !password) {
+        statusMessage.textContent = "ユーザー名とパスワードは必須です。";
+        return;
+      }
+      
+      const submitBtn = localRegisterForm.querySelector('button[type="submit"]');
+      submitBtn.disabled = true;
+      statusMessage.textContent = "アカウントを作成中...";
+      
+      try {
+        const response = await fetch('/auth/register', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          credentials: 'include',
+          body: JSON.stringify({ username, password, email })
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+          statusMessage.textContent = result.message;
+          // 登録成功時、少し待ってから認証状態をチェック
+          setTimeout(() => {
+            checkAuthStatus();
+          }, 1000);
+        } else {
+          statusMessage.textContent = result.message;
+        }
+      } catch (error) {
+        console.error('登録エラー:', error);
+        statusMessage.textContent = 'アカウント作成に失敗しました。';
+      } finally {
+        submitBtn.disabled = false;
+      }
+    });
+  }
 });
+
+// ================ グローバル関数（HTML onclick から呼び出される） ================
+function showLocalLogin() {
+  const localTab = document.getElementById("local-login-tab");
+  const discordTab = document.getElementById("discord-login-tab");
+  const localForm = document.getElementById("local-login-form");
+  const discordForm = document.getElementById("discord-login-form");
+  
+  localTab.classList.add("active");
+  discordTab.classList.remove("active");
+  localForm.style.display = "block";
+  discordForm.style.display = "none";
+}
+
+function showDiscordLogin() {
+  const localTab = document.getElementById("local-login-tab");
+  const discordTab = document.getElementById("discord-login-tab");
+  const localForm = document.getElementById("local-login-form");
+  const discordForm = document.getElementById("discord-login-form");
+  
+  localTab.classList.remove("active");
+  discordTab.classList.add("active");
+  localForm.style.display = "none";
+  discordForm.style.display = "block";
+}
+
+function showLoginForm() {
+  const loginSection = document.getElementById("local-login-section");
+  const registerSection = document.getElementById("local-register-section");
+  
+  loginSection.style.display = "block";
+  registerSection.style.display = "none";
+}
+
+function showRegisterForm() {
+  const loginSection = document.getElementById("local-login-section");
+  const registerSection = document.getElementById("local-register-section");
+  
+  loginSection.style.display = "none";
+  registerSection.style.display = "block";
+}
