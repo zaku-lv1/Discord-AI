@@ -8,25 +8,56 @@ class AuthService {
   }
 
   getEnvironmentConfig() {
-    const isProduction = process.env.NODE_ENV === 'production' || 
-                        (process.env.ADMIN_DOMAIN && !process.env.ADMIN_DOMAIN.includes('localhost'));
-    const protocol = isProduction ? 'https' : 'http';
-    const port = process.env.PORT || (isProduction ? 443 : 80);
     const domain = process.env.ADMIN_DOMAIN || 'localhost';
+    const actualPort = process.env.PORT || 8080;
+    
+    // Detect environment type
+    const isLocalhost = domain.includes('localhost');
+    const isCodespace = domain.includes('.app.github.dev');
+    const isProduction = process.env.NODE_ENV === 'production' || (!isLocalhost && !isCodespace);
+    
+    // Protocol detection
+    let protocol = 'http';
+    if (isProduction || isCodespace) {
+      protocol = 'https';
+    }
+    
+    // Port handling for URL construction
+    let urlPort = actualPort;
+    if (isCodespace) {
+      // GitHub Codespace: Extract port from domain or use actual port
+      const portMatch = domain.match(/-(\d+)\.app\.github\.dev/);
+      urlPort = portMatch ? parseInt(portMatch[1]) : actualPort;
+    } else if (isProduction) {
+      urlPort = protocol === 'https' ? 443 : 80;
+    }
 
-    return { isProduction, protocol, port, domain };
+    return { 
+      isProduction: isProduction || isCodespace, 
+      protocol, 
+      port: urlPort, 
+      actualPort,
+      domain, 
+      isCodespace,
+      isLocalhost 
+    };
   }
 
   getCallbackURL() {
-    const { isProduction, protocol, port, domain } = this.getEnvironmentConfig();
+    const { protocol, port, domain, isCodespace, actualPort } = this.getEnvironmentConfig();
     
     // If explicit callback URL is provided, use it
     if (process.env.DISCORD_CALLBACK_URL) {
       return process.env.DISCORD_CALLBACK_URL;
     }
     
-    // For production or when using standard ports, don't include port in URL
-    if (isProduction || port === 80 || port === 443) {
+    // For GitHub Codespace, use the extracted port from domain
+    if (isCodespace) {
+      return `${protocol}://${domain}/auth/discord/callback`;
+    }
+    
+    // For production with standard ports, don't include port in URL
+    if (port === 80 || port === 443) {
       return `${protocol}://${domain}/auth/discord/callback`;
     }
     
@@ -59,9 +90,12 @@ class AuthService {
       const { clientId, clientSecret } = this.validateDiscordConfig();
       
       console.log(`[情報] Discord Client ID検証完了: ${clientId}`);
-      const { isProduction } = this.getEnvironmentConfig();
+      const { isProduction, isCodespace, isLocalhost, protocol, domain, actualPort } = this.getEnvironmentConfig();
       
-      console.log(`[情報] 認証環境: ${isProduction ? 'Production' : 'Development'}`);
+      const envType = isCodespace ? 'GitHub Codespace' : (isProduction ? 'Production' : 'Development');
+      console.log(`[情報] 認証環境: ${envType}`);
+      console.log(`[情報] 検出されたドメイン: ${domain}`);
+      console.log(`[情報] プロトコル: ${protocol}, ポート: ${actualPort}`);
       console.log(`[情報] Discord OAuth Callback URL: ${this.getCallbackURL()}`);
 
       // Setup Passport Discord strategy
@@ -127,17 +161,20 @@ class AuthService {
   }
 
   createSessionConfig() {
-    const { isProduction } = this.getEnvironmentConfig();
+    const { isProduction, isCodespace } = this.getEnvironmentConfig();
+    
+    // For Codespace and production, we need secure cookies
+    const requireSecure = isProduction || isCodespace;
     
     return {
       secret: process.env.SESSION_SECRET || 'default-secret-key',
       resave: false,
       saveUninitialized: false,
       cookie: { 
-        secure: isProduction, // HTTPS required in production
+        secure: requireSecure, // HTTPS required in production and Codespace
         httpOnly: true, // Prevent XSS attacks
         maxAge: 24 * 60 * 60 * 1000, // 24時間
-        sameSite: isProduction ? 'none' : 'lax' // Cross-site compatibility for production
+        sameSite: requireSecure ? 'none' : 'lax' // Cross-site compatibility for production/Codespace
       }
     };
   }
