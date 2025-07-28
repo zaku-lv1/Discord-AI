@@ -1,6 +1,5 @@
 const express = require("express");
 const passport = require("passport");
-const { checkDiscordConfigured } = require("../middleware/auth");
 const authService = require("../services/auth");
 
 const router = express.Router();
@@ -20,7 +19,7 @@ router.post('/login', (req, res, next) => {
       console.log('[INFO] ローカル認証失敗:', info?.message);
       return res.status(401).json({ 
         success: false, 
-        message: info?.message || 'ユーザー名またはパスワードが正しくありません' 
+        message: info?.message || 'ログインに失敗しました' 
       });
     }
     
@@ -41,7 +40,8 @@ router.post('/login', (req, res, next) => {
           id: user.id,
           username: user.username,
           email: user.email,
-          type: user.type
+          type: user.type,
+          verified: user.verified
         }
       });
     });
@@ -53,10 +53,10 @@ router.post('/register', async (req, res) => {
     const { username, password, email } = req.body;
     
     // Validation
-    if (!username || !password) {
+    if (!username || !password || !email) {
       return res.status(400).json({ 
         success: false, 
-        message: 'ユーザー名とパスワードは必須です' 
+        message: 'ユーザー名、パスワード、メールアドレスは必須です' 
       });
     }
     
@@ -84,27 +84,18 @@ router.post('/register', async (req, res) => {
     
     const user = await authService.createLocalUser(username, password, email);
     
-    // Auto login after registration
-    req.logIn(user, (err) => {
-      if (err) {
-        console.error('[ERROR] 登録後ログインエラー:', err);
-        return res.status(500).json({ 
-          success: false, 
-          message: '登録は完了しましたが、ログインに失敗しました。手動でログインしてください。' 
-        });
-      }
-      
-      console.log('[SUCCESS] ユーザー登録成功:', user.username);
-      res.json({ 
-        success: true, 
-        message: 'アカウントを作成しました',
-        user: {
-          id: user.id,
-          username: user.username,
-          email: user.email,
-          type: user.type
-        }
-      });
+    console.log('[SUCCESS] ユーザー登録成功:', user.username);
+    res.json({ 
+      success: true, 
+      message: user.verified ? 'アカウントを作成しました' : 'アカウントを作成しました。メールボックスを確認して認証を完了してください',
+      user: {
+        id: user.id,
+        username: user.username,
+        email: user.email,
+        type: user.type,
+        verified: user.verified
+      },
+      requiresVerification: !user.verified
     });
   } catch (error) {
     console.error('[ERROR] ユーザー登録エラー:', error);
@@ -115,63 +106,127 @@ router.post('/register', async (req, res) => {
   }
 });
 
-// Discord OAuth routes
-router.get('/discord', checkDiscordConfigured, passport.authenticate('discord'));
-
-router.get('/discord/callback', 
-  checkDiscordConfigured,
-  (req, res, next) => {
-    // Log callback details for debugging
-    console.log('[DEBUG] Discord OAuth コールバック受信:', {
-      query: req.query,
-      headers: {
-        host: req.headers.host,
-        'user-agent': req.headers['user-agent']
-      }
-    });
-
-    // Check if this is a valid OAuth callback (has code or error parameter)
-    if (!req.query.code && !req.query.error) {
-      console.error('[ERROR] OAuth コールバックに必要なパラメータがありません');
-      return res.status(400).json({
-        error: 'invalid_request',
-        message: 'Discord OAuth コールバックには code または error パラメータが必要です',
-        received_params: Object.keys(req.query)
-      });
+// Email verification route
+router.get('/verify-email', async (req, res) => {
+  try {
+    const { token } = req.query;
+    
+    if (!token) {
+      return res.redirect('/?error=invalid_token&message=' + encodeURIComponent('認証トークンが見つかりません'));
     }
-
-    // Handle OAuth error responses from Discord
-    if (req.query.error) {
-      console.error('[ERROR] Discord OAuth エラー応答:', {
-        error: req.query.error,
-        error_description: req.query.error_description
-      });
-      return res.redirect(`/?error=discord_oauth&details=${encodeURIComponent(req.query.error)}`);
-    }
-
-    passport.authenticate('discord', { 
-      failureRedirect: '/?error=auth_failed',
-      session: true 
-    }, (err, user, info) => {
+    
+    const user = await authService.verifyEmail(token);
+    
+    // Auto login after email verification
+    req.logIn(user, (err) => {
       if (err) {
-        console.error('[ERROR] Discord OAuth認証エラー:', err);
-        return res.redirect(`/?error=oauth_error&details=${encodeURIComponent(err.message || 'unknown')}`);
+        console.error('[ERROR] 認証後ログインエラー:', err);
+        return res.redirect('/?error=login_failed&message=' + encodeURIComponent('認証は完了しましたが、ログインに失敗しました'));
       }
-      if (!user) {
-        console.log('[INFO] Discord OAuth認証失敗:', info);
-        return res.redirect(`/?error=auth_failed&details=${encodeURIComponent(info?.message || 'authentication_failed')}`);
-      }
-      req.logIn(user, (err) => {
-        if (err) {
-          console.error('[ERROR] ログインセッション作成エラー:', err);
-          return res.redirect(`/?error=session_error&details=${encodeURIComponent(err.message || 'unknown')}`);
-        }
-        console.log('[SUCCESS] Discord OAuth認証成功:', user.username);
-        return res.redirect('/?auth=success');
-      });
-    })(req, res, next);
+      
+      console.log('[SUCCESS] メール認証成功:', user.username);
+      return res.redirect('/?auth=verified&message=' + encodeURIComponent('メールアドレスの認証が完了しました'));
+    });
+  } catch (error) {
+    console.error('[ERROR] メール認証エラー:', error);
+    return res.redirect('/?error=verification_failed&message=' + encodeURIComponent(error.message));
   }
-);
+});
+
+// Resend verification email
+router.post('/resend-verification', async (req, res) => {
+  try {
+    const { email } = req.body;
+    
+    if (!email) {
+      return res.status(400).json({
+        success: false,
+        message: 'メールアドレスは必須です'
+      });
+    }
+    
+    const result = await authService.resendVerificationEmail(email);
+    res.json(result);
+  } catch (error) {
+    console.error('[ERROR] 認証メール再送信エラー:', error);
+    res.status(400).json({
+      success: false,
+      message: error.message
+    });
+  }
+});
+
+// Request password reset
+router.post('/request-password-reset', async (req, res) => {
+  try {
+    const { email } = req.body;
+    
+    if (!email) {
+      return res.status(400).json({
+        success: false,
+        message: 'メールアドレスは必須です'
+      });
+    }
+    
+    const result = await authService.requestPasswordReset(email);
+    res.json(result);
+  } catch (error) {
+    console.error('[ERROR] パスワード再設定要求エラー:', error);
+    res.status(400).json({
+      success: false,
+      message: error.message
+    });
+  }
+});
+
+// Reset password page
+router.get('/reset-password', (req, res) => {
+  const { token } = req.query;
+  
+  if (!token) {
+    return res.redirect('/?error=invalid_token&message=' + encodeURIComponent('無効な再設定トークンです'));
+  }
+  
+  // Render password reset page
+  res.render('reset-password', { token });
+});
+
+// Reset password submission
+router.post('/reset-password', async (req, res) => {
+  try {
+    const { token, password, confirmPassword } = req.body;
+    
+    if (!token || !password || !confirmPassword) {
+      return res.status(400).json({
+        success: false,
+        message: 'すべての項目を入力してください'
+      });
+    }
+    
+    if (password !== confirmPassword) {
+      return res.status(400).json({
+        success: false,
+        message: 'パスワードが一致しません'
+      });
+    }
+    
+    if (password.length < 6) {
+      return res.status(400).json({
+        success: false,
+        message: 'パスワードは6文字以上である必要があります'
+      });
+    }
+    
+    const result = await authService.resetPassword(token, password);
+    res.json(result);
+  } catch (error) {
+    console.error('[ERROR] パスワード再設定エラー:', error);
+    res.status(400).json({
+      success: false,
+      message: error.message
+    });
+  }
+});
 
 router.get('/logout', (req, res) => {
   req.logout((err) => {
@@ -185,83 +240,20 @@ router.get('/logout', (req, res) => {
 router.get('/user', (req, res) => {
   if (req.isAuthenticated()) {
     const user = req.user;
-    if (user.type === 'local') {
-      res.json({ 
-        user: {
-          id: user.id,
-          username: user.username,
-          email: user.email,
-          type: user.type
-        },
-        authenticated: true,
-        authType: 'local'
-      });
-    } else {
-      // Discord user
-      res.json({ 
-        user: {
-          id: user.id,
-          username: user.username,
-          discriminator: user.discriminator,
-          avatar: user.avatar,
-          email: user.email,
-          type: user.type || 'discord'
-        },
-        authenticated: true,
-        authType: 'discord'
-      });
-    }
+    res.json({ 
+      user: {
+        id: user.id,
+        username: user.username,
+        email: user.email,
+        type: user.type,
+        verified: user.verified
+      },
+      authenticated: true,
+      authType: 'email'
+    });
   } else {
     res.json({ authenticated: false });
   }
-});
-
-// Debug endpoint for OAuth callback testing
-router.get('/debug/callback', (req, res) => {
-  const authService = require("../services/auth");
-  
-  res.json({
-    message: 'Discord OAuth callback debug information',
-    environment: {
-      callbackUrl: authService.getCallbackURL(),
-      configured: authService.isConfigured(),
-      clientId: process.env.DISCORD_CLIENT_ID ? 'configured' : 'missing',
-      clientSecret: process.env.DISCORD_CLIENT_SECRET ? 'configured' : 'missing'
-    },
-    request: {
-      query: req.query,
-      headers: {
-        host: req.headers.host,
-        'user-agent': req.headers['user-agent'],
-        'x-forwarded-for': req.headers['x-forwarded-for'],
-        'x-forwarded-proto': req.headers['x-forwarded-proto']
-      },
-      url: req.url,
-      originalUrl: req.originalUrl,
-      baseUrl: req.baseUrl
-    },
-    timestamp: new Date().toISOString()
-  });
-});
-
-// Test endpoint to verify callback URL accessibility
-router.get('/test/callback', (req, res) => {
-  res.json({
-    message: 'Discord OAuth callback route is working correctly',
-    status: 'accessible',
-    note: 'This confirms the route is not returning 404. OAuth errors are expected with invalid codes.',
-    callback_url: '/auth/discord/callback',
-    test_time: new Date().toISOString(),
-    request_info: {
-      method: req.method,
-      path: req.path,
-      query: req.query,
-      headers: {
-        host: req.headers.host,
-        'user-agent': req.headers['user-agent']
-      }
-    }
-  });
 });
 
 module.exports = router;

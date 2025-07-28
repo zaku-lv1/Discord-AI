@@ -8,7 +8,6 @@ document.addEventListener("DOMContentLoaded", () => {
   const statusMessage = document.getElementById("status-message");
 
   // --- 認証関連要素 ---
-  const discordLoginForm = document.getElementById("discord-login-form");
   const userDisplayNameEl = document.getElementById("user-display-name");
   const userAvatarEl = document.getElementById("user-avatar");
   const logoutBtn = document.getElementById("logout-btn");
@@ -21,8 +20,6 @@ document.addEventListener("DOMContentLoaded", () => {
   // --- プロファイル要素 ---
   const profileDisplayNameInput = document.getElementById("profile-display-name");
   const profileEmailInput = document.getElementById("profile-email");
-  const discordUsernameInput = document.getElementById("discord-username");
-  const discordIdInput = document.getElementById("discord-id");
   const saveProfileBtn = document.getElementById("save-profile-btn");
 
   // --- AI管理要素 ---
@@ -78,43 +75,20 @@ document.addEventListener("DOMContentLoaded", () => {
     authContainer.style.display = "block";
     mainContent.style.display = "none";
     
-    // Discord設定エラーをチェック
-    if (discordOAuthConfig && !discordOAuthConfig.configured) {
-      statusMessage.innerHTML = `
-        <div style="background: #ff4444; color: white; padding: 15px; border-radius: 8px; margin: 15px 0;">
-          <h3>⚠️ Discord OAuth設定エラー</h3>
-          <p>${discordOAuthConfig.error}</p>
-          <p><strong>管理者へ:</strong> DISCORD_CLIENT_IDを17-19桁の数値に設定してください。</p>
-          <p>Discord Developer Portal で正しいClient IDを確認できます。</p>
-        </div>
-      `;
-      // ログインボタンを無効化
-      const loginBtn = document.getElementById("discord-login-btn");
-      if (loginBtn) {
-        loginBtn.style.opacity = '0.5';
-        loginBtn.style.pointerEvents = 'none';
-        loginBtn.innerHTML = '🚫 Discord設定エラー';
-      }
-      return;
-    }
-    
     // URLパラメータをチェックして認証エラーを表示
     const urlParams = new URLSearchParams(window.location.search);
-    if (urlParams.get('error') === 'auth_failed') {
-      statusMessage.textContent = 'Discord認証に失敗しました。再度お試しください。';
-    } else if (urlParams.get('error') === 'oauth_error') {
-      statusMessage.textContent = 'Discord認証でエラーが発生しました。しばらく時間をおいて再度お試しください。';
-    } else if (urlParams.get('error') === 'session_error') {
-      statusMessage.textContent = 'セッションの作成に失敗しました。再度お試しください。';
-    } else if (urlParams.get('error') === 'config_error') {
-      statusMessage.innerHTML = `
-        <div style="background: #ff4444; color: white; padding: 15px; border-radius: 8px; margin: 15px 0;">
-          <h3>⚠️ Discord設定エラー</h3>
-          <p>Discord OAuth の設定に問題があります。管理者に連絡してください。</p>
-        </div>
-      `;
-    } else if (urlParams.get('auth') === 'success') {
-      statusMessage.textContent = '認証に成功しました。読み込み中...';
+    if (urlParams.get('error') === 'verification_failed') {
+      statusMessage.textContent = 'メール認証に失敗しました: ' + (urlParams.get('message') || '不明なエラー');
+      statusMessage.style.color = '#e74c3c';
+    } else if (urlParams.get('error') === 'invalid_token') {
+      statusMessage.textContent = '無効なトークンです: ' + (urlParams.get('message') || '不明なエラー');
+      statusMessage.style.color = '#e74c3c';
+    } else if (urlParams.get('error') === 'login_failed') {
+      statusMessage.textContent = 'ログインに失敗しました: ' + (urlParams.get('message') || '不明なエラー');
+      statusMessage.style.color = '#e74c3c';
+    } else if (urlParams.get('auth') === 'verified') {
+      statusMessage.textContent = 'メールアドレスの認証が完了しました。';
+      statusMessage.style.color = '#27ae60';
       // 成功時は少し待ってから再チェック
       setTimeout(checkAuthStatus, 1000);
     }
@@ -128,83 +102,33 @@ document.addEventListener("DOMContentLoaded", () => {
     
     // ユーザー情報を表示
     if (state.user) {
-      // ユーザー名の表示（Discord用とローカル用で異なる）
-      if (state.user.type === 'local') {
-        userDisplayNameEl.textContent = state.user.username;
-      } else {
-        userDisplayNameEl.textContent = state.user.username + 
-          (state.user.discriminator ? `#${state.user.discriminator}` : '');
-      }
+      // ユーザー名の表示
+      userDisplayNameEl.textContent = state.user.username;
       
-      // アバター画像の表示（Discordユーザーのみ）
-      if (state.user.avatar && state.user.type !== 'local') {
-        const avatarUrl = `https://cdn.discordapp.com/avatars/${state.user.id}/${state.user.avatar}.png?size=64`;
-        userAvatarEl.src = avatarUrl;
-        userAvatarEl.style.display = 'block';
-        
-        // プロファイル画面のアバターも更新
-        const profileAvatar = document.getElementById('profile-avatar-display');
-        if (profileAvatar) {
-          profileAvatar.src = avatarUrl;
-          profileAvatar.style.display = 'block';
-          const placeholder = document.querySelector('.avatar-placeholder');
-          if (placeholder) placeholder.style.display = 'none';
-        }
-      } else {
-        // ローカルユーザーまたはアバターがない場合はデフォルト表示
-        userAvatarEl.style.display = 'none';
-        const profileAvatar = document.getElementById('profile-avatar-display');
-        if (profileAvatar) {
-          profileAvatar.style.display = 'none';
-          const placeholder = document.querySelector('.avatar-placeholder');
-          if (placeholder) placeholder.style.display = 'block';
-        }
+      // アバターはローカルユーザーには表示しない
+      userAvatarEl.style.display = 'none';
+      const profileAvatar = document.getElementById('profile-avatar-display');
+      if (profileAvatar) {
+        profileAvatar.style.display = 'none';
+        const placeholder = document.querySelector('.avatar-placeholder');
+        if (placeholder) placeholder.style.display = 'block';
       }
       
       // プロファイル情報を設定
-      if (state.user.type === 'local') {
-        // ローカルユーザーの場合
-        if (discordUsernameInput) {
-          discordUsernameInput.value = '（ローカルアカウント）';
-          discordUsernameInput.disabled = true;
-        }
-        if (discordIdInput) {
-          discordIdInput.value = state.user.id;
-          discordIdInput.disabled = true;
-        }
-        
-        // Discord情報セクションを非表示または無効化
-        const discordInfoSection = document.querySelector('.discord-profile-info');
-        if (discordInfoSection) {
-          discordInfoSection.style.opacity = '0.5';
-        }
-      } else {
-        // Discordユーザーの場合
-        if (discordUsernameInput) {
-          discordUsernameInput.value = state.user.username + 
-            (state.user.discriminator ? `#${state.user.discriminator}` : '');
-          discordUsernameInput.disabled = true;
-        }
-        if (discordIdInput) {
-          discordIdInput.value = state.user.id;
-          discordIdInput.disabled = true;
-        }
-        
-        const discordInfoSection = document.querySelector('.discord-profile-info');
-        if (discordInfoSection) {
-          discordInfoSection.style.opacity = '1';
-        }
+      const profileUsernameInput = document.getElementById('profile-username');
+      const profileEmailInput = document.getElementById('profile-email');
+      
+      if (profileUsernameInput) {
+        profileUsernameInput.value = state.user.username;
+      }
+      if (profileEmailInput) {
+        profileEmailInput.value = state.user.email || '';
       }
       
       // プロファイル概要を更新
       const profileNameDisplay = document.getElementById('profile-name-display');
       if (profileNameDisplay) {
-        if (state.user.type === 'local') {
-          profileNameDisplay.textContent = state.user.username;
-        } else {
-          profileNameDisplay.textContent = state.user.username + 
-            (state.user.discriminator ? `#${state.user.discriminator}` : '');
-        }
+        profileNameDisplay.textContent = state.user.username;
       }
     }
   }
@@ -731,24 +655,28 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   // --- 新しい認証システム用のイベントリスナー ---
-  const localLoginForm = document.getElementById("local-login-form-element");
-  const localRegisterForm = document.getElementById("local-register-form-element");
+  const loginForm = document.getElementById("login-form-element");
+  const registerForm = document.getElementById("register-form-element");
+  const passwordResetForm = document.getElementById("password-reset-form-element");
+  const resendVerificationBtn = document.getElementById("resend-verification-btn");
 
-  if (localLoginForm) {
-    localLoginForm.addEventListener("submit", async (e) => {
+  if (loginForm) {
+    loginForm.addEventListener("submit", async (e) => {
       e.preventDefault();
       
       const username = document.getElementById("login-username").value.trim();
       const password = document.getElementById("login-password").value;
       
       if (!username || !password) {
-        statusMessage.textContent = "ユーザー名とパスワードを入力してください。";
+        statusMessage.textContent = "ユーザー名またはメールアドレス、パスワードを入力してください。";
+        statusMessage.style.color = "#e74c3c";
         return;
       }
       
-      const submitBtn = localLoginForm.querySelector('button[type="submit"]');
+      const submitBtn = loginForm.querySelector('button[type="submit"]');
       submitBtn.disabled = true;
       statusMessage.textContent = "ログイン中...";
+      statusMessage.style.color = "#2c3e50";
       
       try {
         const response = await fetch('/auth/login', {
@@ -764,38 +692,43 @@ document.addEventListener("DOMContentLoaded", () => {
         
         if (result.success) {
           statusMessage.textContent = result.message;
+          statusMessage.style.color = "#27ae60";
           // ログイン成功時、少し待ってから認証状態をチェック
           setTimeout(() => {
             checkAuthStatus();
           }, 1000);
         } else {
           statusMessage.textContent = result.message;
+          statusMessage.style.color = "#e74c3c";
         }
       } catch (error) {
         console.error('ログインエラー:', error);
         statusMessage.textContent = 'ログインに失敗しました。';
+        statusMessage.style.color = "#e74c3c";
       } finally {
         submitBtn.disabled = false;
       }
     });
   }
 
-  if (localRegisterForm) {
-    localRegisterForm.addEventListener("submit", async (e) => {
+  if (registerForm) {
+    registerForm.addEventListener("submit", async (e) => {
       e.preventDefault();
       
       const username = document.getElementById("register-username").value.trim();
       const password = document.getElementById("register-password").value;
       const email = document.getElementById("register-email").value.trim();
       
-      if (!username || !password) {
-        statusMessage.textContent = "ユーザー名とパスワードは必須です。";
+      if (!username || !password || !email) {
+        statusMessage.textContent = "すべての項目を入力してください。";
+        statusMessage.style.color = "#e74c3c";
         return;
       }
       
-      const submitBtn = localRegisterForm.querySelector('button[type="submit"]');
+      const submitBtn = registerForm.querySelector('button[type="submit"]');
       submitBtn.disabled = true;
       statusMessage.textContent = "アカウントを作成中...";
+      statusMessage.style.color = "#2c3e50";
       
       try {
         const response = await fetch('/auth/register', {
@@ -811,60 +744,170 @@ document.addEventListener("DOMContentLoaded", () => {
         
         if (result.success) {
           statusMessage.textContent = result.message;
-          // 登録成功時、少し待ってから認証状態をチェック
-          setTimeout(() => {
-            checkAuthStatus();
-          }, 1000);
+          statusMessage.style.color = "#27ae60";
+          
+          if (result.requiresVerification) {
+            // メール認証が必要な場合
+            document.getElementById("verification-email").textContent = email;
+            showVerificationPendingForm();
+          } else {
+            // メール認証不要の場合（テスト環境など）
+            setTimeout(() => {
+              checkAuthStatus();
+            }, 1000);
+          }
         } else {
           statusMessage.textContent = result.message;
+          statusMessage.style.color = "#e74c3c";
         }
       } catch (error) {
         console.error('登録エラー:', error);
         statusMessage.textContent = 'アカウント作成に失敗しました。';
+        statusMessage.style.color = "#e74c3c";
       } finally {
         submitBtn.disabled = false;
+      }
+    });
+  }
+
+  if (passwordResetForm) {
+    passwordResetForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      
+      const email = document.getElementById("reset-email").value.trim();
+      
+      if (!email) {
+        statusMessage.textContent = "メールアドレスを入力してください。";
+        statusMessage.style.color = "#e74c3c";
+        return;
+      }
+      
+      const submitBtn = passwordResetForm.querySelector('button[type="submit"]');
+      submitBtn.disabled = true;
+      statusMessage.textContent = "パスワード再設定メールを送信中...";
+      statusMessage.style.color = "#2c3e50";
+      
+      try {
+        const response = await fetch('/auth/request-password-reset', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ email })
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+          statusMessage.textContent = result.message;
+          statusMessage.style.color = "#27ae60";
+          // フォームをリセットしてログインフォームに戻る
+          setTimeout(() => {
+            passwordResetForm.reset();
+            showLoginForm();
+          }, 3000);
+        } else {
+          statusMessage.textContent = result.message;
+          statusMessage.style.color = "#e74c3c";
+        }
+      } catch (error) {
+        console.error('パスワード再設定エラー:', error);
+        statusMessage.textContent = 'パスワード再設定に失敗しました。';
+        statusMessage.style.color = "#e74c3c";
+      } finally {
+        submitBtn.disabled = false;
+      }
+    });
+  }
+
+  if (resendVerificationBtn) {
+    resendVerificationBtn.addEventListener("click", async () => {
+      const email = document.getElementById("verification-email").textContent;
+      
+      if (!email) {
+        statusMessage.textContent = "メールアドレスが見つかりません。";
+        statusMessage.style.color = "#e74c3c";
+        return;
+      }
+      
+      resendVerificationBtn.disabled = true;
+      statusMessage.textContent = "認証メールを再送信中...";
+      statusMessage.style.color = "#2c3e50";
+      
+      try {
+        const response = await fetch('/auth/resend-verification', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ email })
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+          statusMessage.textContent = result.message;
+          statusMessage.style.color = "#27ae60";
+        } else {
+          statusMessage.textContent = result.message;
+          statusMessage.style.color = "#e74c3c";
+        }
+      } catch (error) {
+        console.error('認証メール再送信エラー:', error);
+        statusMessage.textContent = '認証メール再送信に失敗しました。';
+        statusMessage.style.color = "#e74c3c";
+      } finally {
+        resendVerificationBtn.disabled = false;
       }
     });
   }
 });
 
 // ================ グローバル関数（HTML onclick から呼び出される） ================
-function showLocalLogin() {
-  const localTab = document.getElementById("local-login-tab");
-  const discordTab = document.getElementById("discord-login-tab");
-  const localForm = document.getElementById("local-login-form");
-  const discordForm = document.getElementById("discord-login-form");
-  
-  localTab.classList.add("active");
-  discordTab.classList.remove("active");
-  localForm.style.display = "block";
-  discordForm.style.display = "none";
-}
-
-function showDiscordLogin() {
-  const localTab = document.getElementById("local-login-tab");
-  const discordTab = document.getElementById("discord-login-tab");
-  const localForm = document.getElementById("local-login-form");
-  const discordForm = document.getElementById("discord-login-form");
-  
-  localTab.classList.remove("active");
-  discordTab.classList.add("active");
-  localForm.style.display = "none";
-  discordForm.style.display = "block";
-}
-
 function showLoginForm() {
-  const loginSection = document.getElementById("local-login-section");
-  const registerSection = document.getElementById("local-register-section");
+  const loginSection = document.getElementById("login-section");
+  const registerSection = document.getElementById("register-section");
+  const passwordResetSection = document.getElementById("password-reset-section");
+  const verificationSection = document.getElementById("verification-pending-section");
   
   loginSection.style.display = "block";
   registerSection.style.display = "none";
+  passwordResetSection.style.display = "none";
+  verificationSection.style.display = "none";
 }
 
 function showRegisterForm() {
-  const loginSection = document.getElementById("local-login-section");
-  const registerSection = document.getElementById("local-register-section");
+  const loginSection = document.getElementById("login-section");
+  const registerSection = document.getElementById("register-section");
+  const passwordResetSection = document.getElementById("password-reset-section");
+  const verificationSection = document.getElementById("verification-pending-section");
   
   loginSection.style.display = "none";
   registerSection.style.display = "block";
+  passwordResetSection.style.display = "none";
+  verificationSection.style.display = "none";
+}
+
+function showPasswordResetForm() {
+  const loginSection = document.getElementById("login-section");
+  const registerSection = document.getElementById("register-section");
+  const passwordResetSection = document.getElementById("password-reset-section");
+  const verificationSection = document.getElementById("verification-pending-section");
+  
+  loginSection.style.display = "none";
+  registerSection.style.display = "none";
+  passwordResetSection.style.display = "block";
+  verificationSection.style.display = "none";
+}
+
+function showVerificationPendingForm() {
+  const loginSection = document.getElementById("login-section");
+  const registerSection = document.getElementById("register-section");
+  const passwordResetSection = document.getElementById("password-reset-section");
+  const verificationSection = document.getElementById("verification-pending-section");
+  
+  loginSection.style.display = "none";
+  registerSection.style.display = "none";
+  passwordResetSection.style.display = "none";
+  verificationSection.style.display = "block";
 }

@@ -84,41 +84,41 @@ class Server {
         status: 'ok',
         timestamp: new Date().toISOString(),
         environment: envConfig.isProduction ? 'production' : 'development',
-        callbackUrl: authService.getCallbackURL(),
-        discordConfigured: authService.isConfigured(),
         sessionSecure: envConfig.isProduction,
         hostname: req.hostname,
-        adminDomain: process.env.ADMIN_DOMAIN
+        adminDomain: process.env.ADMIN_DOMAIN,
+        emailConfigured: require('./services/email').isInitialized()
       });
     });
 
     // Main page
     this.app.get("/", (req, res) => {
-      const discordOAuthConfig = authService.getOAuthConfig();
-      res.render("index", { discordOAuthConfig });
+      res.render("index");
     });
 
-    // Status page that shows OAuth callback working status
+    // Status page
     this.app.get("/status", (req, res) => {
-      const authService = require("./services/auth");
+      const emailService = require("./services/email");
       res.json({
-        status: "Discord AI Bot - System Status",
-        oauth_callback: {
-          url: "/auth/discord/callback",
+        status: "AI Management System - Status",
+        authentication: {
+          type: "Email-based authentication",
           status: "✅ Working correctly",
-          message: "The Discord OAuth callback route is accessible and functioning",
-          configured_callback_url: authService.getCallbackURL(),
-          environment: authService.getEnvironmentConfig().isProduction ? "production" : "development"
+          message: "Email authentication system is active"
         },
         routes: {
-          auth_discord: "✅ /auth/discord",
-          auth_callback: "✅ /auth/discord/callback", 
+          auth_login: "✅ /auth/login",
+          auth_register: "✅ /auth/register", 
           auth_logout: "✅ /auth/logout",
           auth_user: "✅ /auth/user",
+          verify_email: "✅ /auth/verify-email",
+          reset_password: "✅ /auth/reset-password",
           health: "✅ /api/health"
         },
-        timestamp: new Date().toISOString(),
-        note: "If you're seeing a 404 error, try accessing the callback URL directly or check your network connection."
+        services: {
+          email: emailService.isInitialized() ? "✅ Configured" : "❌ Not configured"
+        },
+        timestamp: new Date().toISOString()
       });
     });
 
@@ -130,25 +130,10 @@ class Server {
   }
 
   setupErrorHandling() {
-    // 404 handler with improved debugging
+    // 404 handler
     this.app.use((req, res) => {
       console.log(`[404] Route not found: ${req.method} ${req.originalUrl}`);
       console.log(`[404] Available routes: /auth/*, /api/*, /`);
-      
-      // Check if this might be a malformed auth callback
-      if (req.path.includes('/auth/discord/callback')) {
-        console.log('[404] Potential Discord callback route issue detected');
-        return res.status(404).json({ 
-          message: "Discord OAuth callback route not found",
-          requestedPath: req.originalUrl,
-          suggestedPath: "/auth/discord/callback",
-          debug: {
-            method: req.method,
-            path: req.path,
-            query: req.query
-          }
-        });
-      }
 
       res.status(404).json({ 
         message: "Not Found",
@@ -156,8 +141,12 @@ class Server {
         availableRoutes: [
           "GET /",
           "GET /api/health", 
-          "GET /auth/discord",
-          "GET /auth/discord/callback",
+          "POST /auth/login",
+          "POST /auth/register",
+          "GET /auth/verify-email",
+          "POST /auth/request-password-reset",
+          "GET /auth/reset-password",
+          "POST /auth/reset-password",
           "GET /auth/logout",
           "GET /auth/user"
         ]

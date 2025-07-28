@@ -1,9 +1,14 @@
 const firebaseService = require("../services/firebase");
 
 const verifyAuthentication = async (req, res, next) => {
-  // Discord OAuth認証をチェック
+  // Email認証をチェック
   if (!req.isAuthenticated()) {
-    return res.status(401).json({ message: 'Discord認証が必要です' });
+    return res.status(401).json({ message: '認証が必要です' });
+  }
+
+  // メール認証状態をチェック
+  if (!req.user.verified) {
+    return res.status(401).json({ message: 'メールアドレスの認証が必要です' });
   }
 
   try {
@@ -25,10 +30,9 @@ const verifyAuthentication = async (req, res, next) => {
       ? settingsDoc.data().admins
       : [];
     
-    // Discord IDまたはemailで管理者チェック
+    // メールアドレスで管理者チェック
     const isAdmin = admins.some(admin => 
-      admin.email === req.user.email || 
-      admin.discordId === req.user.id
+      admin.email === req.user.email
     );
 
     if (admins.length > 0 && !isAdmin) {
@@ -37,25 +41,13 @@ const verifyAuthentication = async (req, res, next) => {
 
     req.user.isAdmin = true;
     req.user.isSuperAdmin = admins.length === 0 || 
-      (admins[0].email === req.user.email || admins[0].discordId === req.user.id);
+      (admins[0].email === req.user.email);
     
     next();
   } catch (error) {
     console.error('認証エラー:', error);
     res.status(500).json({ message: 'サーバーエラー' });
   }
-};
-
-const checkDiscordConfigured = (req, res, next) => {
-  if (!process.env.DISCORD_CLIENT_ID || !/^\d{17,19}$/.test(process.env.DISCORD_CLIENT_ID)) {
-    console.error('Discord設定エラー: Client IDが無効です');
-    return res.redirect('/?error=config_error');
-  }
-  if (!process.env.DISCORD_CLIENT_SECRET) {
-    console.error('Discord設定エラー: Client Secretが未設定です');
-    return res.redirect('/?error=config_error');
-  }
-  next();
 };
 
 // Error handling middleware
@@ -73,6 +65,5 @@ const errorHandler = (err, req, res, next) => {
 
 module.exports = {
   verifyAuthentication,
-  checkDiscordConfigured,
   errorHandler
 };
