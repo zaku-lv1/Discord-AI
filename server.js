@@ -169,12 +169,17 @@ class Server {
   }
 
   start() {
-    this.app.listen(this.port, () => {
-      console.log(`[情報] Webサーバーがポート ${this.port} で起動しました。`);
+    // For GitHub Codespace and other external environments, bind to all interfaces
+    const host = process.env.NODE_ENV === 'production' || process.env.ADMIN_DOMAIN ? '0.0.0.0' : 'localhost';
+    
+    this.app.listen(this.port, host, () => {
+      console.log(`[情報] Webサーバーが ${host}:${this.port} で起動しました。`);
       
       const envConfig = authService.getEnvironmentConfig();
       if (!envConfig.isProduction) {
         console.log(`[情報] アクセスURL: http://localhost:${this.port}`);
+      } else {
+        console.log(`[情報] 外部アクセスURL: ${envConfig.protocol}://${envConfig.domain}${envConfig.port !== 80 && envConfig.port !== 443 ? ':' + envConfig.actualPort : ''}`);
       }
     });
   }
