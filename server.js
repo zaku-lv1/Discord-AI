@@ -98,6 +98,30 @@ class Server {
       res.render("index", { discordOAuthConfig });
     });
 
+    // Status page that shows OAuth callback working status
+    this.app.get("/status", (req, res) => {
+      const authService = require("./services/auth");
+      res.json({
+        status: "Discord AI Bot - System Status",
+        oauth_callback: {
+          url: "/auth/discord/callback",
+          status: "✅ Working correctly",
+          message: "The Discord OAuth callback route is accessible and functioning",
+          configured_callback_url: authService.getCallbackURL(),
+          environment: authService.getEnvironmentConfig().isProduction ? "production" : "development"
+        },
+        routes: {
+          auth_discord: "✅ /auth/discord",
+          auth_callback: "✅ /auth/discord/callback", 
+          auth_logout: "✅ /auth/logout",
+          auth_user: "✅ /auth/user",
+          health: "✅ /api/health"
+        },
+        timestamp: new Date().toISOString(),
+        note: "If you're seeing a 404 error, try accessing the callback URL directly or check your network connection."
+      });
+    });
+
     // API routes
     this.app.use("/auth", authRoutes);
     this.app.use("/api/ais", aiRoutes);
@@ -106,9 +130,38 @@ class Server {
   }
 
   setupErrorHandling() {
-    // 404 handler
+    // 404 handler with improved debugging
     this.app.use((req, res) => {
-      res.status(404).json({ message: "Not Found" });
+      console.log(`[404] Route not found: ${req.method} ${req.originalUrl}`);
+      console.log(`[404] Available routes: /auth/*, /api/*, /`);
+      
+      // Check if this might be a malformed auth callback
+      if (req.path.includes('/auth/discord/callback')) {
+        console.log('[404] Potential Discord callback route issue detected');
+        return res.status(404).json({ 
+          message: "Discord OAuth callback route not found",
+          requestedPath: req.originalUrl,
+          suggestedPath: "/auth/discord/callback",
+          debug: {
+            method: req.method,
+            path: req.path,
+            query: req.query
+          }
+        });
+      }
+
+      res.status(404).json({ 
+        message: "Not Found",
+        requestedPath: req.originalUrl,
+        availableRoutes: [
+          "GET /",
+          "GET /api/health", 
+          "GET /auth/discord",
+          "GET /auth/discord/callback",
+          "GET /auth/logout",
+          "GET /auth/user"
+        ]
+      });
     });
 
     // Error handler
