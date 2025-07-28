@@ -9,18 +9,24 @@ class EmailService {
   async initialize() {
     try {
       // Gmail SMTP設定
-      this.transporter = nodemailer.createTransporter({
-        service: 'gmail',
-        auth: {
-          user: process.env.GMAIL_USER,
-          pass: process.env.GMAIL_APP_PASSWORD // Gmail App Password
-        }
-      });
+      if (process.env.GMAIL_USER && process.env.GMAIL_APP_PASSWORD && 
+          process.env.GMAIL_USER !== 'test@gmail.com') {
+        this.transporter = nodemailer.createTransport({
+          service: 'gmail',
+          auth: {
+            user: process.env.GMAIL_USER,
+            pass: process.env.GMAIL_APP_PASSWORD // Gmail App Password
+          }
+        });
 
-      // 接続テスト
-      await this.transporter.verify();
-      this.initialized = true;
-      console.log('[情報] メールサービスが初期化されました。');
+        // 接続テスト
+        await this.transporter.verify();
+        this.initialized = true;
+        console.log('[情報] メールサービスが初期化されました。');
+      } else {
+        console.log('[情報] テスト環境: メールサービスは無効です。');
+        this.initialized = false;
+      }
     } catch (error) {
       console.error('[エラー] メールサービスの初期化に失敗しました:', error.message);
       console.log('[警告] メール機能を無効にして続行します。');
