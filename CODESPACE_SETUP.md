@@ -1,96 +1,96 @@
-# GitHub Codespace Configuration Guide
+# GitHub Codespace設定ガイド
 
-This document explains how to properly configure the Discord AI Bot for GitHub Codespace environments.
+このドキュメントは、GitHub Codespace環境でDiscord AI Botを適切に設定する方法を説明します。
 
-## Issue Fixed
+## 修正された問題
 
-**Problem**: Users were experiencing 404 errors when accessing the Discord OAuth callback URL in GitHub Codespace:
+**問題**: ユーザーがGitHub CodespaceでDiscord OAuth コールバックURLにアクセスする際に404エラーが発生していました：
 ```
 https://fictional-telegram-gvpj4xjjjgpc6j-8080.app.github.dev/auth/discord/callback
 ```
 
-**Root Cause**: The server was not properly configured to handle external connections and GitHub Codespace domain patterns.
+**根本原因**: サーバーが外部接続を処理し、GitHub Codespaceドメインパターンを認識するように適切に設定されていませんでした。
 
-## Solution Implemented
+## 実装された解決策
 
-### 1. Server Binding Configuration
-- Changed server to bind to `0.0.0.0:8080` instead of `localhost:8080` when external domain is detected
-- This allows GitHub Codespace proxy to forward external traffic to the server
+### 1. サーバーバインディング設定
+- 外部ドメインが検出された場合、サーバーを`localhost:8080`ではなく`0.0.0.0:8080`にバインドするように変更
+- これにより、GitHub Codespaceプロキシが外部トラフィックをサーバーに転送できるようになります
 
-### 2. Environment Detection
-- Added specific detection for GitHub Codespace domains (`*.app.github.dev`)
-- Proper handling of HTTPS protocol for Codespace environments
-- Automatic port extraction from Codespace domain names
+### 2. 環境検出
+- GitHub Codespaceドメイン（`*.app.github.dev`）の特定検出を追加
+- Codespace環境でのHTTPSプロトコルの適切な処理
+- Codespaceドメイン名からの自動ポート抽出
 
-### 3. OAuth Callback URL Generation
-- Fixed callback URL construction for Codespace environments
-- Proper protocol (HTTPS) and domain handling
-- Correct session configuration with secure cookies
+### 3. OAuth コールバックURL生成
+- Codespace環境でのコールバックURL構築を修正
+- 適切なプロトコル（HTTPS）とドメイン処理
+- セキュアクッキーでの正しいセッション設定
 
-## Configuration for GitHub Codespace
+## GitHub Codespace の設定
 
-### Required Environment Variables
+### 必要な環境変数
 
-In your `.env` file, ensure the following are configured:
+`.env`ファイルで以下が設定されていることを確認してください：
 
 ```bash
-# Set your Codespace domain (replace with your actual codespace URL)
+# Codespaceドメインを設定（実際のcodespace URLに置き換えてください）
 ADMIN_DOMAIN=your-codespace-name-8080.app.github.dev
 
-# Discord OAuth credentials
+# Discord OAuth認証情報
 DISCORD_CLIENT_ID=your_discord_client_id_here
 DISCORD_CLIENT_SECRET=your_discord_client_secret_here
 
-# Other required variables
+# その他の必要な変数
 SESSION_SECRET=your_random_session_secret
 PORT=8080
 ```
 
-### Discord Developer Portal Configuration
+### Discord Developer Portal設定
 
-In your Discord application settings (https://discord.com/developers/applications):
+Discordアプリケーション設定（https://discord.com/developers/applications）で：
 
-1. Go to **OAuth2** → **General**
-2. Add the following redirect URI:
+1. **OAuth2** → **General** に移動
+2. 以下のリダイレクトURIを追加：
    ```
    https://your-codespace-name-8080.app.github.dev/auth/discord/callback
    ```
-3. Make sure to replace `your-codespace-name-8080` with your actual codespace URL
+3. `your-codespace-name-8080`を実際のcodespace URLに置き換えてください
 
-### Verification
+### 確認方法
 
-To verify the fix is working:
+修正が動作していることを確認するには：
 
-1. Start your server: `npm start`
-2. Check the logs for proper environment detection:
+1. サーバーを起動: `npm start`
+2. ログで適切な環境検出を確認：
    ```
    [情報] 認証環境: GitHub Codespace
    [情報] Discord OAuth Callback URL: https://your-codespace-name-8080.app.github.dev/auth/discord/callback
    ```
-3. Test the health endpoint: `curl https://your-codespace-url/api/health`
-4. Test the status endpoint: `curl https://your-codespace-url/status`
+3. ヘルスエンドポイントをテスト: `curl https://your-codespace-url/api/health`
+4. ステータスエンドポイントをテスト: `curl https://your-codespace-url/status`
 
-### Troubleshooting
+### トラブルシューティング
 
-If you still encounter issues:
+まだ問題が発生する場合：
 
-1. **Check server binding**: Ensure logs show `Webサーバーが 0.0.0.0:8080 で起動しました`
-2. **Verify domain detection**: Check that the environment is detected as "GitHub Codespace"
-3. **Test local accessibility**: Use the test script to verify routes are accessible
-4. **Check Discord app configuration**: Ensure callback URL matches exactly
+1. **サーバーバインディングを確認**: ログに`Webサーバーが 0.0.0.0:8080 で起動しました`と表示されることを確認
+2. **ドメイン検出を確認**: 環境が「GitHub Codespace」として検出されているか確認
+3. **ローカルアクセス可能性をテスト**: テストスクリプトを使用してルートがアクセス可能か確認
+4. **Discord アプリ設定を確認**: コールバックURLが正確に一致していることを確認
 
-### Test Script
+### テストスクリプト
 
-Run the included test script to verify all routes are working:
+付属のテストスクリプトを実行して、すべてのルートが動作していることを確認：
 
 ```bash
 node /tmp/test_oauth_callback.js
 ```
 
-This should show all tests passing with proper status codes (200/302/400, not 404).
+これにより、適切なステータスコード（200/302/400、404ではない）ですべてのテストが合格することが表示されるはずです。
 
-## Changes Made
+## 行われた変更
 
-- `server.js`: Updated server binding logic for external access
-- `services/auth.js`: Enhanced environment detection and callback URL generation
-- Added comprehensive testing for OAuth callback functionality
+- `server.js`: 外部アクセス用のサーバーバインディングロジックを更新
+- `services/auth.js`: 環境検出とコールバックURL生成を強化
+- OAuth コールバック機能の包括的なテストを追加
