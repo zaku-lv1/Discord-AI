@@ -108,17 +108,31 @@ router.post("/admins", verifyAuthentication, async (req, res) => {
 
     let finalAdmins = newAdminsList || [];
     if (!docSnap.exists || finalAdmins.length === 0) {
-      finalAdmins = [
-        { 
-          name: req.user.username || "管理者", 
-          email: req.user.email,
-          discordId: req.user.id,
-          username: req.user.username,
-          discriminator: req.user.discriminator,
-          avatar: req.user.avatar
-        },
-      ];
+      // Clean admin object to avoid Firestore undefined values error
+      const cleanAdminObject = {};
+      if (req.user.username) cleanAdminObject.name = req.user.username;
+      else cleanAdminObject.name = "管理者";
+      
+      if (req.user.email) cleanAdminObject.email = req.user.email;
+      if (req.user.id) cleanAdminObject.discordId = req.user.id;
+      if (req.user.username) cleanAdminObject.username = req.user.username;
+      if (req.user.discriminator) cleanAdminObject.discriminator = req.user.discriminator;
+      if (req.user.avatar) cleanAdminObject.avatar = req.user.avatar;
+      
+      finalAdmins = [cleanAdminObject];
     }
+
+    // Clean all admin objects to remove undefined values
+    finalAdmins = finalAdmins.map(admin => {
+      const cleanAdmin = {};
+      if (admin.name) cleanAdmin.name = admin.name;
+      if (admin.email) cleanAdmin.email = admin.email;
+      if (admin.discordId) cleanAdmin.discordId = admin.discordId;
+      if (admin.username) cleanAdmin.username = admin.username;
+      if (admin.discriminator) cleanAdmin.discriminator = admin.discriminator;
+      if (admin.avatar) cleanAdmin.avatar = admin.avatar;
+      return cleanAdmin;
+    });
 
     await docRef.set({ admins: finalAdmins }, { merge: true });
     res.status(200).json({ message: "管理者リストを更新しました。" });
@@ -128,34 +142,6 @@ router.post("/admins", verifyAuthentication, async (req, res) => {
   }
 });
 
-// 招待コード生成
-router.post("/generate-invite-code", verifyAuthentication, async (req, res) => {
-  try {
-    if (!req.user.isSuperAdmin) {
-      return res.status(403).json({
-        message: "招待コードの発行は最高管理者のみ許可されています。",
-      });
-    }
-    
-    const newCode = uuidv4().split("-")[0].toUpperCase();
-    const db = firebaseService.getDB();
-    
-    await db.collection("invitation_codes").doc(newCode).set({
-      code: newCode,
-      createdAt: firebaseService.getServerTimestamp(),
-      createdBy: req.user.email || req.user.username,
-      createdByDiscordId: req.user.id,
-      used: false,
-      usedBy: null,
-      usedByDiscordId: null,
-      usedAt: null,
-    });
 
-    res.status(201).json({ code: newCode });
-  } catch (error) {
-    console.error("招待コード生成エラー:", error);
-    res.status(500).json({ message: "招待コードの生成に失敗しました。" });
-  }
-});
 
 module.exports = router;
