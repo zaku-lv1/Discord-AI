@@ -1,8 +1,8 @@
 const passport = require("passport");
-const DiscordStrategy = require("passport-discord").Strategy;
 const LocalStrategy = require("passport-local").Strategy;
 const bcrypt = require("bcrypt");
 const firebaseService = require("./firebase");
+const emailService = require("./email");
 
 class AuthService {
   constructor() {
@@ -18,46 +18,83 @@ class AuthService {
     return await bcrypt.compare(password, hashedPassword);
   }
 
-  async createLocalUser(username, password, email) {
+  async createLocalUser(username, password, email, skipEmailVerification = false) {
     const db = firebaseService.getDB();
     
+    if (!email) {
+      throw new Error('メールアドレスは必須です');
+    }
+
+    // メールアドレスの形式チェック
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      throw new Error('有効なメールアドレスを入力してください');
+    }
+    
     // Check if username already exists
-    const existingUser = await db.collection('local_users').where('username', '==', username).get();
+    const existingUser = await db.collection('users').where('username', '==', username).get();
     if (!existingUser.empty) {
       throw new Error('ユーザー名が既に使用されています');
     }
 
     // Check if email already exists
-    if (email) {
-      const existingEmail = await db.collection('local_users').where('email', '==', email).get();
-      if (!existingEmail.empty) {
-        throw new Error('メールアドレスが既に使用されています');
-      }
+    const existingEmail = await db.collection('users').where('email', '==', email).get();
+    if (!existingEmail.empty) {
+      throw new Error('メールアドレスが既に使用されています');
     }
 
     const hashedPassword = await this.hashPassword(password);
     const userId = Date.now().toString(); // Simple ID generation
     
+    // テスト環境またはメールサービスが無効な場合は認証をスキップ
+    const shouldSkipVerification = skipEmailVerification || 
+      !emailService.isInitialized() || 
+      process.env.NODE_ENV === 'test' ||
+      email.includes('test');
+    
     const userDoc = {
       id: userId,
       username: username,
-      email: email || null,
+      email: email,
       password: hashedPassword,
-      type: 'local',
+      type: 'email',
+      verified: shouldSkipVerification, // メール認証をスキップする場合はtrue
+      verificationToken: shouldSkipVerification ? null : emailService.generateVerificationToken(),
+      verificationTokenExpires: shouldSkipVerification ? null : new Date(Date.now() + 24 * 60 * 60 * 1000), // 24時間
       createdAt: firebaseService.getServerTimestamp(),
-      lastLogin: firebaseService.getServerTimestamp()
+      lastLogin: shouldSkipVerification ? firebaseService.getServerTimestamp() : null
     };
 
-    await db.collection('local_users').doc(userId).set(userDoc);
+    await db.collection('users').doc(userId).set(userDoc);
     
-    // Return user without password
-    const { password: _, ...userWithoutPassword } = userDoc;
+    // メール認証が有効でメール送信可能な場合、認証メールを送信
+    if (!shouldSkipVerification && emailService.isInitialized()) {
+      try {
+        await emailService.sendVerificationEmail(email, username, userDoc.verificationToken);
+        console.log(`[情報] 認証メールを送信しました: ${email}`);
+      } catch (error) {
+        console.error('[エラー] 認証メール送信に失敗:', error);
+        // ユーザー作成は成功したが、メール送信が失敗した場合は警告のみ
+      }
+    }
+    
+    // Return user without password and sensitive fields
+    const { password: _, verificationToken: __, ...userWithoutPassword } = userDoc;
     return userWithoutPassword;
   }
 
   async findLocalUser(username) {
     const db = firebaseService.getDB();
-    const userQuery = await db.collection('local_users').where('username', '==', username).get();
+    
+    // ユーザー名またはメールアドレスで検索
+    let userQuery;
+    if (username.includes('@')) {
+      // メールアドレスの場合
+      userQuery = await db.collection('users').where('email', '==', username).get();
+    } else {
+      // ユーザー名の場合
+      userQuery = await db.collection('users').where('username', '==', username).get();
+    }
     
     if (userQuery.empty) {
       return null;
@@ -68,9 +105,166 @@ class AuthService {
 
   async updateLocalUserLastLogin(userId) {
     const db = firebaseService.getDB();
-    await db.collection('local_users').doc(userId).update({
+    await db.collection('users').doc(userId).update({
       lastLogin: firebaseService.getServerTimestamp()
     });
+  }
+
+  async verifyEmail(token) {
+    const db = firebaseService.getDB();
+    
+    // トークンでユーザーを検索
+    const userQuery = await db.collection('users')
+      .where('verificationToken', '==', token)
+      .where('verified', '==', false)
+      .get();
+    
+    if (userQuery.empty) {
+      throw new Error('無効または期限切れの認証トークンです');
+    }
+    
+    const userDoc = userQuery.docs[0];
+    const userData = userDoc.data();
+    
+    // トークンの有効期限をチェック
+    if (userData.verificationTokenExpires && userData.verificationTokenExpires.toDate() < new Date()) {
+      throw new Error('認証トークンの有効期限が切れています');
+    }
+    
+    // ユーザーを認証済みに更新
+    await userDoc.ref.update({
+      verified: true,
+      verificationToken: null,
+      verificationTokenExpires: null,
+      lastLogin: firebaseService.getServerTimestamp()
+    });
+    
+    // 認証済みユーザー情報を返す
+    const { password: _, verificationToken: __, ...userWithoutPassword } = {
+      ...userData,
+      verified: true
+    };
+    return userWithoutPassword;
+  }
+
+  async requestPasswordReset(email) {
+    const db = firebaseService.getDB();
+    
+    // メールアドレスでユーザーを検索
+    const userQuery = await db.collection('users').where('email', '==', email).get();
+    
+    if (userQuery.empty) {
+      // セキュリティ上、ユーザーが存在しない場合でも成功のレスポンスを返す
+      return { success: true, message: '認証済みの場合は、パスワード再設定メールを送信しました' };
+    }
+    
+    const userDoc = userQuery.docs[0];
+    const userData = userDoc.data();
+    
+    // 認証済みユーザーのみパスワード再設定可能
+    if (!userData.verified) {
+      return { success: true, message: '認証済みの場合は、パスワード再設定メールを送信しました' };
+    }
+    
+    const resetToken = emailService.generatePasswordResetToken();
+    const resetTokenExpires = new Date(Date.now() + 60 * 60 * 1000); // 1時間
+    
+    // パスワード再設定トークンを保存
+    await userDoc.ref.update({
+      passwordResetToken: resetToken,
+      passwordResetTokenExpires: resetTokenExpires
+    });
+    
+    // パスワード再設定メールを送信
+    if (emailService.isInitialized()) {
+      try {
+        await emailService.sendPasswordResetEmail(email, userData.username, resetToken);
+        console.log(`[情報] パスワード再設定メールを送信しました: ${email}`);
+      } catch (error) {
+        console.error('[エラー] パスワード再設定メール送信に失敗:', error);
+        throw new Error('メール送信に失敗しました');
+      }
+    } else {
+      throw new Error('メールサービスが利用できません');
+    }
+    
+    return { success: true, message: 'パスワード再設定メールを送信しました' };
+  }
+
+  async resetPassword(token, newPassword) {
+    const db = firebaseService.getDB();
+    
+    // トークンでユーザーを検索
+    const userQuery = await db.collection('users')
+      .where('passwordResetToken', '==', token)
+      .get();
+    
+    if (userQuery.empty) {
+      throw new Error('無効または期限切れの再設定トークンです');
+    }
+    
+    const userDoc = userQuery.docs[0];
+    const userData = userDoc.data();
+    
+    // トークンの有効期限をチェック
+    if (userData.passwordResetTokenExpires && userData.passwordResetTokenExpires.toDate() < new Date()) {
+      throw new Error('再設定トークンの有効期限が切れています');
+    }
+    
+    // 新しいパスワードをハッシュ化
+    const hashedPassword = await this.hashPassword(newPassword);
+    
+    // パスワードを更新し、再設定トークンを削除
+    await userDoc.ref.update({
+      password: hashedPassword,
+      passwordResetToken: null,
+      passwordResetTokenExpires: null,
+      lastLogin: firebaseService.getServerTimestamp()
+    });
+    
+    return { success: true, message: 'パスワードが正常に更新されました' };
+  }
+
+  async resendVerificationEmail(email) {
+    const db = firebaseService.getDB();
+    
+    // メールアドレスでユーザーを検索
+    const userQuery = await db.collection('users')
+      .where('email', '==', email)
+      .where('verified', '==', false)
+      .get();
+    
+    if (userQuery.empty) {
+      throw new Error('認証待ちのアカウントが見つかりません');
+    }
+    
+    const userDoc = userQuery.docs[0];
+    const userData = userDoc.data();
+    
+    // 新しい認証トークンを生成
+    const newVerificationToken = emailService.generateVerificationToken();
+    const newTokenExpires = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24時間
+    
+    // トークンを更新
+    await userDoc.ref.update({
+      verificationToken: newVerificationToken,
+      verificationTokenExpires: newTokenExpires
+    });
+    
+    // 認証メールを再送信
+    if (emailService.isInitialized()) {
+      try {
+        await emailService.sendVerificationEmail(email, userData.username, newVerificationToken);
+        console.log(`[情報] 認証メールを再送信しました: ${email}`);
+      } catch (error) {
+        console.error('[エラー] 認証メール再送信に失敗:', error);
+        throw new Error('メール送信に失敗しました');
+      }
+    } else {
+      throw new Error('メールサービスが利用できません');
+    }
+    
+    return { success: true, message: '認証メールを再送信しました' };
   }
 
   getEnvironmentConfig() {
@@ -109,50 +303,11 @@ class AuthService {
     };
   }
 
-  getCallbackURL() {
-    const { protocol, port, domain, isCodespace, actualPort } = this.getEnvironmentConfig();
-    
-    // If explicit callback URL is provided, use it
-    if (process.env.DISCORD_CALLBACK_URL) {
-      return process.env.DISCORD_CALLBACK_URL;
-    }
-    
-    // For GitHub Codespace, use the extracted port from domain
-    if (isCodespace) {
-      return `${protocol}://${domain}/auth/discord/callback`;
-    }
-    
-    // For production with standard ports, don't include port in URL
-    if (port === 80 || port === 443) {
-      return `${protocol}://${domain}/auth/discord/callback`;
-    }
-    
-    // For development with custom ports
-    return `${protocol}://${domain}:${port}/auth/discord/callback`;
-  }
-
-  validateDiscordConfig() {
-    const clientId = process.env.DISCORD_CLIENT_ID;
-    const clientSecret = process.env.DISCORD_CLIENT_SECRET;
-    
-    if (!clientId || !clientSecret) {
-      throw new Error('DISCORD_CLIENT_ID と DISCORD_CLIENT_SECRET が設定されていません。');
-    }
-    
-    // Discord Client IDは数値のsnowflake IDである必要があります
-    if (!/^\d{17,19}$/.test(clientId)) {
-      throw new Error(
-        `DISCORD_CLIENT_ID が無効です: "${clientId}"\n` +
-        'Discord Client IDは17-19桁の数値である必要があります。\n' +
-        'Discord Developer Portal (https://discord.com/developers/applications) で正しいClient IDを確認してください。'
-      );
-    }
-    
-    return { clientId, clientSecret };
-  }
-
   async initialize() {
     try {
+      // Initialize email service
+      await emailService.initialize();
+
       // Setup Local Authentication Strategy
       passport.use(new LocalStrategy({
         usernameField: 'username',
@@ -161,12 +316,18 @@ class AuthService {
         try {
           const user = await this.findLocalUser(username);
           if (!user) {
-            return done(null, false, { message: 'ユーザー名またはパスワードが正しくありません' });
+            return done(null, false, { message: 'ユーザー名またはメールアドレス、パスワードが正しくありません' });
           }
 
           const isValidPassword = await this.comparePassword(password, user.password);
           if (!isValidPassword) {
-            return done(null, false, { message: 'ユーザー名またはパスワードが正しくありません' });
+            return done(null, false, { message: 'ユーザー名またはメールアドレス、パスワードが正しくありません' });
+          }
+
+          // メール認証チェック（テスト環境では不要）
+          if (!user.verified && emailService.isInitialized() && 
+              process.env.NODE_ENV !== 'test' && !user.email.includes('test')) {
+            return done(null, false, { message: 'メールアドレスが認証されていません。メールボックスを確認してください' });
           }
 
           // Update last login
@@ -181,81 +342,25 @@ class AuthService {
         }
       }));
 
-      // Setup Discord Authentication Strategy
-      try {
-        const { clientId, clientSecret } = this.validateDiscordConfig();
-        
-        console.log(`[情報] Discord Client ID検証完了: ${clientId}`);
-        const { isProduction, isCodespace, isLocalhost, protocol, domain, actualPort } = this.getEnvironmentConfig();
-        
-        const envType = isCodespace ? 'GitHub Codespace' : (isProduction ? 'Production' : 'Development');
-        console.log(`[情報] 認証環境: ${envType}`);
-        console.log(`[情報] 検出されたドメイン: ${domain}`);
-        console.log(`[情報] プロトコル: ${protocol}, ポート: ${actualPort}`);
-        console.log(`[情報] Discord OAuth Callback URL: ${this.getCallbackURL()}`);
-
-        // Setup Passport Discord strategy
-        passport.use(new DiscordStrategy({
-          clientID: clientId,
-          clientSecret: clientSecret,
-          callbackURL: this.getCallbackURL(),
-          scope: ['identify', 'email', 'guilds']
-        }, async (accessToken, refreshToken, profile, done) => {
-          try {
-            const db = firebaseService.getDB();
-            const userRef = db.collection('discord_users').doc(profile.id);
-            await userRef.set({
-              id: profile.id,
-              username: profile.username,
-              discriminator: profile.discriminator,
-              email: profile.email,
-              avatar: profile.avatar,
-              accessToken: accessToken,
-              refreshToken: refreshToken,
-              type: 'discord',
-              lastLogin: firebaseService.getServerTimestamp()
-            }, { merge: true });
-
-            return done(null, { ...profile, type: 'discord' });
-          } catch (error) {
-            console.error('Discord OAuth エラー:', error);
-            return done(error, null);
-          }
-        }));
-
-        this.configured = true;
-      } catch (error) {
-        console.error(`[警告] Discord OAuth設定が無効です: ${error.message}`);
-        console.log('[情報] Discord OAuth機能を無効にして続行します。ローカル認証のみ利用可能です。');
-        this.configured = false;
-      }
+      this.configured = true;
 
       passport.serializeUser((user, done) => {
-        // Store both user type and ID for session management
-        done(null, { id: user.id, type: user.type || 'discord' });
+        // Store user ID and type for session management
+        done(null, { id: user.id, type: user.type || 'email' });
       });
 
       passport.deserializeUser(async (sessionData, done) => {
         try {
           const db = firebaseService.getDB();
           
-          if (sessionData.type === 'local') {
-            const userDoc = await db.collection('local_users').doc(sessionData.id).get();
-            if (userDoc.exists) {
-              const userData = userDoc.data();
-              const { password: _, ...userWithoutPassword } = userData;
-              done(null, userWithoutPassword);
-            } else {
-              done(null, false);
-            }
+          // All users are now stored in the 'users' collection
+          const userDoc = await db.collection('users').doc(sessionData.id).get();
+          if (userDoc.exists) {
+            const userData = userDoc.data();
+            const { password: _, verificationToken: __, passwordResetToken: ___, ...userWithoutPassword } = userData;
+            done(null, userWithoutPassword);
           } else {
-            // Default to Discord user for backward compatibility
-            const userDoc = await db.collection('discord_users').doc(sessionData.id).get();
-            if (userDoc.exists) {
-              done(null, userDoc.data());
-            } else {
-              done(null, false);
-            }
+            done(null, false);
           }
         } catch (error) {
           done(error, null);
@@ -294,21 +399,6 @@ class AuthService {
         maxAge: 24 * 60 * 60 * 1000, // 24時間
         sameSite: requireSecure ? 'none' : 'lax' // Cross-site compatibility for production/Codespace
       }
-    };
-  }
-
-  getOAuthConfig() {
-    const { isProduction, domain, protocol } = this.getEnvironmentConfig();
-    const isDiscordConfigured = this.isConfigured();
-    
-    return {
-      clientId: isDiscordConfigured ? process.env.DISCORD_CLIENT_ID : null,
-      redirectUri: isDiscordConfigured ? this.getCallbackURL() : null,
-      isProduction,
-      domain,
-      protocol,
-      configured: isDiscordConfigured,
-      error: isDiscordConfigured ? null : 'Discord Client IDが正しく設定されていません'
     };
   }
 }

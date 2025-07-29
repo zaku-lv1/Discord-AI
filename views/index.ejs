@@ -16,7 +16,8 @@
 
     <!-- Discord OAuth Config -->
     <script>
-      const discordOAuthConfig = <%- JSON.stringify(discordOAuthConfig) %>;
+      // Email authentication system - no OAuth config needed
+      const authConfig = { type: 'email' };
     </script>
 
     <!-- Styles and Scripts -->
@@ -36,36 +37,18 @@
 
       <!-- 認証コンテナ -->
       <div id="auth-container" style="display: none;">
-        <!-- ログイン方法選択 -->
-        <div id="login-method-selector" class="login-selector">
+        <!-- ログイン・登録フォーム -->
+        <div id="email-auth-form" class="login-form">
           <h2>🚀 ログイン</h2>
-          <p>アカウントでアクセスして、AIシステムを管理しましょう</p>
+          <p>メールアドレスでアカウントにアクセスして、AIシステムを管理しましょう</p>
           
-          <div class="login-tabs">
-            <button id="local-login-tab" class="login-tab active" onclick="showLocalLogin()">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" style="margin-right: 8px;">
-                <path d="M12,4A4,4 0 0,1 16,8A4,4 0 0,1 12,12A4,4 0 0,1 8,8A4,4 0 0,1 12,4M12,14C16.42,14 20,15.79 20,18V20H4V18C4,15.79 7.58,14 12,14Z"/>
-              </svg>
-              ローカルアカウント
-            </button>
-            <button id="discord-login-tab" class="login-tab" onclick="showDiscordLogin()">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" style="margin-right: 8px;">
-                <path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515a.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0a12.64 12.64 0 0 0-.617-1.25a.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057a19.9 19.9 0 0 0 5.993 3.03a.078.078 0 0 0 .084-.028a14.09 14.09 0 0 0 1.226-1.994a.076.076 0 0 0-.041-.106a13.107 13.107 0 0 1-1.872-.892a.077.077 0 0 1-.008-.128a10.2 10.2 0 0 0 .372-.292a.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127a12.299 12.299 0 0 1-1.873.892a.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028a19.839 19.839 0 0 0 6.002-3.03a.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419c0-1.333.956-2.419 2.157-2.419c1.21 0 2.176 1.096 2.157 2.42c0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419c0-1.333.955-2.419 2.157-2.419c1.21 0 2.176 1.096 2.157 2.42c0 1.333-.946 2.418-2.157 2.418z"/>
-              </svg>
-              Discord
-            </button>
-          </div>
-        </div>
-
-        <!-- ローカルログインフォーム -->
-        <div id="local-login-form" class="login-form">
           <div class="login-options">
-            <div id="local-login-section" class="active">
+            <div id="login-section" class="active">
               <h3>ログイン</h3>
-              <form id="local-login-form-element">
+              <form id="login-form-element">
                 <div class="form-group">
-                  <label for="login-username">ユーザー名</label>
-                  <input type="text" id="login-username" required placeholder="ユーザー名を入力" />
+                  <label for="login-username">ユーザー名またはメールアドレス</label>
+                  <input type="text" id="login-username" required placeholder="ユーザー名またはメールアドレス" />
                 </div>
                 <div class="form-group">
                   <label for="login-password">パスワード</label>
@@ -82,24 +65,26 @@
               </form>
               <div class="login-switch">
                 <p>アカウントをお持ちでない場合は <a href="#" onclick="showRegisterForm()">新規登録</a></p>
+                <p><a href="#" onclick="showPasswordResetForm()">パスワードをお忘れですか？</a></p>
               </div>
             </div>
 
-            <div id="local-register-section" style="display: none;">
+            <div id="register-section" style="display: none;">
               <h3>新規登録</h3>
-              <form id="local-register-form-element">
+              <form id="register-form-element">
                 <div class="form-group">
                   <label for="register-username">ユーザー名</label>
                   <input type="text" id="register-username" required placeholder="ユーザー名（3文字以上）" />
                   <small>英数字、アンダースコア、ハイフンのみ使用可能</small>
                 </div>
                 <div class="form-group">
-                  <label for="register-password">パスワード</label>
-                  <input type="password" id="register-password" required placeholder="パスワード（6文字以上）" />
+                  <label for="register-email">メールアドレス</label>
+                  <input type="email" id="register-email" required placeholder="example@domain.com" />
+                  <small>認証メールが送信されます</small>
                 </div>
                 <div class="form-group">
-                  <label for="register-email">メールアドレス（任意）</label>
-                  <input type="email" id="register-email" placeholder="example@domain.com" />
+                  <label for="register-password">パスワード</label>
+                  <input type="password" id="register-password" required placeholder="パスワード（6文字以上）" />
                 </div>
                 <div class="button-group">
                   <button type="submit" class="save-btn">
@@ -114,25 +99,48 @@
                 <p>既にアカウントをお持ちの場合は <a href="#" onclick="showLoginForm()">ログイン</a></p>
               </div>
             </div>
-          </div>
-        </div>
 
-        <!-- Discordログインフォーム -->
-        <div id="discord-login-form" class="login-form" style="display: none;">
-          <h3>Discordでログイン</h3>
-          <p>Discordアカウントでアクセスして、AIシステムを管理しましょう</p>
-          <div class="login-actions">
-            <a href="/auth/discord" id="discord-login-btn" class="save-btn">
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" style="margin-right: 12px;">
-                <path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515a.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0a12.64 12.64 0 0 0-.617-1.25a.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057a19.9 19.9 0 0 0 5.993 3.03a.078.078 0 0 0 .084-.028a14.09 14.09 0 0 0 1.226-1.994a.076.076 0 0 0-.041-.106a13.107 13.107 0 0 1-1.872-.892a.077.077 0 0 1-.008-.128a10.2 10.2 0 0 0 .372-.292a.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127a12.299 12.299 0 0 1-1.873.892a.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028a19.839 19.839 0 0 0 6.002-3.03a.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419c0-1.333.956-2.419 2.157-2.419c1.21 0 2.176 1.096 2.157 2.42c0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419c0-1.333.955-2.419 2.157-2.419c1.21 0 2.176 1.096 2.157 2.42c0 1.333-.946 2.418-2.157 2.418z"/>
-              </svg>
-              Discordでログイン
-            </a>
-          </div>
-          <div class="discord-info">
-            <p>💡 <strong>管理者の方へ:</strong> このシステムを利用するには、管理者からの招待が必要です。</p>
-            <p>📧 <strong>招待コードをお持ちの場合:</strong> まずDiscordでログインしてからご利用ください。</p>
-            <p>🔐 <strong>セキュリティ:</strong> DiscordのOAuth認証により安全にログインできます。</p>
+            <div id="password-reset-section" style="display: none;">
+              <h3>パスワード再設定</h3>
+              <p>登録済みのメールアドレスを入力してください。パスワード再設定のリンクをお送りします。</p>
+              <form id="password-reset-form-element">
+                <div class="form-group">
+                  <label for="reset-email">メールアドレス</label>
+                  <input type="email" id="reset-email" required placeholder="登録したメールアドレス" />
+                </div>
+                <div class="button-group">
+                  <button type="submit" class="save-btn">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="margin-right: 8px;">
+                      <path d="M20,8L12,13L4,8V6L12,11L20,6M20,4H4C2.89,4 2,4.89 2,6V18A2,2 0 0,0 4,20H20A2,2 0 0,0 22,18V6C22,4.89 21.1,4 20,4Z"/>
+                    </svg>
+                    再設定メールを送信
+                  </button>
+                </div>
+              </form>
+              <div class="login-switch">
+                <p><a href="#" onclick="showLoginForm()">ログインページに戻る</a></p>
+              </div>
+            </div>
+
+            <div id="verification-pending-section" style="display: none;">
+              <h3>メール認証待ち</h3>
+              <p>アカウントを作成しました。メールボックスを確認して認証を完了してください。</p>
+              <div class="verification-info">
+                <p>📧 認証メールが <strong id="verification-email"></strong> に送信されました。</p>
+                <p>⏰ メールが届かない場合は、迷惑メールフォルダも確認してください。</p>
+              </div>
+              <div class="button-group">
+                <button type="button" id="resend-verification-btn" class="secondary-btn">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="margin-right: 8px;">
+                    <path d="M20,8L12,13L4,8V6L12,11L20,6M20,4H4C2.89,4 2,4.89 2,6V18A2,2 0 0,0 4,20H20A2,2 0 0,0 22,18V6C22,4.89 21.1,4 20,4Z"/>
+                  </svg>
+                  認証メールを再送信
+                </button>
+              </div>
+              <div class="login-switch">
+                <p><a href="#" onclick="showLoginForm()">ログインページに戻る</a></p>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -343,34 +351,12 @@
                 </div>
               </div>
 
-              <div class="discord-profile-info">
-                <h3>
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" style="margin-right: 8px;">
-                    <path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515a.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0a12.64 12.64 0 0 0-.617-1.25a.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057a19.9 19.9 0 0 0 5.993 3.03a.078.078 0 0 0 .084-.028a14.09 14.09 0 0 0 1.226-1.994a.076.076 0 0 0-.041-.106a13.107 13.107 0 0 1-1.872-.892a.077.077 0 0 1-.008-.128a10.2 10.2 0 0 0 .372-.292a.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127a12.299 12.299 0 0 1-1.873.892a.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028a19.839 19.839 0 0 0 6.002-3.03a.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419c0-1.333.956-2.419 2.157-2.419c1.21 0 2.176 1.096 2.157 2.42c0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419c0-1.333.955-2.419 2.157-2.419c1.21 0 2.176 1.096 2.157 2.42c0 1.333-.946 2.418-2.157 2.418z"/>
-                  </svg>
-                  Discord情報
-                </h3>
-                <div class="discord-info-grid">
-                  <div class="form-group">
-                    <label>Discordユーザー名</label>
-                    <input type="text" id="discord-username" readonly style="background: var(--accent-bg); opacity: 0.8;" />
-                    <small>Discordのユーザー名は変更できません。</small>
-                  </div>
-                  
-                  <div class="form-group">
-                    <label>Discord ID</label>
-                    <input type="text" id="discord-id" readonly style="background: var(--accent-bg); opacity: 0.8;" />
-                    <small>一意のDiscord識別子です。</small>
-                  </div>
-                </div>
-              </div>
-
               <div class="profile-settings">
                 <h3>
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" style="margin-right: 8px;">
                     <path d="M12,15.5A3.5,3.5 0 0,1 8.5,12A3.5,3.5 0 0,1 12,8.5A3.5,3.5 0 0,1 15.5,12A3.5,3.5 0 0,1 12,15.5M19.43,12.97C19.47,12.65 19.5,12.33 19.5,12C19.5,11.67 19.47,11.34 19.43,11L21.54,9.37C21.73,9.22 21.78,8.95 21.66,8.73L19.66,5.27C19.54,5.05 19.27,4.96 19.05,5.05L16.56,6.05C16.04,5.66 15.5,5.32 14.87,5.07L14.5,2.42C14.46,2.18 14.25,2 14,2H10C9.75,2 9.54,2.18 9.5,2.42L9.13,5.07C8.5,5.32 7.96,5.66 7.44,6.05L4.95,5.05C4.73,4.96 4.46,5.05 4.34,5.27L2.34,8.73C2.22,8.95 2.27,9.22 2.46,9.37L4.57,11C4.53,11.34 4.5,11.67 4.5,12C4.5,12.33 4.53,12.65 4.57,12.97L2.46,14.63C2.27,14.78 2.22,15.05 2.34,15.27L4.34,18.73C4.46,18.95 4.73,19.03 4.95,18.95L7.44,17.94C7.96,18.34 8.5,18.68 9.13,18.93L9.5,21.58C9.54,21.82 9.75,22 10,22H14C14.25,22 14.46,21.82 14.5,21.58L14.87,18.93C15.5,18.68 16.04,18.34 16.56,17.94L19.05,18.95C19.27,19.03 19.54,18.95 19.66,18.73L21.66,15.27C21.78,15.05 21.73,14.78 21.54,14.63L19.43,12.97Z"/>
                   </svg>
-                  管理パネル設定
+                  アカウント設定
                 </h3>
                 <div class="form-group">
                   <label for="profile-display-name">表示名</label>
@@ -388,8 +374,21 @@
                     type="email"
                     id="profile-email"
                     placeholder="通知用メールアドレス"
+                    readonly
+                    style="background: var(--accent-bg); opacity: 0.8;"
                   />
-                  <small>システム通知を受け取るメールアドレスです。</small>
+                  <small>登録時のメールアドレスです。変更はサポートまでお問い合わせください。</small>
+                </div>
+
+                <div class="form-group">
+                  <label for="profile-username">ユーザー名</label>
+                  <input
+                    type="text"
+                    id="profile-username"
+                    readonly
+                    style="background: var(--accent-bg); opacity: 0.8;"
+                  />
+                  <small>ログイン時に使用するユーザー名です。</small>
                 </div>
               </div>
 
