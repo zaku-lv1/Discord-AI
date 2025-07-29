@@ -220,7 +220,9 @@ class Server {
       if (!envConfig.isProduction) {
         console.log(`[情報] アクセスURL: http://localhost:${this.port}`);
       } else {
-        console.log(`[情報] 外部アクセスURL: ${envConfig.protocol}://${envConfig.domain}${envConfig.port !== 80 && envConfig.port !== 443 ? ':' + envConfig.actualPort : ''}`);
+        // For Codespaces, don't append port as it's handled by the forwarding infrastructure
+        const portSuffix = envConfig.isCodespace ? '' : (envConfig.port !== 80 && envConfig.port !== 443 ? ':' + envConfig.actualPort : '');
+        console.log(`[情報] 外部アクセスURL: ${envConfig.protocol}://${envConfig.domain}${portSuffix}`);
       }
     });
   }
