@@ -1,3 +1,34 @@
+/* ========== Font Awesome Icon Styling ========== */
+.fas, .far, .fab {
+  font-size: inherit;
+  vertical-align: middle;
+}
+
+/* Ensure icons align properly in navigation */
+#dashboard-nav .fas {
+  width: 20px;
+  text-align: center;
+}
+
+/* Icon sizing for buttons */
+button .fas, 
+button .far, 
+button .fab {
+  font-size: 1em;
+}
+
+/* Profile avatar placeholder icon */
+.avatar-placeholder .fas {
+  color: var(--text-secondary);
+}
+
+/* Status indicators with icons */
+.user-status {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
 /* ========== 明るい現代的テーマデザイン ========== */
 :root {
   --primary-bg: #ffffff;
