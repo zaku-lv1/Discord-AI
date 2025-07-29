@@ -48,6 +48,72 @@ document.addEventListener("DOMContentLoaded", () => {
     currentEditingAi: null
   };
 
+  // ================ 通知システム ================
+  const notificationContainer = document.getElementById("notification-container");
+  
+  function showNotification(message, type = 'info', duration = 3000) {
+    const notification = document.createElement('div');
+    notification.className = `notification ${type}`;
+    
+    // アイコンを設定
+    let icon = '';
+    switch (type) {
+      case 'success':
+        icon = '<i class="fas fa-check-circle"></i>';
+        break;
+      case 'error':
+        icon = '<i class="fas fa-exclamation-circle"></i>';
+        break;
+      case 'info':
+      default:
+        icon = '<i class="fas fa-info-circle"></i>';
+        break;
+    }
+    
+    notification.innerHTML = `
+      <div class="notification-icon">${icon}</div>
+      <div class="notification-content">${message}</div>
+      <button class="notification-close" onclick="hideNotification(this.parentElement)">
+        <i class="fas fa-times"></i>
+      </button>
+    `;
+    
+    // コンテナに追加
+    notificationContainer.appendChild(notification);
+    
+    // アニメーション表示
+    setTimeout(() => {
+      notification.classList.add('show');
+    }, 10);
+    
+    // 自動で消す
+    if (duration > 0) {
+      setTimeout(() => {
+        hideNotification(notification);
+      }, duration);
+    }
+    
+    return notification;
+  }
+  
+  function hideNotification(notification) {
+    if (!notification) return;
+    
+    notification.classList.remove('show');
+    setTimeout(() => {
+      if (notification.parentElement) {
+        notification.parentElement.removeChild(notification);
+      }
+    }, 300);
+  }
+  
+  function clearAllNotifications() {
+    const notifications = notificationContainer.querySelectorAll('.notification');
+    notifications.forEach(notification => {
+      hideNotification(notification);
+    });
+  }
+
   // ================ 認証状態チェック ================
   async function checkAuthStatus() {
     try {
@@ -355,6 +421,7 @@ document.addEventListener("DOMContentLoaded", () => {
     
     statusMessage.textContent = "読込中...";
     let finalStatusMessage = "設定を読み込みました。";
+    let notificationType = 'success';
 
     try {
       const tokaRes = await fetch("/api/settings/toka", {
@@ -402,13 +469,16 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     } catch (err) {
       finalStatusMessage = `エラー: ${err.message}`;
+      notificationType = 'error';
       console.error("設定の読み込みエラー:", err);
     }
 
     // AI一覧を取得
     await fetchAiList();
     
-    statusMessage.textContent = finalStatusMessage;
+    // 通知システムを使用して一時的な通知を表示
+    statusMessage.textContent = ""; // ステータスメッセージをクリア
+    showNotification(finalStatusMessage, notificationType, 3000);
   }
 
   // ================ イベントリスナーの設定 ================

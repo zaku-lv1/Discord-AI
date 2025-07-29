@@ -833,6 +833,92 @@ input:checked + .slider:before {
   box-shadow: 0 4px 12px var(--shadow-light);
 }
 
+/* ========== 通知システム ========== */
+.notification-container {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 1000;
+  pointer-events: none;
+}
+
+.notification {
+  display: flex;
+  align-items: center;
+  padding: 16px 20px;
+  margin-bottom: 12px;
+  min-width: 300px;
+  max-width: 400px;
+  background: var(--secondary-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+  font-weight: 500;
+  color: var(--text-primary);
+  transform: translateX(100%);
+  opacity: 0;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  pointer-events: auto;
+  backdrop-filter: blur(10px);
+}
+
+.notification.show {
+  transform: translateX(0);
+  opacity: 1;
+}
+
+.notification.success {
+  background: linear-gradient(135deg, #27ae60, #2ecc71);
+  border-color: #27ae60;
+  color: white;
+}
+
+.notification.error {
+  background: linear-gradient(135deg, #e74c3c, #c0392b);
+  border-color: #e74c3c;
+  color: white;
+}
+
+.notification.info {
+  background: linear-gradient(135deg, #3498db, #5dade2);
+  border-color: #3498db;
+  color: white;
+}
+
+.notification .notification-icon {
+  font-size: 20px;
+  margin-right: 12px;
+  flex-shrink: 0;
+}
+
+.notification .notification-content {
+  flex: 1;
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+.notification .notification-close {
+  background: none;
+  border: none;
+  color: inherit;
+  cursor: pointer;
+  font-size: 18px;
+  padding: 0;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  margin-left: 12px;
+  opacity: 0.7;
+  transition: opacity 0.2s ease;
+}
+
+.notification .notification-close:hover {
+  opacity: 1;
+}
+
 /* ========== ローディング ========== */
 .loader-container {
   display: flex;
