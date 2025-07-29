@@ -63,8 +63,8 @@ router.post("/", verifyAuthentication, async (req, res) => {
       replyDelayMs: replyDelayMs ?? 0,
       errorOopsMessage: errorOopsMessage || "",
       userNicknames: userNicknames || {},
-      createdAt: firebaseService.getServerTimestamp(),
-      updatedAt: firebaseService.getServerTimestamp()
+      createdAt: firebaseService.getArraySafeTimestamp(),
+      updatedAt: firebaseService.getArraySafeTimestamp()
     };
 
     existingProfiles.push(newProfile);
@@ -121,7 +121,7 @@ router.put("/:id", verifyAuthentication, async (req, res) => {
       replyDelayMs: replyDelayMs !== undefined ? replyDelayMs : existingProfiles[profileIndex].replyDelayMs,
       errorOopsMessage: errorOopsMessage !== undefined ? errorOopsMessage : existingProfiles[profileIndex].errorOopsMessage,
       userNicknames: userNicknames !== undefined ? userNicknames : existingProfiles[profileIndex].userNicknames,
-      updatedAt: firebaseService.getServerTimestamp()
+      updatedAt: firebaseService.getArraySafeTimestamp()
     };
 
     await db.collection("bot_settings").doc("ai_profiles").set({

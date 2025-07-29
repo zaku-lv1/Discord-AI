@@ -284,12 +284,16 @@ document.addEventListener("DOMContentLoaded", () => {
         await fetchAiList();
         switchToPanel('panel-ai-list');
         createAiForm.reset();
+        // Clear status message on success
+        statusMessage.textContent = "";
       } else {
         throw new Error(result.message);
       }
     } catch (error) {
       console.error("AI作成エラー:", error);
       showErrorToast(`AI作成エラー: ${error.message}`);
+      // Clear status message on error
+      statusMessage.textContent = "";
     }
   }
 
@@ -312,12 +316,16 @@ document.addEventListener("DOMContentLoaded", () => {
         showSuccessToast(result.message);
         await fetchAiList();
         editAiModal.style.display = "none";
+        // Clear status message on success
+        statusMessage.textContent = "";
       } else {
         throw new Error(result.message);
       }
     } catch (error) {
       console.error("AI更新エラー:", error);
       showErrorToast(`AI更新エラー: ${error.message}`);
+      // Clear status message on error
+      statusMessage.textContent = "";
     }
   }
 
