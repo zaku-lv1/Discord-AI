@@ -80,6 +80,7 @@ class Server {
     // Health check endpoint
     this.app.get('/api/health', (req, res) => {
       const envConfig = authService.getEnvironmentConfig();
+      const emailService = require('./services/email');
       res.json({
         status: 'ok',
         timestamp: new Date().toISOString(),
@@ -87,7 +88,8 @@ class Server {
         sessionSecure: envConfig.isProduction,
         hostname: req.hostname,
         adminDomain: process.env.ADMIN_DOMAIN,
-        emailConfigured: require('./services/email').isInitialized()
+        emailConfigured: emailService.isInitialized(),
+        smtpServer: emailService.isInitialized() ? emailService.getSMTPStatus() : null
       });
     });
 
@@ -99,6 +101,7 @@ class Server {
     // Status page
     this.app.get("/status", (req, res) => {
       const emailService = require("./services/email");
+      const smtpStatus = emailService.isInitialized() ? emailService.getSMTPStatus() : null;
       res.json({
         status: "AI Management System - Status",
         authentication: {
@@ -116,7 +119,12 @@ class Server {
           health: "✅ /api/health"
         },
         services: {
-          email: emailService.isInitialized() ? "✅ Configured" : "❌ Not configured"
+          email: emailService.isInitialized() ? "✅ Lightweight SMTP Server Running" : "❌ Not configured",
+          smtp: smtpStatus ? {
+            status: smtpStatus.running ? "✅ Running" : "❌ Stopped",
+            port: smtpStatus.port,
+            emailCount: smtpStatus.emailCount
+          } : null
         },
         timestamp: new Date().toISOString()
       });
@@ -127,6 +135,59 @@ class Server {
     this.app.use("/api/ais", aiRoutes);
     this.app.use("/api/settings", settingsRoutes);
     this.app.use("/api", userRoutes);
+
+    // Debug endpoint for viewing recent emails (development only)
+    this.app.get("/api/debug/emails", (req, res) => {
+      if (process.env.NODE_ENV === 'production') {
+        return res.status(403).json({ error: 'Not available in production' });
+      }
+      
+      const emailService = require("./services/email");
+      if (!emailService.isInitialized()) {
+        return res.status(503).json({ error: 'Email service not initialized' });
+      }
+
+      const recentEmails = emailService.getRecentEmails(parseInt(req.query.limit) || 10);
+      res.json({
+        smtpStatus: emailService.getSMTPStatus(),
+        recentEmails: recentEmails
+      });
+    });
+
+    // Test endpoint for sending emails (development only)
+    this.app.post("/api/debug/send-test-email", async (req, res) => {
+      if (process.env.NODE_ENV === 'production') {
+        return res.status(403).json({ error: 'Not available in production' });
+      }
+      
+      const emailService = require("./services/email");
+      if (!emailService.isInitialized()) {
+        return res.status(503).json({ error: 'Email service not initialized' });
+      }
+
+      try {
+        const { type = 'verification', email = 'test@example.com', username = 'TestUser' } = req.body;
+        
+        if (type === 'verification') {
+          await emailService.sendVerificationEmail(email, username, 'test-token-' + Date.now());
+        } else if (type === 'reset') {
+          await emailService.sendPasswordResetEmail(email, username, 'reset-token-' + Date.now());
+        } else {
+          return res.status(400).json({ error: 'Invalid email type. Use "verification" or "reset"' });
+        }
+
+        const recentEmails = emailService.getRecentEmails(1);
+        res.json({
+          success: true,
+          message: `${type} email sent successfully`,
+          smtpStatus: emailService.getSMTPStatus(),
+          lastEmail: recentEmails[0] || null
+        });
+      } catch (error) {
+        console.error('[ERROR] Test email sending failed:', error);
+        res.status(500).json({ error: error.message });
+      }
+    });
   }
 
   setupErrorHandling() {
