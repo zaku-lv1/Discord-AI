@@ -1,4 +1,5 @@
 const nodemailer = require('nodemailer');
+const smtpServer = require('./smtp-server');
 
 class EmailService {
   constructor() {
@@ -8,25 +9,20 @@ class EmailService {
 
   async initialize() {
     try {
-      // Gmail SMTP設定
-      if (process.env.GMAIL_USER && process.env.GMAIL_APP_PASSWORD && 
-          process.env.GMAIL_USER !== 'test@gmail.com') {
-        this.transporter = nodemailer.createTransport({
-          service: 'gmail',
-          auth: {
-            user: process.env.GMAIL_USER,
-            pass: process.env.GMAIL_APP_PASSWORD // Gmail App Password
-          }
-        });
+      // Start the lightweight SMTP server
+      await smtpServer.initialize();
 
-        // 接続テスト
-        await this.transporter.verify();
-        this.initialized = true;
-        console.log('[情報] メールサービスが初期化されました。');
-      } else {
-        console.log('[情報] テスト環境: メールサービスは無効です。');
-        this.initialized = false;
-      }
+      // Create nodemailer transporter for the local SMTP server
+      this.transporter = nodemailer.createTransport({
+        host: '127.0.0.1',
+        port: process.env.SMTP_PORT || 2525,
+        secure: false, // true for 465, false for other ports
+        ignoreTLS: true, // ignore TLS for local development
+        auth: false // no authentication required for local server
+      });
+
+      this.initialized = true;
+      console.log('[情報] 軽量SMTPメールサービスが初期化されました。');
     } catch (error) {
       console.error('[エラー] メールサービスの初期化に失敗しました:', error.message);
       console.log('[警告] メール機能を無効にして続行します。');
@@ -46,7 +42,7 @@ class EmailService {
     const verificationUrl = `${this.getBaseUrl()}/auth/verify-email?token=${verificationToken}`;
     
     const mailOptions = {
-      from: process.env.GMAIL_USER,
+      from: process.env.SYSTEM_EMAIL || 'ai-system@localhost',
       to: email,
       subject: 'AI管理システム - メールアドレス認証',
       html: `
@@ -93,7 +89,7 @@ class EmailService {
     const resetUrl = `${this.getBaseUrl()}/auth/reset-password?token=${resetToken}`;
     
     const mailOptions = {
-      from: process.env.GMAIL_USER,
+      from: process.env.SYSTEM_EMAIL || 'ai-system@localhost',
       to: email,
       subject: 'AI管理システム - パスワード再設定',
       html: `
@@ -165,6 +161,14 @@ class EmailService {
     // 安全なランダムトークンを生成
     const crypto = require('crypto');
     return crypto.randomBytes(32).toString('hex');
+  }
+
+  getSMTPStatus() {
+    return smtpServer.getStatus();
+  }
+
+  getRecentEmails(limit = 10) {
+    return smtpServer.getRecentEmails(limit);
   }
 }
 
