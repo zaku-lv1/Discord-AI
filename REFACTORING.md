@@ -1,69 +1,69 @@
-# Discord AI Bot - Refactoring Changes
+# Discord AI Bot - リファクタリング変更
 
-## 🔄 Major Refactoring (January 2025)
+## 🔄 大規模リファクタリング（2025年1月）
 
-This project has been completely refactored to address code quality issues and improve maintainability. The functionality remains exactly the same, but the codebase is now much cleaner and easier to work with.
+このプロジェクトは、コード品質の問題に対処し、保守性を向上させるために完全にリファクタリングされました。機能は全く同じですが、コードベースははるかに整理され、作業しやすくなりました。
 
-### ✅ Issues Fixed
+### ✅ 修正された問題
 
-- **Fixed recursive function bug**: The `getServerTimestamp()` function was calling itself recursively, causing stack overflow
-- **Removed duplicate route definitions**: Multiple `/api/settings/toka` routes were defined
-- **Improved error handling**: Added comprehensive error handling middleware
-- **Separated concerns**: Split monolithic file into focused modules
+- **再帰関数のバグを修正**: `getServerTimestamp()`関数が自分自身を再帰的に呼び出し、スタックオーバーフローを引き起こしていました
+- **重複ルート定義を削除**: 複数の`/api/settings/toka`ルートが定義されていました
+- **エラーハンドリングの改善**: 包括的なエラーハンドリングミドルウェアを追加
+- **関心の分離**: モノリシックファイルを焦点を絞ったモジュールに分割
 
-### 🏗️ New Architecture
+### 🏗️ 新しいアーキテクチャ
 
-The application is now organized into clear, maintainable modules:
+アプリケーションは現在、明確で保守可能なモジュールに整理されています：
 
 ```
-├── server.js                 # Main server entry point
+├── server.js                 # メインサーバーエントリーポイント
 ├── services/
-│   ├── firebase.js          # Firebase service with proper initialization
-│   └── auth.js              # Discord OAuth and authentication service
+│   ├── firebase.js          # 適切な初期化を持つFirebaseサービス
+│   └── auth.js              # Discord OAuthと認証サービス
 ├── middleware/
-│   └── auth.js              # Authentication and error handling middleware
+│   └── auth.js              # 認証とエラーハンドリングミドルウェア
 ├── routes/
-│   ├── auth.js              # Authentication routes (/auth/*)
-│   ├── ai.js                # AI management routes (/api/ais/*)
-│   ├── settings.js          # Settings routes (/api/settings/*)
-│   └── user.js              # User management routes (/api/update-*)
+│   ├── auth.js              # 認証ルート (/auth/*)
+│   ├── ai.js                # AI管理ルート (/api/ais/*)
+│   ├── settings.js          # 設定ルート (/api/settings/*)
+│   └── user.js              # ユーザー管理ルート (/api/update-*)
 ├── bot/
-│   └── discord-bot.js       # Discord bot logic separated from web server
-└── commands/                # Discord slash commands (unchanged)
+│   └── discord-bot.js       # Webサーバーから分離されたDiscord botロジック
+└── commands/                # Discordスラッシュコマンド（変更なし）
 ```
 
-### 🚀 Benefits
+### 🚀 メリット
 
-1. **Better Error Handling**: Proper error middleware catches and handles errors gracefully
-2. **Easier Debugging**: Separated concerns make it easier to locate and fix issues
-3. **Improved Maintainability**: Each module has a single responsibility
-4. **Better Testing**: Individual modules can be tested in isolation
-5. **Cleaner Code**: Removed duplicate code and fixed architectural issues
+1. **より良いエラーハンドリング**: 適切なエラーミドルウェアがエラーを優雅にキャッチして処理
+2. **デバッグの容易さ**: 分離された関心により、問題の特定と修正が容易
+3. **保守性の向上**: 各モジュールは単一の責任を持つ
+4. **より良いテスト**: 個別のモジュールを独立してテスト可能
+5. **よりクリーンなコード**: 重複コードを削除し、アーキテクチャの問題を修正
 
-### 📝 Migration Notes
+### 📝 移行ノート
 
-- **Entry Point**: Changed from `index.js` to `server.js`
-- **Backward Compatibility**: The old `index.js` is preserved as `index.js.backup`
-- **Environment Variables**: All environment variables remain the same
-- **API Endpoints**: All API endpoints work exactly as before
-- **Discord Commands**: All Discord bot commands remain unchanged
+- **エントリーポイント**: `index.js`から`server.js`に変更
+- **後方互換性**: 古い`index.js`は`index.js.backup`として保存
+- **環境変数**: すべての環境変数は同じまま
+- **APIエンドポイント**: すべてのAPIエンドポイントは以前と全く同じように動作
+- **Discordコマンド**: すべてのDiscord botコマンドは変更なし
 
-### 🧪 Testing
+### 🧪 テスト
 
-A test script is included to verify all functionality:
+すべての機能を確認するためのテストスクリプトが含まれています：
 
 ```bash
-# Start the server
+# サーバーを起動
 npm start
 
-# In another terminal, run tests
+# 別のターミナルでテストを実行
 node test_server.js
 ```
 
-### 🔄 Scripts
+### 🔄 スクリプト
 
-- `npm start` - Start the refactored server
-- `npm run start:old` - Start the old server (backup)
-- `npm run dev` - Development mode (same as start)
+- `npm start` - リファクタリングされたサーバーを起動
+- `npm run start:old` - 古いサーバーを起動（バックアップ）
+- `npm run dev` - 開発モード（startと同じ）
 
-The refactoring maintains 100% feature parity while significantly improving code quality and maintainability.
+リファクタリングは、コード品質と保守性を大幅に向上させながら、100%の機能パリティを維持しています。

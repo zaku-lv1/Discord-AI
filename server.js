@@ -89,7 +89,7 @@ class Server {
         hostname: req.hostname,
         adminDomain: process.env.ADMIN_DOMAIN,
         emailConfigured: emailService.isInitialized(),
-        smtpServer: emailService.isInitialized() ? emailService.getSMTPStatus() : null
+        gmailConfigured: emailService.isInitialized()
       });
     });
 
@@ -101,7 +101,6 @@ class Server {
     // Status page
     this.app.get("/status", (req, res) => {
       const emailService = require("./services/email");
-      const smtpStatus = emailService.isInitialized() ? emailService.getSMTPStatus() : null;
       res.json({
         status: "AI Management System - Status",
         authentication: {
@@ -119,12 +118,8 @@ class Server {
           health: "✅ /api/health"
         },
         services: {
-          email: emailService.isInitialized() ? "✅ Lightweight SMTP Server Running" : "❌ Not configured",
-          smtp: smtpStatus ? {
-            status: smtpStatus.running ? "✅ Running" : "❌ Stopped",
-            port: smtpStatus.port,
-            emailCount: smtpStatus.emailCount
-          } : null
+          email: emailService.isInitialized() ? "✅ Gmail SMTP Server Connected" : "❌ Gmail not configured",
+          gmail: emailService.isInitialized() ? "✅ Ready for sending" : "❌ Check GMAIL_USER and GMAIL_APP_PASSWORD"
         },
         timestamp: new Date().toISOString()
       });
@@ -136,21 +131,18 @@ class Server {
     this.app.use("/api/settings", settingsRoutes);
     this.app.use("/api", userRoutes);
 
-    // Debug endpoint for viewing recent emails (development only)
-    this.app.get("/api/debug/emails", (req, res) => {
+    // Debug endpoint for Gmail status (development only)
+    this.app.get("/api/debug/gmail", (req, res) => {
       if (process.env.NODE_ENV === 'production') {
         return res.status(403).json({ error: 'Not available in production' });
       }
       
       const emailService = require("./services/email");
-      if (!emailService.isInitialized()) {
-        return res.status(503).json({ error: 'Email service not initialized' });
-      }
-
-      const recentEmails = emailService.getRecentEmails(parseInt(req.query.limit) || 10);
       res.json({
-        smtpStatus: emailService.getSMTPStatus(),
-        recentEmails: recentEmails
+        initialized: emailService.isInitialized(),
+        gmailUser: process.env.GMAIL_USER || 'Not configured',
+        appPasswordConfigured: !!process.env.GMAIL_APP_PASSWORD,
+        message: emailService.isInitialized() ? 'Gmail SMTP ready' : 'Gmail SMTP not configured'
       });
     });
 
@@ -162,7 +154,7 @@ class Server {
       
       const emailService = require("./services/email");
       if (!emailService.isInitialized()) {
-        return res.status(503).json({ error: 'Email service not initialized' });
+        return res.status(503).json({ error: 'Gmail service not initialized' });
       }
 
       try {
@@ -176,12 +168,11 @@ class Server {
           return res.status(400).json({ error: 'Invalid email type. Use "verification" or "reset"' });
         }
 
-        const recentEmails = emailService.getRecentEmails(1);
         res.json({
           success: true,
-          message: `${type} email sent successfully`,
-          smtpStatus: emailService.getSMTPStatus(),
-          lastEmail: recentEmails[0] || null
+          message: `${type} email sent successfully via Gmail`,
+          gmailUser: process.env.GMAIL_USER,
+          timestamp: new Date().toISOString()
         });
       } catch (error) {
         console.error('[ERROR] Test email sending failed:', error);
