@@ -17,7 +17,7 @@ module.exports = {
       
       if (!aiProfilesDoc.exists || !aiProfilesDoc.data().profiles || aiProfilesDoc.data().profiles.length === 0) {
         return await interaction.editReply({
-          content: "❌ 利用可能なAIがありません。管理者にAIの作成を依頼してください。\n\n**ヒント:** 新しいAI管理システムでは `/ai` コマンドを使用してください。",
+          content: "[ERROR] 利用可能なAIがありません。管理者にAIの作成を依頼してください。\n\n**ヒント:** 新しいAI管理システムでは `/ai` コマンドを使用してください。",
           ephemeral: true,
         });
       }
@@ -45,14 +45,14 @@ module.exports = {
         return await aiCommand.execute(interaction);
       } else {
         return await interaction.editReply({
-          content: "❌ AIコマンドが見つかりません。",
+          content: "[ERROR] AIコマンドが見つかりません。",
           ephemeral: true,
         });
       }
     } catch (error) {
       console.error("[TOKA_COMPAT_ERROR]", error);
       await interaction.editReply({
-        content: "❌ コマンドの実行中にエラーが発生しました。新しい `/ai` コマンドをお試しください。",
+        content: "[ERROR] コマンドの実行中にエラーが発生しました。新しい `/ai` コマンドをお試しください。",
         ephemeral: true,
       });
     }

@@ -105,21 +105,21 @@ class Server {
         status: "AI Management System - Status",
         authentication: {
           type: "Email-based authentication",
-          status: "✅ Working correctly",
+          status: "[OK] Working correctly",
           message: "Email authentication system is active"
         },
         routes: {
-          auth_login: "✅ /auth/login",
-          auth_register: "✅ /auth/register", 
-          auth_logout: "✅ /auth/logout",
-          auth_user: "✅ /auth/user",
-          verify_email: "✅ /auth/verify-email",
-          reset_password: "✅ /auth/reset-password",
-          health: "✅ /api/health"
+          auth_login: "[OK] /auth/login",
+          auth_register: "[OK] /auth/register", 
+          auth_logout: "[OK] /auth/logout",
+          auth_user: "[OK] /auth/user",
+          verify_email: "[OK] /auth/verify-email",
+          reset_password: "[OK] /auth/reset-password",
+          health: "[OK] /api/health"
         },
         services: {
-          email: emailService.isInitialized() ? "✅ Gmail SMTP Server Connected" : "❌ Gmail not configured",
-          gmail: emailService.isInitialized() ? "✅ Ready for sending" : "❌ Check GMAIL_USER and GMAIL_APP_PASSWORD"
+          email: emailService.isInitialized() ? "[OK] Gmail SMTP Server Connected" : "[ERROR] Gmail not configured",
+          gmail: emailService.isInitialized() ? "[OK] Ready for sending" : "[ERROR] Check GMAIL_USER and GMAIL_APP_PASSWORD"
         },
         timestamp: new Date().toISOString()
       });

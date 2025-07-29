@@ -29,7 +29,7 @@ module.exports = {
             const { items: allSchedules, settings } = await response.json();
             
             if (!settings.remindersEnabled) {
-                return await interaction.editReply('❌ リマインダー機能は現在無効になっています。');
+                return await interaction.editReply('[ERROR] リマインダー機能は現在無効になっています。');
             }
 
             const tomorrow = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Tokyo" }));
@@ -63,11 +63,11 @@ module.exports = {
 
             try {
                 await interaction.user.send({ embeds: [reminderEmbed] });
-                await interaction.editReply('✅ テストDMを送信しました。DMを確認してください！');
+                await interaction.editReply('[SUCCESS] テストDMを送信しました。DMを確認してください！');
             } catch (dmError) {
                 console.warn(`[テストリマインダー] DMの送信に失敗: ${dmError.message}`);
                 await interaction.editReply({
-                    content: '❌ DMの送信に失敗しました。DMの受信設定を確認してください。',
+                    content: '[ERROR] DMの送信に失敗しました。DMの受信設定を確認してください。',
                     ephemeral: true
                 });
             }
@@ -75,7 +75,7 @@ module.exports = {
         } catch (error) {
             console.error('[テストリマインダー] 実行中にエラーが発生:', error);
             await interaction.editReply({
-                content: '❌ エラーが発生しました。\n' +
+                content: '[ERROR] エラーが発生しました。\n' +
                         'エラーの詳細: ' + (error.message || '不明なエラー'),
                 ephemeral: true
             });

@@ -19,17 +19,17 @@ function testEndpoint(endpoint) {
       method: endpoint.method
     }, (res) => {
       const success = res.statusCode === endpoint.expected;
-      console.log(`${success ? '✅' : '❌'} ${endpoint.method} ${endpoint.path} - Expected: ${endpoint.expected}, Got: ${res.statusCode}`);
+      console.log(`${success ? '[SUCCESS]' : '[ERROR]'} ${endpoint.method} ${endpoint.path} - Expected: ${endpoint.expected}, Got: ${res.statusCode}`);
       resolve(success);
     });
 
     req.on('error', (err) => {
-      console.log(`❌ ${endpoint.method} ${endpoint.path} - Error: ${err.message}`);
+      console.log(`[ERROR] ${endpoint.method} ${endpoint.path} - Error: ${err.message}`);
       resolve(false);
     });
 
     req.setTimeout(5000, () => {
-      console.log(`❌ ${endpoint.method} ${endpoint.path} - Timeout`);
+      console.log(`[ERROR] ${endpoint.method} ${endpoint.path} - Timeout`);
       req.destroy();
       resolve(false);
     });
@@ -39,7 +39,7 @@ function testEndpoint(endpoint) {
 }
 
 async function runTests() {
-  console.log('🧪 Testing refactored Discord AI server...\n');
+  console.log('[TEST] Testing refactored Discord AI server...\n');
   
   const results = [];
   for (const endpoint of testEndpoints) {
@@ -49,13 +49,13 @@ async function runTests() {
   const passed = results.filter(r => r).length;
   const total = results.length;
   
-  console.log(`\n📊 Test Results: ${passed}/${total} passed`);
+  console.log(`\n[RESULTS] Test Results: ${passed}/${total} passed`);
   
   if (passed === total) {
-    console.log('🎉 All tests passed! Server refactoring is successful.');
+    console.log('[SUCCESS] All tests passed! Server refactoring is successful.');
     process.exit(0);
   } else {
-    console.log('⚠️  Some tests failed. Please check the server.');
+    console.log('[WARNING] Some tests failed. Please check the server.');
     process.exit(1);
   }
 }

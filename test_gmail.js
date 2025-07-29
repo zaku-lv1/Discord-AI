@@ -9,17 +9,17 @@ console.log('=== Discord AI Bot - Gmail設定テスト ===\n');
 console.log('1. 依存関係チェック:');
 try {
   require('nodemailer');
-  console.log('   ✅ nodemailer');
+  console.log('   [OK] nodemailer');
 } catch (e) {
-  console.log('   ❌ nodemailer が見つかりません。npm install を実行してください。');
+  console.log('   [ERROR] nodemailer が見つかりません。npm install を実行してください。');
   process.exit(1);
 }
 
 try {
   require('dotenv');
-  console.log('   ✅ dotenv');
+  console.log('   [OK] dotenv');
 } catch (e) {
-  console.log('   ❌ dotenv が見つかりません。npm install を実行してください。');
+  console.log('   [ERROR] dotenv が見つかりません。npm install を実行してください。');
   process.exit(1);
 }
 
@@ -31,11 +31,11 @@ console.log('\n2. Gmail設定チェック:');
 const gmailUser = process.env.GMAIL_USER;
 const gmailAppPassword = process.env.GMAIL_APP_PASSWORD;
 
-console.log(`   GMAIL_USER: ${gmailUser ? '✅ ' + gmailUser : '❌ 未設定'}`);
-console.log(`   GMAIL_APP_PASSWORD: ${gmailAppPassword ? '✅ 設定済み' : '❌ 未設定'}`);
+console.log(`   GMAIL_USER: ${gmailUser ? '[OK] ' + gmailUser : '[ERROR] 未設定'}`);
+console.log(`   GMAIL_APP_PASSWORD: ${gmailAppPassword ? '[OK] 設定済み' : '[ERROR] 未設定'}`);
 
 if (!gmailUser || !gmailAppPassword) {
-  console.log('\n❌ Gmail設定が不完全です。');
+  console.log('\n[ERROR] Gmail設定が不完全です。');
   console.log('\n設定手順:');
   console.log('1. .env.example を .env にコピー');
   console.log('2. GMAIL_USER にGmailアドレスを設定');
@@ -51,14 +51,14 @@ const EmailService = require('./services/email');
 (async () => {
   try {
     await EmailService.initialize();
-    console.log('   ✅ Gmail SMTP接続成功');
+    console.log('   [OK] Gmail SMTP接続成功');
     
-    console.log('\n✅ 全てのテストが成功しました！');
+    console.log('\n[SUCCESS] 全てのテストが成功しました！');
     console.log('\nシステムを起動するには: npm start');
     console.log('テストメール送信: POST /api/debug/send-test-email');
     
   } catch (error) {
-    console.log('   ❌ Gmail SMTP接続失敗');
+    console.log('   [ERROR] Gmail SMTP接続失敗');
     console.log(`   エラー: ${error.message}`);
     
     // エラーの種類に応じたアドバイス
