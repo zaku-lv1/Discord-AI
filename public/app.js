@@ -6,6 +6,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const authContainer = document.getElementById("auth-container");
   const mainContent = document.getElementById("main-content");
   const statusMessage = document.getElementById("status-message");
+  const toastContainer = document.getElementById("toast-container");
 
   // --- 認証関連要素 ---
   const userDisplayNameEl = document.getElementById("user-display-name");
@@ -46,6 +47,71 @@ document.addEventListener("DOMContentLoaded", () => {
     isSuperAdmin: false,
     aiList: [],
     currentEditingAi: null
+  };
+
+  // ================ トースト通知システム ================
+  function showToast(message, type = 'info', duration = 4000) {
+    const toast = document.createElement('div');
+    toast.className = `toast ${type}`;
+    
+    const iconMap = {
+      success: '✓',
+      error: '✗', 
+      warning: '⚠',
+      info: 'ℹ'
+    };
+    
+    toast.innerHTML = `
+      <div class="toast-content">
+        <div class="toast-icon">${iconMap[type] || 'ℹ'}</div>
+        <div class="toast-message">${message}</div>
+        <button class="toast-close" onclick="closeToast(this)">×</button>
+      </div>
+      <div class="toast-progress"></div>
+    `;
+    
+    toastContainer.appendChild(toast);
+    
+    // アニメーション用にちょっと待つ
+    setTimeout(() => {
+      toast.classList.add('show');
+    }, 100);
+    
+    // 自動で消える
+    setTimeout(() => {
+      closeToast(toast.querySelector('.toast-close'));
+    }, duration);
+    
+    return toast;
+  }
+
+  function showSuccessToast(message, duration = 4000) {
+    return showToast(message, 'success', duration);
+  }
+
+  function showErrorToast(message, duration = 6000) {
+    return showToast(message, 'error', duration);
+  }
+
+  function showWarningToast(message, duration = 5000) {
+    return showToast(message, 'warning', duration);
+  }
+
+  function showInfoToast(message, duration = 4000) {
+    return showToast(message, 'info', duration);
+  }
+
+  // グローバル関数として定義（HTML onclick から呼び出される）
+  window.closeToast = function(closeBtn) {
+    const toast = closeBtn.closest('.toast');
+    if (toast) {
+      toast.classList.remove('show');
+      setTimeout(() => {
+        if (toast.parentNode) {
+          toast.parentNode.removeChild(toast);
+        }
+      }, 400);
+    }
   };
 
   // ================ 認証状態チェック ================
@@ -214,7 +280,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const result = await response.json();
       
       if (response.ok) {
-        statusMessage.textContent = result.message;
+        showSuccessToast(result.message);
         await fetchAiList();
         switchToPanel('panel-ai-list');
         createAiForm.reset();
@@ -223,7 +289,7 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     } catch (error) {
       console.error("AI作成エラー:", error);
-      statusMessage.textContent = `エラー: ${error.message}`;
+      showErrorToast(`AI作成エラー: ${error.message}`);
     }
   }
 
@@ -243,7 +309,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const result = await response.json();
       
       if (response.ok) {
-        statusMessage.textContent = result.message;
+        showSuccessToast(result.message);
         await fetchAiList();
         editAiModal.style.display = "none";
       } else {
@@ -251,7 +317,7 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     } catch (error) {
       console.error("AI更新エラー:", error);
-      statusMessage.textContent = `エラー: ${error.message}`;
+      showErrorToast(`AI更新エラー: ${error.message}`);
     }
   }
 
@@ -267,14 +333,14 @@ document.addEventListener("DOMContentLoaded", () => {
       const result = await response.json();
       
       if (response.ok) {
-        statusMessage.textContent = result.message;
+        showSuccessToast(result.message);
         await fetchAiList();
       } else {
         throw new Error(result.message);
       }
     } catch (error) {
       console.error("AI削除エラー:", error);
-      statusMessage.textContent = `エラー: ${error.message}`;
+      showErrorToast(`AI削除エラー: ${error.message}`);
     }
   }
 
@@ -353,8 +419,9 @@ document.addEventListener("DOMContentLoaded", () => {
   async function fetchSettings() {
     if (!state.user) return;
     
+    // ローディング状態を表示（トーストではなく、通常のステータス）
     statusMessage.textContent = "読込中...";
-    let finalStatusMessage = "設定を読み込みました。";
+    let settingsLoaded = false;
 
     try {
       const tokaRes = await fetch("/api/settings/toka", {
@@ -390,25 +457,34 @@ document.addEventListener("DOMContentLoaded", () => {
             .forEach((el) => (el.disabled = true));
           document.getElementById("invite-code-generator-section").style.display = "none";
         }
+        
+        settingsLoaded = true;
       } else if (tokaRes.status === 404) {
         // 初回セットアップの場合
         state.isSuperAdmin = true;
         adminNavItem.style.display = "block";
         profileDisplayNameInput.value = state.user.username || "";
         profileEmailInput.value = state.user.email || "";
+        settingsLoaded = true;
       } else {
         const errData = await tokaRes.json().catch(() => ({}));
         throw new Error(errData.message || "設定の読み込みに失敗");
       }
     } catch (err) {
-      finalStatusMessage = `エラー: ${err.message}`;
+      showErrorToast(`設定の読み込みエラー: ${err.message}`);
       console.error("設定の読み込みエラー:", err);
     }
 
     // AI一覧を取得
     await fetchAiList();
     
-    statusMessage.textContent = finalStatusMessage;
+    // 設定が正常に読み込まれた場合のみトースト通知を表示
+    if (settingsLoaded) {
+      showSuccessToast("設定を読み込みました。", 3000);
+    }
+    
+    // ステータスメッセージをクリア
+    statusMessage.textContent = "";
   }
 
   // ================ イベントリスナーの設定 ================
@@ -691,20 +767,17 @@ document.addEventListener("DOMContentLoaded", () => {
         const result = await response.json();
         
         if (result.success) {
-          statusMessage.textContent = result.message;
-          statusMessage.style.color = "#27ae60";
+          showSuccessToast(result.message);
           // ログイン成功時、少し待ってから認証状態をチェック
           setTimeout(() => {
             checkAuthStatus();
           }, 1000);
         } else {
-          statusMessage.textContent = result.message;
-          statusMessage.style.color = "#e74c3c";
+          showErrorToast(result.message);
         }
       } catch (error) {
         console.error('ログインエラー:', error);
-        statusMessage.textContent = 'ログインに失敗しました。';
-        statusMessage.style.color = "#e74c3c";
+        showErrorToast('ログインに失敗しました。');
       } finally {
         submitBtn.disabled = false;
       }
@@ -743,8 +816,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const result = await response.json();
         
         if (result.success) {
-          statusMessage.textContent = result.message;
-          statusMessage.style.color = "#27ae60";
+          showSuccessToast(result.message);
           
           if (result.requiresVerification) {
             // メール認証が必要な場合
@@ -757,13 +829,11 @@ document.addEventListener("DOMContentLoaded", () => {
             }, 1000);
           }
         } else {
-          statusMessage.textContent = result.message;
-          statusMessage.style.color = "#e74c3c";
+          showErrorToast(result.message);
         }
       } catch (error) {
         console.error('登録エラー:', error);
-        statusMessage.textContent = 'アカウント作成に失敗しました。';
-        statusMessage.style.color = "#e74c3c";
+        showErrorToast('アカウント作成に失敗しました。');
       } finally {
         submitBtn.disabled = false;
       }

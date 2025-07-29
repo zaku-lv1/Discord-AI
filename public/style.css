@@ -833,6 +833,163 @@ input:checked + .slider:before {
   box-shadow: 0 4px 12px var(--shadow-light);
 }
 
+/* ========== トースト通知システム ========== */
+.toast-container {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 9999;
+  max-width: 400px;
+  width: 100%;
+}
+
+.toast {
+  background: linear-gradient(135deg, var(--primary-bg), var(--secondary-bg));
+  border: 2px solid var(--border-color);
+  border-radius: 16px;
+  padding: 1.5rem;
+  margin-bottom: 1rem;
+  box-shadow: 0 8px 32px var(--shadow-medium);
+  transform: translateX(100%);
+  opacity: 0;
+  transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  position: relative;
+  overflow: hidden;
+  backdrop-filter: blur(10px);
+}
+
+.toast::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: linear-gradient(45deg, var(--success-color), var(--accent-secondary));
+  border-radius: 16px 16px 0 0;
+}
+
+.toast.success::before {
+  background: linear-gradient(45deg, var(--success-color), #059669);
+}
+
+.toast.error::before {
+  background: linear-gradient(45deg, var(--danger-color), #dc2626);
+}
+
+.toast.warning::before {
+  background: linear-gradient(45deg, var(--warning-color), #d97706);
+}
+
+.toast.info::before {
+  background: linear-gradient(45deg, var(--accent-color), var(--accent-secondary));
+}
+
+.toast.show {
+  transform: translateX(0);
+  opacity: 1;
+}
+
+.toast-content {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.toast-icon {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: bold;
+  color: white;
+  flex-shrink: 0;
+}
+
+.toast.success .toast-icon {
+  background: var(--success-color);
+}
+
+.toast.error .toast-icon {
+  background: var(--danger-color);
+}
+
+.toast.warning .toast-icon {
+  background: var(--warning-color);
+}
+
+.toast.info .toast-icon {
+  background: var(--accent-color);
+}
+
+.toast-message {
+  flex: 1;
+  color: var(--text-primary);
+  font-size: 1rem;
+  font-weight: 500;
+  line-height: 1.4;
+}
+
+.toast-close {
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 1.2rem;
+  padding: 0;
+  margin: 0;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+
+.toast-close:hover {
+  background: var(--accent-bg);
+  color: var(--text-primary);
+}
+
+/* トーストのプログレスバー */
+.toast-progress {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  height: 3px;
+  background: rgba(255, 255, 255, 0.3);
+  border-radius: 0 0 16px 16px;
+  transform-origin: left;
+  animation: toastProgress 4s linear forwards;
+}
+
+@keyframes toastProgress {
+  from {
+    transform: scaleX(1);
+  }
+  to {
+    transform: scaleX(0);
+  }
+}
+
+@media (max-width: 768px) {
+  .toast-container {
+    top: 10px;
+    right: 10px;
+    left: 10px;
+    max-width: none;
+  }
+  
+  .toast {
+    padding: 1rem;
+  }
+}
+
 /* ========== ローディング ========== */
 .loader-container {
   display: flex;
@@ -1295,21 +1452,84 @@ select:focus,
 }
 
 .login-form {
-  max-width: 400px;
+  max-width: 480px;
   margin: 0 auto;
-  background: var(--primary-bg);
-  padding: 2rem;
-  border-radius: 16px;
-  box-shadow: 0 8px 32px var(--shadow-medium);
+  background: linear-gradient(135deg, var(--primary-bg) 0%, rgba(248, 250, 252, 0.95) 100%);
+  padding: 3rem 2.5rem;
+  border-radius: 24px;
+  box-shadow: 0 20px 40px var(--shadow-medium), 0 0 0 1px rgba(255, 255, 255, 0.8);
   border: 1px solid var(--border-color);
+  position: relative;
+  overflow: hidden;
+  backdrop-filter: blur(20px);
+}
+
+.login-form::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 6px;
+  background: linear-gradient(90deg, var(--accent-color), var(--accent-secondary), var(--success-color));
+  background-size: 200% 100%;
+  animation: gradientShift 3s ease-in-out infinite;
+}
+
+@keyframes gradientShift {
+  0%, 100% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+}
+
+.login-form::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: radial-gradient(circle at 80% 20%, rgba(79, 70, 229, 0.05) 0%, transparent 50%),
+              radial-gradient(circle at 20% 80%, rgba(6, 182, 212, 0.05) 0%, transparent 50%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.login-form > * {
+  position: relative;
+  z-index: 1;
+}
+
+.login-form h2 {
+  margin-bottom: 0.5rem;
+  font-size: 2.2rem;
+  font-weight: 700;
+  text-align: center;
+  background: linear-gradient(135deg, var(--text-primary), var(--accent-color));
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  margin-top: 0;
 }
 
 .login-form h3 {
   margin-top: 0;
-  margin-bottom: 1.5rem;
+  margin-bottom: 2rem;
   text-align: center;
   color: var(--text-primary);
   font-weight: 600;
+  font-size: 1.5rem;
+}
+
+.login-form p {
+  text-align: center;
+  color: var(--text-secondary);
+  margin-bottom: 2.5rem;
+  font-size: 1rem;
+  line-height: 1.6;
 }
 
 .login-options {
@@ -1318,13 +1538,13 @@ select:focus,
 
 .login-switch {
   text-align: center;
-  margin-top: 1.5rem;
-  padding-top: 1.5rem;
+  margin-top: 2rem;
+  padding-top: 2rem;
   border-top: 1px solid var(--border-color);
 }
 
 .login-switch p {
-  margin: 0;
+  margin: 0.5rem 0;
   color: var(--text-secondary);
   font-size: 14px;
 }
@@ -1332,37 +1552,58 @@ select:focus,
 .login-switch a {
   color: var(--accent-color);
   text-decoration: none;
-  font-weight: 500;
+  font-weight: 600;
+  transition: all 0.3s ease;
+  position: relative;
+}
+
+.login-switch a::after {
+  content: '';
+  position: absolute;
+  bottom: -2px;
+  left: 0;
+  width: 0;
+  height: 2px;
+  background: linear-gradient(45deg, var(--accent-color), var(--accent-secondary));
+  transition: width 0.3s ease;
+}
+
+.login-switch a:hover::after {
+  width: 100%;
 }
 
 .login-switch a:hover {
-  text-decoration: underline;
+  color: var(--accent-secondary);
+  text-decoration: none;
 }
 
 /* 既存のフォームスタイルを調整 */
 .form-group {
-  margin-bottom: 1.5rem;
+  margin-bottom: 2rem;
 }
 
 .form-group label {
   display: block;
-  margin-bottom: 0.5rem;
-  font-weight: 500;
+  margin-bottom: 0.75rem;
+  font-weight: 600;
   color: var(--text-primary);
-  font-size: 14px;
+  font-size: 15px;
+  letter-spacing: 0.025em;
 }
 
 .form-group input[type="text"],
 .form-group input[type="password"],
 .form-group input[type="email"] {
   width: 100%;
-  padding: 12px;
+  padding: 1rem 1.25rem;
   border: 2px solid var(--border-color);
-  border-radius: 8px;
-  font-size: 14px;
+  border-radius: 12px;
+  font-size: 16px;
   background: var(--primary-bg);
   color: var(--text-primary);
-  transition: all 0.2s ease;
+  transition: all 0.3s ease;
+  font-family: inherit;
+  box-shadow: 0 2px 4px var(--shadow-light);
 }
 
 .form-group input[type="text"]:focus,
@@ -1370,19 +1611,26 @@ select:focus,
 .form-group input[type="email"]:focus {
   outline: none;
   border-color: var(--accent-color);
-  box-shadow: 0 0 0 3px var(--glow-color);
+  box-shadow: 0 0 0 4px var(--glow-color), 0 4px 12px var(--shadow-medium);
+  transform: translateY(-2px);
+}
+
+.form-group input::placeholder {
+  color: var(--text-secondary);
+  opacity: 0.8;
 }
 
 .form-group small {
   display: block;
-  margin-top: 0.5rem;
-  font-size: 12px;
+  margin-top: 0.75rem;
+  font-size: 13px;
   color: var(--text-secondary);
+  line-height: 1.4;
 }
 
 /* ボタンスタイルの調整 */
 .button-group {
-  margin-top: 2rem;
+  margin-top: 2.5rem;
 }
 
 .save-btn {
@@ -1390,25 +1638,134 @@ select:focus,
   background: linear-gradient(135deg, var(--accent-color) 0%, var(--accent-secondary) 100%);
   color: white;
   border: none;
-  padding: 12px 24px;
-  border-radius: 8px;
-  font-weight: 500;
-  font-size: 14px;
+  padding: 1.25rem 2rem;
+  border-radius: 12px;
+  font-weight: 600;
+  font-size: 16px;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.3s ease;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
+  gap: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  box-shadow: 0 4px 12px var(--glow-color);
+  position: relative;
+  overflow: hidden;
+}
+
+.save-btn::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+  transition: left 0.5s;
+}
+
+.save-btn:hover::before {
+  left: 100%;
 }
 
 .save-btn:hover:not(:disabled) {
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px var(--shadow-medium);
+  transform: translateY(-3px);
+  box-shadow: 0 8px 24px var(--glow-color);
+  background: linear-gradient(135deg, var(--accent-secondary) 0%, var(--accent-color) 100%);
 }
 
 .save-btn:disabled {
   opacity: 0.6;
   cursor: not-allowed;
   transform: none;
+  box-shadow: 0 2px 4px var(--shadow-light);
+}
+
+/* 認証待ちセクションのスタイル */
+.verification-info {
+  background: var(--secondary-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 1.5rem;
+  margin: 1.5rem 0;
+  border-left: 4px solid var(--accent-color);
+}
+
+.verification-info p {
+  margin: 0.75rem 0;
+  font-size: 14px;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.verification-info strong {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+/* セカンダリボタンスタイル */
+.secondary-btn {
+  background: var(--secondary-bg);
+  color: var(--text-primary);
+  border: 2px solid var(--border-color);
+  padding: 1rem 1.5rem;
+  border-radius: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.secondary-btn:hover {
+  border-color: var(--accent-color);
+  background: var(--primary-bg);
+  box-shadow: 0 4px 12px var(--shadow-light);
+  transform: translateY(-2px);
+}
+
+/* アニメーション効果 */
+.login-form {
+  animation: slideInLogin 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+@keyframes slideInLogin {
+  from {
+    opacity: 0;
+    transform: translateY(30px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* レスポンシブ対応 */
+@media (max-width: 768px) {
+  .login-form {
+    margin: 1rem;
+    padding: 2rem 1.5rem;
+    border-radius: 20px;
+  }
+  
+  .login-form h2 {
+    font-size: 1.8rem;
+  }
+  
+  .login-form h3 {
+    font-size: 1.3rem;
+  }
+  
+  .form-group input[type="text"],
+  .form-group input[type="password"],
+  .form-group input[type="email"] {
+    font-size: 16px; /* iOS zoom防止 */
+  }
 }
