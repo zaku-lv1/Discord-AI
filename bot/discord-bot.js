@@ -50,7 +50,7 @@ class DiscordBot {
 
   setupEventHandlers() {
     this.client.once(Events.ClientReady, (c) => {
-      console.log(`✅ ボット起動: ${c.user.tag}`);
+      console.log(`[SUCCESS] ボット起動: ${c.user.tag}`);
       
       // Register slash commands
       c.application.commands.set(this.client.commands.map((cmd) => cmd.data.toJSON()));

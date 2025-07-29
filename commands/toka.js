@@ -121,7 +121,7 @@ module.exports = {
       
       if (!aiProfilesDoc.exists || !aiProfilesDoc.data().profiles || aiProfilesDoc.data().profiles.length === 0) {
         return await interaction.editReply({
-          content: "❌ 利用可能なAIがありません。管理者にAIの作成を依頼してください。",
+          content: "[ERROR] 利用可能なAIがありません。管理者にAIの作成を依頼してください。",
           ephemeral: true,
         });
       }
@@ -134,7 +134,7 @@ module.exports = {
         if (!selectedAI) {
           const availableAIs = aiProfiles.map(ai => `\`${ai.id}\` (${ai.name})`).join('\n');
           return await interaction.editReply({
-            content: `❌ AI「${requestedAiId}」が見つかりません。\n\n**利用可能なAI:**\n${availableAIs}`,
+            content: `[ERROR] AI「${requestedAiId}」が見つかりません。\n\n**利用可能なAI:**\n${availableAIs}`,
             ephemeral: true,
           });
         }
@@ -264,7 +264,7 @@ module.exports = {
 
         const embed = new EmbedBuilder()
           .setColor(0x00ff00)
-          .setDescription(`🤖 **${selectedAI.name}** (ID: \`${selectedAI.id}\`) を召喚しました。`)
+          .setDescription(`[AI] **${selectedAI.name}** (ID: \`${selectedAI.id}\`) を召喚しました。`)
           .addFields(
             { name: "モデル", value: aiSettings.modelMode === "hybrid" ? "ハイブリッド" : "Flash", inline: true },
             { name: "返信遅延", value: `${aiSettings.replyDelayMs}ms`, inline: true },
@@ -274,14 +274,14 @@ module.exports = {
       } catch (userFetchError) {
         console.error("ベースユーザーの取得に失敗:", userFetchError);
         await interaction.editReply({
-          content: "❌ AIの設定に問題があります。管理者に連絡してください。",
+          content: "[ERROR] AIの設定に問題があります。管理者に連絡してください。",
           ephemeral: true,
         });
       }
     } catch (error) {
       console.error("[AI_CMD_ERROR]", error);
       await interaction.editReply({
-        content: "❌ コマンドの実行中にエラーが発生しました。",
+        content: "[ERROR] コマンドの実行中にエラーが発生しました。",
         ephemeral: true,
       });
     }

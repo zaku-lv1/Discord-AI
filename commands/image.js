@@ -45,7 +45,7 @@ module.exports = {
         const generatedUrl = `${fullBaseUrl}/${randomCode}`;
         
         await interaction.editReply({
-            content: `✅ 画像のURLを生成しました！\n\n**URL:** ${generatedUrl}`
+            content: `[SUCCESS] 画像のURLを生成しました！\n\n**URL:** ${generatedUrl}`
         });
     },
 };

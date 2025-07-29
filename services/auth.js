@@ -384,17 +384,18 @@ class AuthService {
   }
 
   createSessionConfig() {
-    const { isProduction, isCodespace } = this.getEnvironmentConfig();
+    const { isProduction, isCodespace, isLocalhost } = this.getEnvironmentConfig();
     
-    // For Codespace and production, we need secure cookies
-    const requireSecure = isProduction || isCodespace;
+    // Determine if we should require secure cookies
+    // For testing purposes, if NODE_ENV is not production, allow insecure cookies
+    const requireSecure = (isProduction || isCodespace) && process.env.NODE_ENV === 'production';
     
     return {
       secret: process.env.SESSION_SECRET || 'default-secret-key',
       resave: false,
       saveUninitialized: false,
       cookie: { 
-        secure: requireSecure, // HTTPS required in production and Codespace
+        secure: requireSecure, // Only require secure cookies in actual production
         httpOnly: true, // Prevent XSS attacks
         maxAge: 24 * 60 * 60 * 1000, // 24時間
         sameSite: requireSecure ? 'none' : 'lax' // Cross-site compatibility for production/Codespace

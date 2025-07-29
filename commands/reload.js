@@ -57,17 +57,17 @@ module.exports = {
       const commandsToRegister = Array.from(interaction.client.commands.values()).map(cmd => cmd.data.toJSON());
       await interaction.client.application.commands.set(commandsToRegister);
       
-      let replyMessage = `✅ ${reloadedCommands.length} 個のコマンドが正常に再読み込みされました。\n`;
+      let replyMessage = `[SUCCESS] ${reloadedCommands.length} 個のコマンドが正常に再読み込みされました。\n`;
       replyMessage += `リロードされたコマンド: ${reloadedCommands.join(', ') || 'なし'}\n`;
       if (failedCommands.length > 0) {
-        replyMessage += `❌ ${failedCommands.length} 個のコマンドの再読み込みに失敗しました:\n`;
+        replyMessage += `[ERROR] ${failedCommands.length} 個のコマンドの再読み込みに失敗しました:\n`;
         replyMessage += `${failedCommands.join('\n')}`;
       }
       await interaction.editReply({ content: replyMessage });
 
     } catch (error) {
       console.error('[ERROR] Discordへのコマンド登録に失敗しました:', error);
-      await interaction.editReply({ content: '❌ コマンドの再読み込みには成功しましたが、Discordへの登録中にエラーが発生しました。' });
+      await interaction.editReply({ content: '[ERROR] コマンドの再読み込みには成功しましたが、Discordへの登録中にエラーが発生しました。' });
     }
   },
 };
