@@ -42,16 +42,59 @@ class FirebaseService {
   }
 
   createMockDB() {
+    // Simple in-memory storage for testing
+    const storage = new Map();
+    
     return {
-      collection: () => ({
-        doc: () => ({
-          get: () => Promise.resolve({ exists: false, data: () => ({}) }),
-          set: () => Promise.resolve(),
-          update: () => Promise.resolve()
+      collection: (collectionName) => ({
+        doc: (docId) => ({
+          get: () => {
+            const key = `${collectionName}/${docId}`;
+            const data = storage.get(key);
+            return Promise.resolve({ 
+              exists: !!data, 
+              data: () => data || {}
+            });
+          },
+          set: (data) => {
+            const key = `${collectionName}/${docId}`;
+            storage.set(key, data);
+            return Promise.resolve();
+          },
+          update: (data) => {
+            const key = `${collectionName}/${docId}`;
+            const existing = storage.get(key) || {};
+            storage.set(key, { ...existing, ...data });
+            return Promise.resolve();
+          }
         }),
-        add: () => Promise.resolve(),
-        where: () => ({
-          get: () => Promise.resolve({ docs: [] })
+        add: (data) => {
+          const docId = Date.now().toString();
+          const key = `${collectionName}/${docId}`;
+          storage.set(key, { ...data, id: docId });
+          return Promise.resolve();
+        },
+        where: (field, operator, value) => ({
+          get: () => {
+            const docs = [];
+            for (const [key, data] of storage.entries()) {
+              if (key.startsWith(`${collectionName}/`) && data[field] === value) {
+                docs.push({
+                  data: () => data,
+                  ref: {
+                    update: (updateData) => {
+                      storage.set(key, { ...data, ...updateData });
+                      return Promise.resolve();
+                    }
+                  }
+                });
+              }
+            }
+            return Promise.resolve({ 
+              docs,
+              empty: docs.length === 0
+            });
+          }
         })
       })
     };

@@ -16,6 +16,13 @@ class EmailService {
         throw new Error('Gmail設定が不完全です。GMAIL_USERとGMAIL_APP_PASSWORDが必要です。');
       }
 
+      // テスト環境では初期化をスキップ
+      if (gmailUser.includes('test') || gmailAppPassword.includes('test')) {
+        console.log('[警告] テスト環境でのGmail設定が検出されました。メール機能を無効にします。');
+        this.initialized = false;
+        return;
+      }
+
       // Gmail SMTP用のnodemailer transporterを作成
       this.transporter = nodemailer.createTransport({
         service: 'gmail',
@@ -28,8 +35,13 @@ class EmailService {
         }
       });
 
-      // 接続をテスト
-      await this.transporter.verify();
+      // 接続をテスト（タイムアウト付き）
+      const verifyPromise = this.transporter.verify();
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('接続タイムアウト')), 10000)
+      );
+      
+      await Promise.race([verifyPromise, timeoutPromise]);
 
       this.initialized = true;
       console.log('[情報] Gmailメールサービスが初期化されました。');
