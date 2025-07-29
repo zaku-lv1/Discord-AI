@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>メール管理 - AI管理システム</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+            color: #333;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .header {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        .stat-card {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .stat-card h3 {
+            margin: 0 0 10px 0;
+            color: #555;
+        }
+        .stat-value {
+            font-size: 2em;
+            font-weight: bold;
+            color: #2c3e50;
+        }
+        .status-indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+        .status-online { background-color: #27ae60; }
+        .status-offline { background-color: #e74c3c; }
+        .status-warning { background-color: #f39c12; }
+        .test-section {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        .form-control {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            margin-right: 10px;
+            margin-bottom: 10px;
+        }
+        .btn-primary { background-color: #3498db; color: white; }
+        .btn-success { background-color: #27ae60; color: white; }
+        .btn-warning { background-color: #f39c12; color: white; }
+        .btn-danger { background-color: #e74c3c; color: white; }
+        .btn:hover { opacity: 0.9; }
+        .recent-emails {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .email-item {
+            padding: 10px;
+            border-bottom: 1px solid #eee;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        .email-item:last-child {
+            border-bottom: none;
+        }
+        .alert {
+            padding: 15px;
+            margin-bottom: 20px;
+            border: 1px solid transparent;
+            border-radius: 4px;
+        }
+        .alert-success {
+            color: #155724;
+            background-color: #d4edda;
+            border-color: #c3e6cb;
+        }
+        .alert-danger {
+            color: #721c24;
+            background-color: #f8d7da;
+            border-color: #f5c6cb;
+        }
+        .config-section {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .config-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid #eee;
+        }
+        .config-item:last-child {
+            border-bottom: none;
+        }
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📧 メール管理システム</h1>
+            <p>現在の環境: <strong><%= isProduction ? '本番環境' : '開発環境' %></strong></p>
+        </div>
+
+        <!-- 統計情報 -->
+        <div class="stats-grid">
+            <div class="stat-card">
+                <h3>サービス状態</h3>
+                <div class="stat-value">
+                    <span class="status-indicator <%= smtpStatus.running ? 'status-online' : 'status-offline' %>"></span>
+                    <%= smtpStatus.running ? 'オンライン' : 'オフライン' %>
+                </div>
+            </div>
+            <div class="stat-card">
+                <h3>送信成功数</h3>
+                <div class="stat-value"><%= stats.totalSent %></div>
+            </div>
+            <div class="stat-card">
+                <h3>送信失敗数</h3>
+                <div class="stat-value"><%= stats.totalFailed %></div>
+            </div>
+            <div class="stat-card">
+                <h3>成功率</h3>
+                <div class="stat-value"><%= stats.successRate %>%</div>
+            </div>
+        </div>
+
+        <!-- 設定情報 -->
+        <div class="config-section">
+            <h3>🔧 SMTP設定情報</h3>
+            <div class="config-item">
+                <span>ポート:</span>
+                <span><%= smtpStatus.port || 'N/A' %></span>
+            </div>
+            <div class="config-item">
+                <span>メール待機数:</span>
+                <span><%= smtpStatus.emailCount || 0 %></span>
+            </div>
+            <div class="config-item">
+                <span>レート制限エントリ:</span>
+                <span><%= stats.rateLimitEntries || 0 %></span>
+            </div>
+            <div class="config-item">
+                <span>環境:</span>
+                <span><%= isProduction ? '本番環境' : '開発環境' %></span>
+            </div>
+        </div>
+
+        <!-- テスト機能 -->
+        <div class="test-section">
+            <h3>🧪 テスト機能</h3>
+            
+            <div id="test-result" class="hidden"></div>
+            
+            <div class="form-group">
+                <label for="test-email">テスト送信先メールアドレス:</label>
+                <input type="email" id="test-email" class="form-control" placeholder="test@example.com">
+            </div>
+            
+            <button class="btn btn-primary" onclick="sendTestEmail()">テストメール送信</button>
+            <button class="btn btn-success" onclick="testSMTPConnection()">SMTP接続テスト</button>
+            <button class="btn btn-warning" onclick="resetStats()">統計リセット</button>
+            <button class="btn btn-primary" onclick="refreshPage()">状態更新</button>
+        </div>
+
+        <!-- 最近のメール -->
+        <% if (!isProduction && recentEmails && recentEmails.length > 0) { %>
+        <div class="recent-emails">
+            <h3>📬 最近のメール（開発環境のみ）</h3>
+            <% recentEmails.forEach(function(email) { %>
+            <div class="email-item">
+                <strong>送信者:</strong> <%= email.from %><br>
+                <strong>受信者:</strong> <%= email.to.join(', ') %><br>
+                <strong>時刻:</strong> <%= new Date(email.timestamp).toLocaleString('ja-JP') %><br>
+                <strong>サイズ:</strong> <%= email.data.length %> bytes
+            </div>
+            <% }); %>
+        </div>
+        <% } %>
+
+        <!-- エラー履歴 -->
+        <% if (stats.recentErrors && stats.recentErrors.length > 0) { %>
+        <div class="recent-emails">
+            <h3>⚠️ 最近のエラー</h3>
+            <% stats.recentErrors.forEach(function(error) { %>
+            <div class="email-item">
+                <strong>エラー:</strong> <%= error.message %><br>
+                <strong>コード:</strong> <%= error.code %><br>
+                <strong>時刻:</strong> <%= new Date(error.timestamp).toLocaleString('ja-JP') %>
+            </div>
+            <% }); %>
+        </div>
+        <% } %>
+    </div>
+
+    <script>
+        function showAlert(message, type = 'success') {
+            const alertDiv = document.getElementById('test-result');
+            alertDiv.className = `alert alert-${type}`;
+            alertDiv.textContent = message;
+            alertDiv.classList.remove('hidden');
+            
+            setTimeout(() => {
+                alertDiv.classList.add('hidden');
+            }, 5000);
+        }
+
+        async function sendTestEmail() {
+            const email = document.getElementById('test-email').value;
+            if (!email) {
+                showAlert('メールアドレスを入力してください', 'danger');
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/email-test', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ email })
+                });
+
+                const result = await response.json();
+                
+                if (result.success) {
+                    showAlert('テストメールを送信しました', 'success');
+                } else {
+                    showAlert(`エラー: ${result.error}`, 'danger');
+                }
+            } catch (error) {
+                showAlert(`送信エラー: ${error.message}`, 'danger');
+            }
+        }
+
+        async function testSMTPConnection() {
+            try {
+                const response = await fetch('/api/smtp-test', {
+                    method: 'POST'
+                });
+
+                const result = await response.json();
+                
+                if (result.success) {
+                    showAlert('SMTP接続テストが成功しました', 'success');
+                } else {
+                    showAlert(`SMTP接続エラー: ${result.error}`, 'danger');
+                }
+            } catch (error) {
+                showAlert(`テストエラー: ${error.message}`, 'danger');
+            }
+        }
+
+        async function resetStats() {
+            if (!confirm('統計情報をリセットしますか？')) {
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/email-reset-stats', {
+                    method: 'POST'
+                });
+
+                const result = await response.json();
+                
+                if (result.success) {
+                    showAlert('統計情報をリセットしました', 'success');
+                    setTimeout(() => {
+                        location.reload();
+                    }, 2000);
+                } else {
+                    showAlert(`エラー: ${result.error}`, 'danger');
+                }
+            } catch (error) {
+                showAlert(`リセットエラー: ${error.message}`, 'danger');
+            }
+        }
+
+        function refreshPage() {
+            location.reload();
+        }
+
+        // 5分ごとに自動更新
+        setInterval(() => {
+            fetch('/api/email-status')
+                .then(response => response.json())
+                .then(data => {
+                    console.log('メールシステム状態:', data);
+                })
+                .catch(error => {
+                    console.error('状態取得エラー:', error);
+                });
+        }, 5 * 60 * 1000);
+    </script>
+</body>
+</html>

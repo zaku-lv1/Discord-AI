@@ -17,9 +17,21 @@ Discord OAuthログインを特徴とするAI機能と Webベース管理パネ�
 ### 前提条件
 
 - Node.js 18.0.0以上
-- Discordアプリケーションとボットトークン
+- Discordアプリケーションとボットトークン（オプション）
 - Firebaseプロジェクト
 - Google Gemini APIキー
+- 本番環境用SMTPサーバー（Gmail、SendGrid等）
+
+### 📧 メール設定
+
+システムには包括的なメール機能が含まれています：
+
+- **開発環境**: 内蔵軽量SMTPサーバー（外部依存なし）
+- **本番環境**: Gmail、SendGrid、Amazon SES、Microsoft 365対応
+
+**詳細な設定方法**:
+- [📧 メール設定・ドメイン接続ガイド](EMAIL_CONFIGURATION.md)
+- [🔒 メールセキュリティ設定ガイド](EMAIL_SECURITY.md)
 
 ### 1. Discordアプリケーションのセットアップ
 

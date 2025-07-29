@@ -23,6 +23,7 @@ const authRoutes = require("./routes/auth");
 const aiRoutes = require("./routes/ai");
 const settingsRoutes = require("./routes/settings");
 const userRoutes = require("./routes/user");
+const emailRoutes = require("./routes/email");
 
 class Server {
   constructor() {
@@ -135,6 +136,7 @@ class Server {
     this.app.use("/api/ais", aiRoutes);
     this.app.use("/api/settings", settingsRoutes);
     this.app.use("/api", userRoutes);
+    this.app.use("/", emailRoutes);
 
     // Debug endpoint for viewing recent emails (development only)
     this.app.get("/api/debug/emails", (req, res) => {
