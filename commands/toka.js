@@ -105,7 +105,7 @@ module.exports = {
       option
         .setName("ai_id")
         .setDescription("召喚するAIのID")
-        .setRequired(false)
+        .setRequired(true)
         .setAutocomplete(true)
     ),
 
@@ -159,20 +159,14 @@ module.exports = {
       }
 
       const aiProfiles = aiProfilesDoc.data().profiles;
-      let selectedAI;
-
-      if (requestedAiId) {
-        selectedAI = aiProfiles.find(ai => ai.id === requestedAiId);
-        if (!selectedAI) {
-          const availableAIs = aiProfiles.map(ai => `\`${ai.id}\` (${ai.name})`).join('\n');
-          return await interaction.editReply({
-            content: `[ERROR] AI「${requestedAiId}」が見つかりません。\n\n**利用可能なAI:**\n${availableAIs}`,
-            ephemeral: true,
-          });
-        }
-      } else {
-        // IDが指定されていない場合は最初のAIを使用
-        selectedAI = aiProfiles[0];
+      const selectedAI = aiProfiles.find(ai => ai.id === requestedAiId);
+      
+      if (!selectedAI) {
+        const availableAIs = aiProfiles.map(ai => `\`${ai.id}\` (${ai.name})`).join('\n');
+        return await interaction.editReply({
+          content: `[ERROR] AI「${requestedAiId}」が見つかりません。\n\n**利用可能なAI:**\n${availableAIs}`,
+          ephemeral: true,
+        });
       }
 
       // AI設定の取得
@@ -202,15 +196,24 @@ module.exports = {
           interaction.client.activeCollectors = new Map();
         const collectorKey = `${channel.id}_${selectedAI.id}`;
 
+        // 既に召喚されているAIの場合は退出させる
         if (existingWebhook) {
-          await existingWebhook.delete("AI command: cleanup.");
+          await existingWebhook.delete("AI command: dismissing existing AI.");
           if (interaction.client.activeCollectors.has(collectorKey)) {
             interaction.client.activeCollectors
               .get(collectorKey)
-              .stop("Dismissed by new command.");
+              .stop("AI dismissed by user command.");
+            interaction.client.activeCollectors.delete(collectorKey);
           }
+
+          const embed = new EmbedBuilder()
+            .setColor(0xff6600)
+            .setDescription(`[AI] **${selectedAI.name}** (ID: \`${selectedAI.id}\`) を退出させました。`);
+          
+          return await interaction.editReply({ embeds: [embed] });
         }
 
+        // 新しいAIを召喚
         const webhook = await channel.createWebhook({
           name: webhookName,
           avatar: baseUser.displayAvatarURL(),
