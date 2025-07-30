@@ -1457,7 +1457,7 @@ select:focus,
 }
 
 .login-form {
-  max-width: 480px;
+  max-width: 600px;
   margin: 0 auto;
   background: linear-gradient(135deg, var(--primary-bg) 0%, rgba(248, 250, 252, 0.95) 100%);
   padding: 3rem 2.5rem;
