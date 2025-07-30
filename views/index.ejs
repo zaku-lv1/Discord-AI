@@ -208,6 +208,12 @@
                   ユーザー管理
                 </a>
               </li>
+              <li id="nav-item-system-settings" style="display: none;">
+                <a href="#" class="nav-link" data-target="panel-system-settings">
+                  <i class="fas fa-cogs" style="margin-right: 12px;"></i>
+                  システム設定
+                </a>
+              </li>
             </ul>
           </nav>
 
@@ -561,6 +567,175 @@
                     <i class="fas fa-save" style="margin-right: 8px;"></i>
                     管理者リストを保存
                   </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- システム設定パネル -->
+            <div id="panel-system-settings" class="dashboard-panel">
+              <div class="admin-header">
+                <h2>
+                  <i class="fas fa-cogs" style="margin-right: 10px;"></i>
+                  システム設定
+                </h2>
+                <p class="admin-description">システム全体の動作を制御する重要な設定です。オーナーのみが変更できます。</p>
+              </div>
+
+              <!-- システム状態 -->
+              <div class="system-status-section">
+                <h3>
+                  <i class="fas fa-server" style="margin-right: 8px;"></i>
+                  システム状態
+                </h3>
+                <div class="status-grid">
+                  <div class="status-card">
+                    <div class="status-icon">
+                      <i class="fas fa-tools"></i>
+                    </div>
+                    <div class="status-info">
+                      <h4>メンテナンスモード</h4>
+                      <p id="maintenance-status">確認中...</p>
+                    </div>
+                  </div>
+                  <div class="status-card">
+                    <div class="status-icon">
+                      <i class="fas fa-user-plus"></i>
+                    </div>
+                    <div class="status-info">
+                      <h4>新規登録</h4>
+                      <p id="registration-status">確認中...</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- システム設定フォーム -->
+              <div class="system-settings-form">
+                <h3>
+                  <i class="fas fa-sliders-h" style="margin-right: 8px;"></i>
+                  設定変更
+                </h3>
+                
+                <form id="system-settings-form">
+                  <div class="settings-section">
+                    <h4>アクセス制御</h4>
+                    
+                    <div class="form-group">
+                      <div class="toggle-container">
+                        <label for="maintenance-mode" class="toggle-label">
+                          <i class="fas fa-tools" style="margin-right: 8px;"></i>
+                          メンテナンスモード
+                        </label>
+                        <label class="toggle-switch">
+                          <input type="checkbox" id="maintenance-mode" />
+                          <span class="slider"></span>
+                        </label>
+                      </div>
+                      <small>ONにすると、オーナー以外のアクセスを制限します。</small>
+                    </div>
+
+                    <div class="form-group">
+                      <label for="maintenance-message">メンテナンスメッセージ</label>
+                      <textarea 
+                        id="maintenance-message" 
+                        rows="3" 
+                        placeholder="メンテナンス中に表示するメッセージ"
+                      ></textarea>
+                      <small>メンテナンス画面で表示されるメッセージです。</small>
+                    </div>
+                  </div>
+
+                  <div class="settings-section">
+                    <h4>ユーザー登録</h4>
+                    
+                    <div class="form-group">
+                      <div class="toggle-container">
+                        <label for="require-invitation-codes" class="toggle-label">
+                          <i class="fas fa-key" style="margin-right: 8px;"></i>
+                          招待コード必須
+                        </label>
+                        <label class="toggle-switch">
+                          <input type="checkbox" id="require-invitation-codes" />
+                          <span class="slider"></span>
+                        </label>
+                      </div>
+                      <small>ONにすると、新規登録には招待コードが必要になります。</small>
+                    </div>
+
+                    <div class="form-group">
+                      <div class="toggle-container">
+                        <label for="allow-open-registration" class="toggle-label">
+                          <i class="fas fa-door-open" style="margin-right: 8px;"></i>
+                          オープン登録
+                        </label>
+                        <label class="toggle-switch">
+                          <input type="checkbox" id="allow-open-registration" />
+                          <span class="slider"></span>
+                        </label>
+                      </div>
+                      <small>OFFにすると、新規登録を完全に停止します。</small>
+                    </div>
+                  </div>
+
+                  <div class="button-group">
+                    <button type="submit" class="save-btn">
+                      <i class="fas fa-save" style="margin-right: 8px;"></i>
+                      設定を保存
+                    </button>
+                  </div>
+                </form>
+              </div>
+
+              <!-- オーナー権限移譲 -->
+              <div class="ownership-transfer-section">
+                <h3>
+                  <i class="fas fa-crown" style="margin-right: 8px;"></i>
+                  オーナー権限移譲
+                </h3>
+                <div class="danger-zone">
+                  <div class="danger-warning">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <strong>危険な操作:</strong> オーナー権限を他のユーザーに移譲すると、あなたは管理者になります。この操作は取り消せません。
+                  </div>
+                  
+                  <form id="ownership-transfer-form">
+                    <div class="form-group">
+                      <label for="new-owner-email">新しいオーナーのメールアドレス</label>
+                      <input 
+                        type="email" 
+                        id="new-owner-email" 
+                        placeholder="新しいオーナーのメールアドレス"
+                        required
+                      />
+                      <small>移譲先のユーザーは管理者以上の権限を持っている必要があります。</small>
+                    </div>
+
+                    <div class="form-group">
+                      <label for="confirm-owner-email">メールアドレス確認</label>
+                      <input 
+                        type="email" 
+                        id="confirm-owner-email" 
+                        placeholder="確認のため再度入力"
+                        required
+                      />
+                    </div>
+
+                    <div class="form-group">
+                      <div class="checkbox-container">
+                        <label>
+                          <input type="checkbox" id="transfer-confirmation" required />
+                          オーナー権限移譲の内容を理解し、実行することに同意します
+                        </label>
+                      </div>
+                    </div>
+
+                    <div class="button-group">
+                      <button type="submit" class="danger-btn">
+                        <i class="fas fa-crown" style="margin-right: 8px;"></i>
+                        オーナー権限を移譲
+                      </button>
+                    </div>
+                  </form>
                 </div>
               </div>
             </div>
