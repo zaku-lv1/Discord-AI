@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>オーナー設定 - AI管理システム</title>
+    <link rel="icon" href="/favicon.ico" type="image/x-icon">
+    
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <!-- Font Awesome -->
+    <script src="https://kit.fontawesome.com/4cb452c6bc.js" crossorigin="anonymous"></script>
+    
+    <!-- Styles -->
+    <link rel="stylesheet" href="/style.css">
+    
+    <style>
+        .owner-setup-container {
+            max-width: 500px;
+            margin: 50px auto;
+            padding: 40px;
+            background: var(--card-bg);
+            border-radius: 16px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+        }
+        
+        .setup-header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        
+        .setup-header h1 {
+            color: var(--primary-color);
+            margin-bottom: 10px;
+        }
+        
+        .setup-header p {
+            color: var(--text-muted);
+            line-height: 1.6;
+        }
+        
+        .security-notice {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 25px;
+        }
+        
+        .security-notice h3 {
+            color: #856404;
+            margin: 0 0 10px 0;
+            font-size: 14px;
+        }
+        
+        .security-notice p {
+            color: #856404;
+            margin: 0;
+            font-size: 13px;
+            line-height: 1.5;
+        }
+        
+        .error-message {
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        
+        .success-message {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        
+        .completed-info {
+            text-align: center;
+            padding: 40px 20px;
+        }
+        
+        .completed-info h2 {
+            color: var(--success-color);
+            margin-bottom: 15px;
+        }
+        
+        .completed-info .icon {
+            font-size: 48px;
+            color: var(--success-color);
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="owner-setup-container">
+        <% if (completed) { %>
+            <div class="completed-info">
+                <div class="icon">
+                    <i class="fas fa-check-circle"></i>
+                </div>
+                <h2>設定完了</h2>
+                <p>オーナー設定は既に完了しています。</p>
+                <% if (typeof error !== 'undefined' && error) { %>
+                    <div class="error-message">
+                        <%= error %>
+                    </div>
+                <% } %>
+                <div style="margin-top: 30px;">
+                    <a href="/" class="save-btn">
+                        <i class="fas fa-home" style="margin-right: 8px;"></i>
+                        ホームへ戻る
+                    </a>
+                </div>
+            </div>
+        <% } else { %>
+            <div class="setup-header">
+                <h1>
+                    <i class="fas fa-crown" style="margin-right: 10px;"></i>
+                    オーナー設定
+                </h1>
+                <p>システムの初回セットアップを行います。<br>オーナーアカウントを作成してください。</p>
+            </div>
+
+            <div class="security-notice">
+                <h3>
+                    <i class="fas fa-shield-alt" style="margin-right: 5px;"></i>
+                    セキュリティ情報
+                </h3>
+                <p>
+                    オーナー設定は一度のみ実行可能です。設定完了後、このページは無効になります。
+                    設定キーは管理者から受け取った秘密のキーを使用してください。
+                </p>
+            </div>
+
+            <% if (typeof error !== 'undefined' && error) { %>
+                <div class="error-message">
+                    <i class="fas fa-exclamation-triangle" style="margin-right: 8px;"></i>
+                    <%= error %>
+                </div>
+            <% } %>
+
+            <form id="owner-setup-form">
+                <div class="form-group">
+                    <label for="setup-key">
+                        <i class="fas fa-key" style="margin-right: 5px;"></i>
+                        オーナー設定キー <span style="color: #e74c3c;">*</span>
+                    </label>
+                    <input type="password" id="setup-key" name="setupKey" required 
+                           placeholder="管理者から受け取ったキーを入力">
+                    <small>このキーはシステム管理者から受け取った秘密のキーです。</small>
+                </div>
+
+                <div class="form-group">
+                    <label for="username">
+                        <i class="fas fa-user" style="margin-right: 5px;"></i>
+                        ユーザー名 <span style="color: #e74c3c;">*</span>
+                    </label>
+                    <input type="text" id="username" name="username" required 
+                           placeholder="オーナーのユーザー名">
+                    <small>@usernameの形式でハンドルが作成されます。</small>
+                </div>
+
+                <div class="form-group">
+                    <label for="email">
+                        <i class="fas fa-envelope" style="margin-right: 5px;"></i>
+                        メールアドレス <span style="color: #e74c3c;">*</span>
+                    </label>
+                    <input type="email" id="email" name="email" required 
+                           placeholder="owner@example.com">
+                    <small>システム通知とログインに使用されます。</small>
+                </div>
+
+                <div class="form-group">
+                    <label for="password">
+                        <i class="fas fa-lock" style="margin-right: 5px;"></i>
+                        パスワード <span style="color: #e74c3c;">*</span>
+                    </label>
+                    <input type="password" id="password" name="password" required 
+                           placeholder="安全なパスワードを設定">
+                    <small>6文字以上で設定してください。</small>
+                </div>
+
+                <div class="form-group">
+                    <label for="confirm-password">
+                        <i class="fas fa-lock" style="margin-right: 5px;"></i>
+                        パスワード確認 <span style="color: #e74c3c;">*</span>
+                    </label>
+                    <input type="password" id="confirm-password" name="confirmPassword" required 
+                           placeholder="パスワードを再入力">
+                </div>
+
+                <div class="button-group">
+                    <button type="submit" class="save-btn" id="submit-btn">
+                        <i class="fas fa-crown" style="margin-right: 8px;"></i>
+                        オーナーアカウントを作成
+                    </button>
+                </div>
+            </form>
+
+            <div style="text-align: center; margin-top: 30px;">
+                <small style="color: var(--text-muted);">
+                    <i class="fas fa-info-circle" style="margin-right: 5px;"></i>
+                    既にアカウントをお持ちの場合は <a href="/">ログインページ</a> をご利用ください。
+                </small>
+            </div>
+        <% } %>
+    </div>
+
+    <script>
+        // Only run setup script if not completed
+        <% if (!completed) { %>
+        document.getElementById('owner-setup-form').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const submitBtn = document.getElementById('submit-btn');
+            const originalText = submitBtn.innerHTML;
+            
+            // Disable button and show loading
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin" style="margin-right: 8px;"></i>処理中...';
+            
+            try {
+                const formData = new FormData(this);
+                const data = Object.fromEntries(formData);
+                
+                const response = await fetch('/owner-setup', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(data)
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    // Show success message and redirect
+                    alert('オーナーアカウントが正常に作成されました。ログインページにリダイレクトします。');
+                    window.location.href = '/';
+                } else {
+                    // Show error message
+                    alert('エラー: ' + result.message);
+                }
+            } catch (error) {
+                console.error('Setup error:', error);
+                alert('エラー: システム設定に失敗しました');
+            } finally {
+                // Re-enable button
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = originalText;
+            }
+        });
+        <% } %>
+    </script>
+</body>
+</html>

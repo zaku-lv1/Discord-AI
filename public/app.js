@@ -18,6 +18,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const panels = document.querySelectorAll(".dashboard-panel");
   const adminNavItem = document.getElementById("nav-item-admin");
   const userMgmtNavItem = document.getElementById("nav-item-user-management");
+  const systemSettingsNavItem = document.getElementById("nav-item-system-settings");
 
   // --- プロファイル要素 ---
   const profileDisplayNameInput = document.getElementById("profile-display-name");
@@ -51,6 +52,19 @@ document.addEventListener("DOMContentLoaded", () => {
   const addAdminBtn = document.getElementById("add-admin-btn");
   const saveAdminsBtn = document.getElementById("save-admins-btn");
 
+  // --- システム設定要素 ---
+  const systemSettingsForm = document.getElementById("system-settings-form");
+  const maintenanceModeToggle = document.getElementById("maintenance-mode");
+  const maintenanceMessageInput = document.getElementById("maintenance-message");
+  const requireInvitationCodesToggle = document.getElementById("require-invitation-codes");
+  const allowOpenRegistrationToggle = document.getElementById("allow-open-registration");
+  const ownershipTransferForm = document.getElementById("ownership-transfer-form");
+  const newOwnerEmailInput = document.getElementById("new-owner-email");
+  const confirmOwnerEmailInput = document.getElementById("confirm-owner-email");
+  const transferConfirmationCheckbox = document.getElementById("transfer-confirmation");
+  const maintenanceStatusEl = document.getElementById("maintenance-status");
+  const registrationStatusEl = document.getElementById("registration-status");
+
   // ================ アプリケーションの状態 ================
   let state = {
     user: null,
@@ -59,6 +73,7 @@ document.addEventListener("DOMContentLoaded", () => {
     userRoles: [],
     isSuperAdmin: false,
     isOwner: false,
+    systemSettings: null,
     aiList: [],
     currentEditingAi: null
   };
@@ -443,6 +458,11 @@ document.addEventListener("DOMContentLoaded", () => {
     // User management panel (admin or owner only)
     if (userMgmtNavItem) {
       userMgmtNavItem.style.display = isAdmin ? "block" : "none";
+    }
+    
+    // System settings panel (owner only)
+    if (systemSettingsNavItem) {
+      systemSettingsNavItem.style.display = isOwner ? "block" : "none";
     }
     
     // Update role-based UI elements
@@ -1270,6 +1290,230 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     });
   }
+
+  // ================ システム設定管理 ================
+  
+  // システム設定の読み込み
+  async function loadSystemSettings() {
+    if (!state.user || !state.user.isSuperAdmin) return;
+    
+    try {
+      const response = await fetch('/api/system-settings', {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        state.systemSettings = data.settings;
+        updateSystemSettingsDisplay();
+        updateSystemStatusDisplay();
+      } else {
+        const errorData = await response.json();
+        showErrorToast(errorData.message || 'システム設定の読み込みに失敗しました');
+      }
+    } catch (error) {
+      console.error('システム設定読み込みエラー:', error);
+      showErrorToast('システム設定の読み込み中にエラーが発生しました');
+    }
+  }
+  
+  // システム設定表示の更新
+  function updateSystemSettingsDisplay() {
+    if (!state.systemSettings) return;
+    
+    const settings = state.systemSettings;
+    
+    if (maintenanceModeToggle) {
+      maintenanceModeToggle.checked = settings.maintenanceMode || false;
+    }
+    
+    if (maintenanceMessageInput) {
+      maintenanceMessageInput.value = settings.maintenanceMessage || '';
+    }
+    
+    if (requireInvitationCodesToggle) {
+      requireInvitationCodesToggle.checked = settings.requireInvitationCodes || false;
+    }
+    
+    if (allowOpenRegistrationToggle) {
+      allowOpenRegistrationToggle.checked = settings.allowOpenRegistration !== false;
+    }
+  }
+  
+  // システム状態表示の更新
+  function updateSystemStatusDisplay() {
+    if (!state.systemSettings) return;
+    
+    const settings = state.systemSettings;
+    
+    if (maintenanceStatusEl) {
+      const isMaintenanceMode = settings.maintenanceMode;
+      maintenanceStatusEl.textContent = isMaintenanceMode ? 'メンテナンス中' : '正常稼働中';
+      maintenanceStatusEl.className = isMaintenanceMode ? 'status-maintenance' : 'status-active';
+    }
+    
+    if (registrationStatusEl) {
+      const requiresInvitation = settings.requireInvitationCodes;
+      const allowsRegistration = settings.allowOpenRegistration !== false;
+      
+      if (!allowsRegistration) {
+        registrationStatusEl.textContent = '登録停止中';
+        registrationStatusEl.className = 'status-error';
+      } else if (requiresInvitation) {
+        registrationStatusEl.textContent = '招待コード必須';
+        registrationStatusEl.className = 'status-inactive';
+      } else {
+        registrationStatusEl.textContent = 'オープン登録';
+        registrationStatusEl.className = 'status-active';
+      }
+    }
+  }
+  
+  // システム設定フォームの送信
+  if (systemSettingsForm) {
+    systemSettingsForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      
+      if (!state.user || !state.user.isSuperAdmin) {
+        showErrorToast('この操作にはオーナー権限が必要です');
+        return;
+      }
+      
+      const submitBtn = systemSettingsForm.querySelector('button[type="submit"]');
+      const originalText = submitBtn.innerHTML;
+      
+      try {
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin" style="margin-right: 8px;"></i>保存中...';
+        
+        const settings = {
+          maintenanceMode: maintenanceModeToggle.checked,
+          maintenanceMessage: maintenanceMessageInput.value.trim(),
+          requireInvitationCodes: requireInvitationCodesToggle.checked,
+          allowOpenRegistration: allowOpenRegistrationToggle.checked
+        };
+        
+        const response = await fetch('/api/system-settings', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(settings)
+        });
+        
+        const result = await response.json();
+        
+        if (response.ok) {
+          state.systemSettings = { ...state.systemSettings, ...settings };
+          updateSystemStatusDisplay();
+          showSuccessToast('システム設定を保存しました');
+        } else {
+          showErrorToast(result.message || 'システム設定の保存に失敗しました');
+        }
+      } catch (error) {
+        console.error('システム設定保存エラー:', error);
+        showErrorToast('システム設定の保存中にエラーが発生しました');
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = originalText;
+      }
+    });
+  }
+  
+  // オーナー権限移譲フォームの送信
+  if (ownershipTransferForm) {
+    ownershipTransferForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      
+      if (!state.user || !state.user.isSuperAdmin) {
+        showErrorToast('この操作にはオーナー権限が必要です');
+        return;
+      }
+      
+      const newOwnerEmail = newOwnerEmailInput.value.trim();
+      const confirmEmail = confirmOwnerEmailInput.value.trim();
+      const confirmed = transferConfirmationCheckbox.checked;
+      
+      if (!newOwnerEmail || !confirmEmail) {
+        showErrorToast('全ての項目を入力してください');
+        return;
+      }
+      
+      if (newOwnerEmail !== confirmEmail) {
+        showErrorToast('メールアドレスが一致しません');
+        return;
+      }
+      
+      if (!confirmed) {
+        showErrorToast('移譲の確認にチェックを入れてください');
+        return;
+      }
+      
+      if (newOwnerEmail === state.user.email) {
+        showErrorToast('自分自身に権限を移譲することはできません');
+        return;
+      }
+      
+      // 最終確認
+      const confirmTransfer = confirm(
+        `本当にオーナー権限を ${newOwnerEmail} に移譲しますか？\n\n` +
+        'この操作は取り消すことができません。\n' +
+        'あなたは管理者に降格されます。'
+      );
+      
+      if (!confirmTransfer) return;
+      
+      const submitBtn = ownershipTransferForm.querySelector('button[type="submit"]');
+      const originalText = submitBtn.innerHTML;
+      
+      try {
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin" style="margin-right: 8px;"></i>移譲中...';
+        
+        const response = await fetch('/api/system-settings/transfer-ownership', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            newOwnerEmail: newOwnerEmail,
+            confirmEmail: confirmEmail
+          })
+        });
+        
+        const result = await response.json();
+        
+        if (response.ok) {
+          showSuccessToast('オーナー権限の移譲が完了しました。ページを再読み込みします。');
+          
+          // フォームをリセット
+          ownershipTransferForm.reset();
+          
+          // 5秒後にページを再読み込み
+          setTimeout(() => {
+            window.location.reload();
+          }, 5000);
+        } else {
+          showErrorToast(result.message || 'オーナー権限の移譲に失敗しました');
+        }
+      } catch (error) {
+        console.error('オーナー権限移譲エラー:', error);
+        showErrorToast('オーナー権限の移譲中にエラーが発生しました');
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = originalText;
+      }
+    });
+  }
+  
+  // パネル切り替え時にシステム設定を読み込む
+  navLinks.forEach(link => {
+    link.addEventListener('click', (e) => {
+      const target = e.target.dataset.target;
+      if (target === 'panel-system-settings' && state.user && state.user.isSuperAdmin) {
+        setTimeout(() => {
+          loadSystemSettings();
+        }, 100);
+      }
+    });
+  });
 });
 
 // ================ グローバル関数（HTML onclick から呼び出される） ================

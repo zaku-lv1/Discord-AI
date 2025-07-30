@@ -13,10 +13,12 @@ dotenv.config();
 // Services
 const firebaseService = require("./services/firebase");
 const authService = require("./services/auth");
+const systemSettingsService = require("./services/system-settings");
 const DiscordBot = require("./bot/discord-bot");
 
 // Middleware
 const { errorHandler } = require("./middleware/auth");
+const { checkMaintenanceMode, checkInvitationRequirement } = require("./middleware/system");
 
 // Routes
 const authRoutes = require("./routes/auth");
@@ -24,6 +26,8 @@ const aiRoutes = require("./routes/ai");
 const settingsRoutes = require("./routes/settings");
 const userRoutes = require("./routes/user");
 const roleManagementRoutes = require("./routes/role-management");
+const ownerSetupRoutes = require("./routes/owner-setup");
+const systemSettingsRoutes = require("./routes/system-settings");
 
 class Server {
   constructor() {
@@ -37,6 +41,7 @@ class Server {
       // Initialize services
       console.log("[情報] サービスを初期化しています...");
       await firebaseService.initialize();
+      await systemSettingsService.initialize();
       await authService.initialize();
 
       // Setup Express app
@@ -58,6 +63,9 @@ class Server {
   }
 
   setupExpress() {
+    // System middleware (maintenance mode, etc.)
+    this.app.use(checkMaintenanceMode);
+
     // Session configuration
     this.app.use(session(authService.createSessionConfig()));
 
@@ -68,6 +76,9 @@ class Server {
     // Body parsing middleware
     this.app.use(express.json({ limit: "5mb" }));
     this.app.use(express.urlencoded({ extended: true }));
+
+    // Apply invitation requirement check
+    this.app.use(checkInvitationRequirement);
 
     // View engine
     this.app.set("view engine", "ejs");
@@ -132,6 +143,8 @@ class Server {
     this.app.use("/api/settings", settingsRoutes);
     this.app.use("/api", userRoutes);
     this.app.use("/api/roles", roleManagementRoutes);
+    this.app.use("/api/system-settings", systemSettingsRoutes);
+    this.app.use("/owner-setup", ownerSetupRoutes);
 
     // Invite code generation route (directly under /api for frontend compatibility)
     this.app.post("/api/generate-invite-code", require("./middleware/auth").verifyAuthentication, async (req, res) => {
