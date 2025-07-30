@@ -213,6 +213,27 @@ class FirebaseService {
           storage.set(key, { ...data, id: docId });
           return Promise.resolve({ id: docId });
         },
+        get: async () => {
+          // Get all documents in the collection
+          const docs = [];
+          for (const [key, data] of storage.entries()) {
+            if (key.startsWith(`${collectionName}/`)) {
+              docs.push({
+                data: () => data,
+                ref: {
+                  update: (updateData) => {
+                    storage.set(key, { ...data, ...updateData });
+                    return Promise.resolve();
+                  }
+                }
+              });
+            }
+          }
+          return { 
+            docs,
+            empty: docs.length === 0
+          };
+        },
         where: (field, operator, value) => {
           const createChainableQuery = (conditions) => ({
             where: (newField, newOperator, newValue) => {

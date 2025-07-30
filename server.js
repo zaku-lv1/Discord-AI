@@ -23,6 +23,7 @@ const authRoutes = require("./routes/auth");
 const aiRoutes = require("./routes/ai");
 const settingsRoutes = require("./routes/settings");
 const userRoutes = require("./routes/user");
+const roleManagementRoutes = require("./routes/role-management");
 
 class Server {
   constructor() {
@@ -130,6 +131,7 @@ class Server {
     this.app.use("/api/ais", aiRoutes);
     this.app.use("/api/settings", settingsRoutes);
     this.app.use("/api", userRoutes);
+    this.app.use("/api/roles", roleManagementRoutes);
 
     // Invite code generation route (directly under /api for frontend compatibility)
     this.app.post("/api/generate-invite-code", require("./middleware/auth").verifyAuthentication, async (req, res) => {
