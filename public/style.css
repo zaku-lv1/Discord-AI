@@ -60,6 +60,7 @@ body {
   padding: 0;
   min-height: 100vh;
   overflow-x: hidden;
+  font-size: 18px; /* Increased base font size for better readability */
 }
 
 body::before {
@@ -91,7 +92,7 @@ body::before {
 
 h1 {
   text-align: center;
-  font-size: 3rem;
+  font-size: 3.5rem; /* Increased from 3rem */
   font-weight: 800;
   background: linear-gradient(45deg, var(--accent-color), var(--accent-secondary));
   background-clip: text;
@@ -117,7 +118,7 @@ h1::after {
 
 h2 {
   color: var(--text-primary);
-  font-size: 1.8rem;
+  font-size: 2.2rem; /* Increased from 1.8rem */
   font-weight: 600;
   margin-bottom: 1.5rem;
   padding-bottom: 0.75rem;
@@ -139,7 +140,7 @@ h2::after {
 
 h3 {
   color: var(--text-primary);
-  font-size: 1.4rem;
+  font-size: 1.6rem; /* Increased from 1.4rem */
   font-weight: 500;
   margin: 1.5rem 0 1rem 0;
 }
@@ -153,16 +154,17 @@ input[type="number"],
 textarea, 
 select {
   width: 100%;
-  padding: 1rem 1.25rem;
+  padding: 1.25rem 1.5rem; /* Increased padding for better touch targets */
   background: var(--primary-bg);
   border: 2px solid var(--border-color);
   border-radius: 12px;
   color: var(--text-primary);
-  font-size: 1rem;
+  font-size: 1.1rem; /* Increased from 1rem */
   font-family: inherit;
   transition: all 0.3s ease;
   margin-bottom: 1rem;
   box-shadow: 0 2px 4px var(--shadow-light);
+  min-height: 56px; /* Ensure minimum touch target size */
 }
 
 input:focus, 
@@ -182,7 +184,7 @@ textarea::placeholder {
 
 textarea {
   resize: vertical;
-  min-height: 120px;
+  min-height: 140px; /* Increased from 120px */
 }
 
 select {
@@ -197,10 +199,10 @@ select {
 
 /* ========== ボタン ========== */
 button {
-  padding: 1rem 2rem;
+  padding: 1.25rem 2.5rem; /* Increased padding for better touch targets */
   border: none;
   border-radius: 12px;
-  font-size: 1rem;
+  font-size: 1.1rem; /* Increased from 1rem */
   font-weight: 600;
   cursor: pointer;
   transition: all 0.3s ease;
@@ -209,6 +211,7 @@ button {
   text-transform: uppercase;
   letter-spacing: 0.5px;
   box-shadow: 0 4px 12px var(--shadow-light);
+  min-height: 56px; /* Ensure minimum touch target size */
 }
 
 button::before {
@@ -1060,18 +1063,18 @@ input:checked + .slider:before {
   }
   
   h1 {
-    font-size: 2.5rem;
+    font-size: 3rem; /* Maintain larger size on tablets */
   }
   
   .container {
     margin: 1rem;
-    padding: 1.5rem;
+    padding: 2rem; /* Increased padding */
   }
 }
 
 @media (max-width: 768px) {
   h1 {
-    font-size: 2rem;
+    font-size: 2.5rem; /* Still maintain good size on mobile */
   }
   
   .user-info {
@@ -1118,6 +1121,23 @@ input:checked + .slider:before {
   
   .discord-info-grid {
     grid-template-columns: 1fr;
+  }
+  
+  /* Ensure mobile input sizes remain accessible */
+  input[type="email"], 
+  input[type="password"], 
+  input[type="text"], 
+  input[type="time"], 
+  input[type="number"], 
+  textarea, 
+  select {
+    min-height: 60px; /* Larger touch targets on mobile */
+    font-size: 18px; /* Prevent iOS zoom on focus */
+  }
+  
+  button {
+    min-height: 60px; /* Larger touch targets on mobile */
+    font-size: 1.1rem;
   }
 }
 
@@ -1457,10 +1477,10 @@ select:focus,
 }
 
 .login-form {
-  max-width: 480px;
+  max-width: 520px; /* Increased from 480px */
   margin: 0 auto;
   background: linear-gradient(135deg, var(--primary-bg) 0%, rgba(248, 250, 252, 0.95) 100%);
-  padding: 3rem 2.5rem;
+  padding: 3.5rem 3rem; /* Increased padding */
   border-radius: 24px;
   box-shadow: 0 20px 40px var(--shadow-medium), 0 0 0 1px rgba(255, 255, 255, 0.8);
   border: 1px solid var(--border-color);
@@ -1510,7 +1530,7 @@ select:focus,
 
 .login-form h2 {
   margin-bottom: 0.5rem;
-  font-size: 2.2rem;
+  font-size: 2.5rem; /* Increased from 2.2rem */
   font-weight: 700;
   text-align: center;
   background: linear-gradient(135deg, var(--text-primary), var(--accent-color));
@@ -1526,14 +1546,14 @@ select:focus,
   text-align: center;
   color: var(--text-primary);
   font-weight: 600;
-  font-size: 1.5rem;
+  font-size: 1.7rem; /* Increased from 1.5rem */
 }
 
 .login-form p {
   text-align: center;
   color: var(--text-secondary);
   margin-bottom: 2.5rem;
-  font-size: 1rem;
+  font-size: 1.1rem; /* Increased from 1rem */
   line-height: 1.6;
 }
 
@@ -1592,7 +1612,7 @@ select:focus,
   margin-bottom: 0.75rem;
   font-weight: 600;
   color: var(--text-primary);
-  font-size: 15px;
+  font-size: 16px; /* Increased from 15px */
   letter-spacing: 0.025em;
 }
 
@@ -1600,15 +1620,16 @@ select:focus,
 .form-group input[type="password"],
 .form-group input[type="email"] {
   width: 100%;
-  padding: 1rem 1.25rem;
+  padding: 1.25rem 1.5rem; /* Increased padding */
   border: 2px solid var(--border-color);
   border-radius: 12px;
-  font-size: 16px;
+  font-size: 17px; /* Increased from 16px for better mobile readability */
   background: var(--primary-bg);
   color: var(--text-primary);
   transition: all 0.3s ease;
   font-family: inherit;
   box-shadow: 0 2px 4px var(--shadow-light);
+  min-height: 56px; /* Ensure minimum touch target size */
 }
 
 .form-group input[type="text"]:focus,
@@ -1628,7 +1649,7 @@ select:focus,
 .form-group small {
   display: block;
   margin-top: 0.75rem;
-  font-size: 13px;
+  font-size: 14px; /* Increased from 13px */
   color: var(--text-secondary);
   line-height: 1.4;
 }
@@ -1643,10 +1664,10 @@ select:focus,
   background: linear-gradient(135deg, var(--accent-color) 0%, var(--accent-secondary) 100%);
   color: white;
   border: none;
-  padding: 1.25rem 2rem;
+  padding: 1.5rem 2rem; /* Increased padding for better touch targets */
   border-radius: 12px;
   font-weight: 600;
-  font-size: 16px;
+  font-size: 17px; /* Increased from 16px */
   cursor: pointer;
   transition: all 0.3s ease;
   display: flex;
@@ -1658,6 +1679,7 @@ select:focus,
   box-shadow: 0 4px 12px var(--glow-color);
   position: relative;
   overflow: hidden;
+  min-height: 60px; /* Ensure substantial touch target */
 }
 
 .save-btn::before {
@@ -1756,22 +1778,28 @@ select:focus,
 @media (max-width: 768px) {
   .login-form {
     margin: 1rem;
-    padding: 2rem 1.5rem;
+    padding: 2.5rem 2rem; /* Increased padding for mobile */
     border-radius: 20px;
   }
   
   .login-form h2 {
-    font-size: 1.8rem;
+    font-size: 2.2rem; /* Maintain good size on mobile */
   }
   
   .login-form h3 {
-    font-size: 1.3rem;
+    font-size: 1.5rem; /* Maintain good size on mobile */
   }
   
   .form-group input[type="text"],
   .form-group input[type="password"],
   .form-group input[type="email"] {
-    font-size: 16px; /* iOS zoom防止 */
+    font-size: 18px; /* iOS zoom防止 and better readability */
+    min-height: 60px; /* Ensure good touch targets */
+  }
+  
+  .save-btn {
+    min-height: 64px; /* Larger touch target on mobile */
+    font-size: 18px;
   }
 }
 
