@@ -39,8 +39,24 @@ async function getTamaResponse(userMessage, history = [], authorName = 'ユー�
   const tryModels = ['gemini-1.5-pro', 'gemini-1.5-flash']; // 試行するモデル
   let lastError = null;
   let fallbackNoticeShown = false;
-  // 「たまたま」用の応答不可メッセージ
-  const defaultOopsMessage = "おーい、なんか今日頭いてぇわ。ADHDや！また後でな、敗北者wwwww";
+  
+  // 「たまたま」用の応答不可メッセージと基本的な返答
+  const fallbackResponses = [
+    "おーい、なんか今日頭いてぇわ。ADHDや！また後でな、敗北者wwwww",
+    "乞食だ！黙れにわか！",
+    "これだから低身長は...身長180cm以下は人権ない",
+    "ジャンプ買ってないやつは語んな！にわかだ！！！",
+    "そぉだよ、どーせ雑魚は逃げる世界はそうできているんだ",
+    "ADHDや！障害者だ！！！",
+    "敗北者wwwww",
+    "かっけぇ"
+  ];
+
+  // テスト環境や設定不備の場合は即座にランダム返答
+  if (!process.env.GEMINI_API_KEY || process.env.GEMINI_API_KEY === 'test_key') {
+    console.log('[INFO - Tamama] テスト環境のため、ランダム返答を使用します');
+    return fallbackResponses[Math.floor(Math.random() * fallbackResponses.length)];
+  }
 
   let messageToProcess = userMessage;
   if (guild) { // この関数内でメンション置換を行う
@@ -96,7 +112,8 @@ async function getTamaResponse(userMessage, history = [], authorName = 'ユー�
     }
   }
   console.error("全てのAIモデルでの応答生成に失敗しました (Tamama)。", lastError ? lastError.message : "不明なエラー");
-  return defaultOopsMessage;
+  // ランダムな失敗時の返答を使用
+  return fallbackResponses[Math.floor(Math.random() * fallbackResponses.length)];
 }
 
 
@@ -200,12 +217,15 @@ module.exports = {
           // 自分自身のWebhook投稿は拾わない
           if (msg.webhookId && msg.webhookId === newCreatedWebhook.id) return false;
           // ただし他BotやWebhookは拾う（bot同士会話ON）
+          console.log(`[DEBUG - Tamama] メッセージ受信: "${msg.content}" (Author: ${msg.author.username}, Bot: ${msg.author.bot})`);
           return true;
         }
       });
       interaction.client.activeCollectors.set(collectorKey, collector);
 
       collector.on('collect', async (message) => {
+        console.log(`[INFO - Tamama] ${webhookCharacterName} がメッセージに応答中: "${message.content}"`);
+        
         // Webhookが消えていた場合は停止
         if (!newCreatedWebhook || !(await channel.fetchWebhooks().then(whs => whs.has(newCreatedWebhook.id)))) {
           console.warn(`${webhookCharacterName}のWebhookが見つからないため、コレクターを停止 (Channel: ${channel.id})`);
@@ -233,8 +253,15 @@ module.exports = {
 
         try {
           await newCreatedWebhook.send(responseText);
+          console.log(`[SUCCESS - Tamama] ${webhookCharacterName}が応答しました: "${responseText.substring(0, 50)}..."`);
         } catch (webhookSendError){
-          console.error(`Webhook (${webhookCharacterName}) からメッセージ送信時にエラー:`, webhookSendError);
+          console.error(`[ERROR - Tamama] Webhook (${webhookCharacterName}) からメッセージ送信時にエラー:`, webhookSendError);
+          
+          // Webhookが削除されている場合はコレクターを停止
+          if (webhookSendError.code === 10015 || webhookSendError.message.includes('Unknown Webhook')) {
+            console.warn(`[WARNING - Tamama] Webhook ${webhookCharacterName} が削除されたため、コレクターを停止します`);
+            collector.stop('Webhook deleted');
+          }
         }
       });
       
@@ -247,6 +274,8 @@ module.exports = {
 
       const embed = new EmbedBuilder().setColor(0x00FF00).setDescription(`${webhookCharacterName} を召喚しました。お前もしかしてロリコンか？かっけぇ！！！`);
       await interaction.editReply({ embeds: [embed] }); 
+      
+      console.log(`[SUCCESS - Tamama] ${webhookCharacterName} が正常に召喚されました (Channel: ${channel.id})`);
     } catch (err) {
       // エラー時、より詳細なフィードバックを提供
       console.error("コマンドエラー (character1):", err);

@@ -51,9 +51,20 @@ class DiscordBot {
   setupEventHandlers() {
     this.client.once(Events.ClientReady, (c) => {
       console.log(`[SUCCESS] ボット起動: ${c.user.tag}`);
+      console.log(`[INFO] 読み込まれたコマンド数: ${this.client.commands.size}`);
+      
+      // コマンド一覧をログに出力
+      const commandNames = Array.from(this.client.commands.keys());
+      console.log(`[INFO] 利用可能なコマンド: ${commandNames.join(', ')}`);
       
       // Register slash commands
-      c.application.commands.set(this.client.commands.map((cmd) => cmd.data.toJSON()));
+      c.application.commands.set(this.client.commands.map((cmd) => cmd.data.toJSON()))
+        .then(() => {
+          console.log(`[SUCCESS] スラッシュコマンドが正常に登録されました`);
+        })
+        .catch(error => {
+          console.error(`[ERROR] スラッシュコマンドの登録に失敗:`, error);
+        });
       
       // Set bot activity
       this.client.user.setActivity("AI管理システム", { type: 3 }); // type: 3 = Watching
@@ -62,9 +73,12 @@ class DiscordBot {
     this.client.on(Events.InteractionCreate, async (interaction) => {
       if (!interaction.isChatInputCommand()) return;
 
+      console.log(`[INFO] コマンド実行: ${interaction.commandName} (ユーザー: ${interaction.user.username})`);
+
       const command = this.client.commands.get(interaction.commandName);
       if (!command) {
         console.error(`コマンド "${interaction.commandName}" が見つかりません。`);
+        await interaction.reply({ content: '❌ 不明なコマンドです。', ephemeral: true });
         return;
       }
 

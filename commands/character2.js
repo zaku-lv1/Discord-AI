@@ -118,11 +118,16 @@ module.exports = {
         '改心した？病気？どこかぶつけた？彼女できた？', 'きっっっしょ', '可哀想www', 'わかる！！！！！！！',
         '大丈夫！！？お大事に！！', 'はるかぜくんってかっこいいよね〜(棒)', 'ふーん', 'へぇ', 'りんちゃん一緒にかえろー',
     ];
-    const filter = (message) => !message.author.bot && message.author.id !== interaction.client.user.id; // ボット自身と他のボットの発言は無視
+    const filter = (message) => {
+      console.log(`[DEBUG - KTT] メッセージ受信: "${message.content}" (Author: ${message.author.username}, Bot: ${message.author.bot})`);
+      return !message.author.bot && message.author.id !== interaction.client.user.id; // ボット自身と他のボットの発言は無視
+    };
     const collector = channel.createMessageCollector({ filter });
     interaction.client.activeCollectors.set(collectorKey, collector);
 
     collector.on('collect', async (message) => {
+      console.log(`[INFO - KTT] KTTがメッセージに応答中: "${message.content}"`);
+      
       // Webhookがまだ存在するか確認
       if (!newKttWebhook || !newIharaWebhook || 
           !(await channel.fetchWebhooks().then(whs => whs.has(newKttWebhook.id) && whs.has(newIharaWebhook.id)))) {
@@ -135,23 +140,35 @@ module.exports = {
       const userMessageContent = message.content; // 変数名を変更して明確化
 
       try {
+        let responseMessage = '';
         if (userMessageContent.includes('シュクダイ') || userMessageContent.includes('宿題')) {
-          await newKttWebhook.send('シュクダイ？ナニソレオイシイノ？');
+          responseMessage = 'シュクダイ？ナニソレオイシイノ？';
+          await newKttWebhook.send(responseMessage);
         } else if (userMessageContent.includes('漢字')) {
-          await newKttWebhook.send('漢字きもい！！！');
+          responseMessage = '漢字きもい！！！';
+          await newKttWebhook.send(responseMessage);
         } else if (userMessageContent.includes('天才')) {
-          await newKttWebhook.send('え？待って泣ける嬉しい');
+          responseMessage = 'え？待って泣ける嬉しい';
+          await newKttWebhook.send(responseMessage);
         } else {
           if (randomMessage === 'りんちゃん一緒にかえろー') {
             await newKttWebhook.send(randomMessage);
             await newIharaWebhook.send('あおいーーーー！！！'); // この条件の時だけ井原先生も発言
+            responseMessage = `${randomMessage} & あおいーーーー！！！`;
           } else {
             await newKttWebhook.send(randomMessage);
+            responseMessage = randomMessage;
           }
         }
+        console.log(`[SUCCESS - KTT] KTTが応答しました: "${responseMessage}"`);
       } catch (sendError) {
-          console.error(`Webhook送信エラー (KTT/Ihara - Channel: ${channel.id}):`, sendError);
-          // 送信エラーが頻発する場合、コレクターを停止するなどの措置も検討
+          console.error(`[ERROR - KTT] Webhook送信エラー (KTT/Ihara - Channel: ${channel.id}):`, sendError);
+          
+          // Webhookが削除されている場合はコレクターを停止
+          if (sendError.code === 10015 || sendError.message.includes('Unknown Webhook')) {
+            console.warn(`[WARNING - KTT] Webhook が削除されたため、コレクターを停止します`);
+            collector.stop('Webhook deleted');
+          }
       }
     });
 
@@ -167,5 +184,7 @@ module.exports = {
 
     const embed = new EmbedBuilder().setColor(0x00FF00).setDescription('KTTと井原先生を召喚しました。');
     await interaction.editReply({ embeds: [embed] });
+    
+    console.log(`[SUCCESS - KTT] KTTと井原先生が正常に召喚されました (Channel: ${channel.id})`);
   },
 };
