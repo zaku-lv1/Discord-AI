@@ -127,8 +127,14 @@ class AuthService {
     const userData = userDoc.data();
     
     // トークンの有効期限をチェック
-    if (userData.verificationTokenExpires && userData.verificationTokenExpires.toDate() < new Date()) {
-      throw new Error('認証トークンの有効期限が切れています');
+    if (userData.verificationTokenExpires) {
+      const expiryDate = userData.verificationTokenExpires.toDate ? 
+        userData.verificationTokenExpires.toDate() : 
+        userData.verificationTokenExpires;
+      
+      if (expiryDate < new Date()) {
+        throw new Error('認証トークンの有効期限が切れています');
+      }
     }
     
     // ユーザーを認証済みに更新
@@ -207,8 +213,14 @@ class AuthService {
     const userData = userDoc.data();
     
     // トークンの有効期限をチェック
-    if (userData.passwordResetTokenExpires && userData.passwordResetTokenExpires.toDate() < new Date()) {
-      throw new Error('再設定トークンの有効期限が切れています');
+    if (userData.passwordResetTokenExpires) {
+      const expiryDate = userData.passwordResetTokenExpires.toDate ? 
+        userData.passwordResetTokenExpires.toDate() : 
+        userData.passwordResetTokenExpires;
+      
+      if (expiryDate < new Date()) {
+        throw new Error('再設定トークンの有効期限が切れています');
+      }
     }
     
     // 新しいパスワードをハッシュ化

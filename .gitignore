@@ -43,3 +43,8 @@ cookies.txt
 .env
 .env
 .env
+
+# Test files (temporary)
+test_firebase_query.js
+test_email_verification.js
+test_integration.js
