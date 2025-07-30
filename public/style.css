@@ -605,9 +605,12 @@ input:checked + .slider:before {
   border-radius: 20px;
   width: 90%;
   max-width: 600px;
+  max-height: 80vh; /* Limit height to 80% of viewport */
   border: 1px solid var(--border-color);
   box-shadow: 0 20px 40px var(--shadow-heavy);
   position: relative;
+  overflow-y: auto; /* Enable vertical scrolling */
+  overflow-x: hidden; /* Hide horizontal overflow */
 }
 
 .modal-content::before {
@@ -821,6 +824,7 @@ input:checked + .slider:before {
 
 /* ========== ステータスメッセージ ========== */
 #status-message {
+  display: none; /* Hide status message to remove footer loading display */
   margin-top: 1.5rem;
   padding: 1.25rem;
   text-align: center;
@@ -1091,8 +1095,9 @@ input:checked + .slider:before {
   }
   
   .modal-content {
-    margin: 10% auto;
+    margin: 5% auto; /* Reduce top margin for better mobile experience */
     width: 95%;
+    max-height: 85vh; /* Increase max height for mobile */
     padding: 1.5rem;
   }
   
