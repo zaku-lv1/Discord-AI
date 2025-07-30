@@ -51,9 +51,20 @@ class DiscordBot {
   setupEventHandlers() {
     this.client.once(Events.ClientReady, (c) => {
       console.log(`[SUCCESS] ボット起動: ${c.user.tag}`);
+      console.log(`[INFO] 読み込まれたコマンド数: ${this.client.commands.size}`);
+      
+      // コマンド一覧をログに出力
+      const commandNames = Array.from(this.client.commands.keys());
+      console.log(`[INFO] 利用可能なコマンド: ${commandNames.join(', ')}`);
       
       // Register slash commands
-      c.application.commands.set(this.client.commands.map((cmd) => cmd.data.toJSON()));
+      c.application.commands.set(this.client.commands.map((cmd) => cmd.data.toJSON()))
+        .then(() => {
+          console.log(`[SUCCESS] スラッシュコマンドが正常に登録されました`);
+        })
+        .catch(error => {
+          console.error(`[ERROR] スラッシュコマンドの登録に失敗:`, error);
+        });
       
       // Set bot activity
       this.client.user.setActivity("AI管理システム", { type: 3 }); // type: 3 = Watching
@@ -62,9 +73,12 @@ class DiscordBot {
     this.client.on(Events.InteractionCreate, async (interaction) => {
       if (!interaction.isChatInputCommand()) return;
 
+      console.log(`[INFO] コマンド実行: ${interaction.commandName} (ユーザー: ${interaction.user.username})`);
+
       const command = this.client.commands.get(interaction.commandName);
       if (!command) {
         console.error(`コマンド "${interaction.commandName}" が見つかりません。`);
+        await interaction.reply({ content: '❌ 不明なコマンドです。', ephemeral: true });
         return;
       }
 
@@ -73,16 +87,30 @@ class DiscordBot {
       } catch (error) {
         console.error(`コマンドエラー (${interaction.commandName}):`, error);
         
-        // Send error response to user if possible
-        const errorMessage = {
-          content: 'このコマンドの実行中にエラーが発生しました。',
+        // Send more informative error response to user
+        let errorMessage = {
           ephemeral: true
         };
 
-        if (interaction.replied || interaction.deferred) {
-          await interaction.followUp(errorMessage);
+        // Provide specific error feedback based on the error type
+        if (error.message.includes('403') || error.message.includes('権限')) {
+          errorMessage.content = '⚠️ ボットに必要な権限がありません。「ウェブフックの管理」権限を確認してください。';
+        } else if (error.message.includes('API key') || error.message.includes('Quota')) {
+          errorMessage.content = '🤖 AI機能が一時的に利用できません。後ほどお試しください。';
+        } else if (error.message.includes('timeout') || error.message.includes('network')) {
+          errorMessage.content = '🌐 ネットワークエラーが発生しました。再度お試しください。';
         } else {
-          await interaction.reply(errorMessage);
+          errorMessage.content = `❌ コマンドの実行中にエラーが発生しました: ${error.message}`;
+        }
+
+        try {
+          if (interaction.replied || interaction.deferred) {
+            await interaction.followUp(errorMessage);
+          } else {
+            await interaction.reply(errorMessage);
+          }
+        } catch (responseError) {
+          console.error('エラーレスポンス送信失敗:', responseError);
         }
       }
     });
