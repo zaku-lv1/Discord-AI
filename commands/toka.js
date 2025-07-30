@@ -106,7 +106,39 @@ module.exports = {
         .setName("ai_id")
         .setDescription("召喚するAIのID")
         .setRequired(false)
+        .setAutocomplete(true)
     ),
+
+  async autocomplete(interaction) {
+    const focusedValue = interaction.options.getFocused();
+    const db = interaction.client.db;
+
+    try {
+      // AI一覧を取得
+      const aiProfilesDoc = await db.collection("bot_settings").doc("ai_profiles").get();
+      
+      if (!aiProfilesDoc.exists || !aiProfilesDoc.data().profiles || aiProfilesDoc.data().profiles.length === 0) {
+        return await interaction.respond([]);
+      }
+
+      const aiProfiles = aiProfilesDoc.data().profiles;
+      
+      // フィルタリングと選択肢の生成
+      const filtered = aiProfiles
+        .filter(ai => ai.id.toLowerCase().includes(focusedValue.toLowerCase()) || 
+                     ai.name.toLowerCase().includes(focusedValue.toLowerCase()))
+        .slice(0, 25) // Discord's limit is 25 choices
+        .map(ai => ({
+          name: `${ai.name} (${ai.id})`,
+          value: ai.id
+        }));
+
+      await interaction.respond(filtered);
+    } catch (error) {
+      console.error('[AI_AUTOCOMPLETE_ERROR]', error);
+      await interaction.respond([]);
+    }
+  },
 
   async execute(interaction) {
     await interaction.deferReply({ ephemeral: true });

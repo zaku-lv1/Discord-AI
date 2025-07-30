@@ -71,6 +71,23 @@ class DiscordBot {
     });
 
     this.client.on(Events.InteractionCreate, async (interaction) => {
+      // Handle autocomplete interactions
+      if (interaction.isAutocomplete()) {
+        const command = this.client.commands.get(interaction.commandName);
+        if (!command || !command.autocomplete) {
+          console.error(`オートコンプリートハンドラが "${interaction.commandName}" に見つかりません。`);
+          return;
+        }
+
+        try {
+          await command.autocomplete(interaction);
+        } catch (error) {
+          console.error(`オートコンプリートエラー (${interaction.commandName}):`, error);
+        }
+        return;
+      }
+
+      // Handle chat input commands
       if (!interaction.isChatInputCommand()) return;
 
       console.log(`[INFO] コマンド実行: ${interaction.commandName} (ユーザー: ${interaction.user.username})`);
