@@ -129,6 +129,18 @@ class FirebaseService {
         },
         where: (field, operator, value) => {
           return createQueryBuilder(collectionName, [{ field, operator, value }]);
+        },
+        get: async () => {
+          if (this.useMockDB || !realDB) {
+            return mockDB.collection(collectionName).get();
+          }
+          try {
+            return await realDB.collection(collectionName).get();
+          } catch (error) {
+            return this.handleFirebaseError(error, () => 
+              mockDB.collection(collectionName).get()
+            );
+          }
         }
       })
     };
