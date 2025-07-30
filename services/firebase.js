@@ -53,6 +53,28 @@ class FirebaseService {
     // Create a proxy that handles authentication errors gracefully
     const mockDB = this.mockDB || this.createMockDB();
     
+    // Helper function to create a query builder that supports chaining
+    const createQueryBuilder = (collectionName, conditions = []) => {
+      return {
+        where: (field, operator, value) => {
+          const newConditions = [...conditions, { field, operator, value }];
+          return createQueryBuilder(collectionName, newConditions);
+        },
+        get: async () => {
+          if (this.useMockDB || !realDB) {
+            return this.executeMockQuery(mockDB, collectionName, conditions);
+          }
+          try {
+            return await this.executeRealQuery(realDB, collectionName, conditions);
+          } catch (error) {
+            return this.handleFirebaseError(error, () => 
+              this.executeMockQuery(mockDB, collectionName, conditions)
+            );
+          }
+        }
+      };
+    };
+    
     return {
       collection: (collectionName) => ({
         doc: (docId) => ({
@@ -105,20 +127,9 @@ class FirebaseService {
             );
           }
         },
-        where: (field, operator, value) => ({
-          get: async () => {
-            if (this.useMockDB || !realDB) {
-              return mockDB.collection(collectionName).where(field, operator, value).get();
-            }
-            try {
-              return await realDB.collection(collectionName).where(field, operator, value).get();
-            } catch (error) {
-              return this.handleFirebaseError(error, () => 
-                mockDB.collection(collectionName).where(field, operator, value).get()
-              );
-            }
-          }
-        })
+        where: (field, operator, value) => {
+          return createQueryBuilder(collectionName, [{ field, operator, value }]);
+        }
       })
     };
   }
@@ -144,6 +155,24 @@ class FirebaseService {
     
     // Re-throw non-authentication errors
     throw error;
+  }
+
+  // Execute query with multiple conditions on mock database
+  executeMockQuery(mockDB, collectionName, conditions) {
+    let query = mockDB.collection(collectionName);
+    for (const condition of conditions) {
+      query = query.where(condition.field, condition.operator, condition.value);
+    }
+    return query.get();
+  }
+
+  // Execute query with multiple conditions on real Firestore database
+  async executeRealQuery(realDB, collectionName, conditions) {
+    let query = realDB.collection(collectionName);
+    for (const condition of conditions) {
+      query = query.where(condition.field, condition.operator, condition.value);
+    }
+    return await query.get();
   }
 
   createMockDB() {
@@ -184,54 +213,57 @@ class FirebaseService {
           storage.set(key, { ...data, id: docId });
           return Promise.resolve({ id: docId });
         },
-        where: (field, operator, value) => ({
-          get: () => {
-            const docs = [];
-            for (const [key, data] of storage.entries()) {
-              if (key.startsWith(`${collectionName}/`)) {
-                let matches = false;
-                switch (operator) {
-                  case '==':
-                    matches = data[field] === value;
-                    break;
-                  case '!=':
-                    matches = data[field] !== value;
-                    break;
-                  case '>':
-                    matches = data[field] > value;
-                    break;
-                  case '>=':
-                    matches = data[field] >= value;
-                    break;
-                  case '<':
-                    matches = data[field] < value;
-                    break;
-                  case '<=':
-                    matches = data[field] <= value;
-                    break;
-                  default:
-                    matches = data[field] === value;
-                }
-                
-                if (matches) {
-                  docs.push({
-                    data: () => data,
-                    ref: {
-                      update: (updateData) => {
-                        storage.set(key, { ...data, ...updateData });
-                        return Promise.resolve();
-                      }
+        where: (field, operator, value) => {
+          const createChainableQuery = (conditions) => ({
+            where: (newField, newOperator, newValue) => {
+              return createChainableQuery([...conditions, { field: newField, operator: newOperator, value: newValue }]);
+            },
+            get: () => {
+              const docs = [];
+              for (const [key, data] of storage.entries()) {
+                if (key.startsWith(`${collectionName}/`)) {
+                  // Check if data matches all conditions
+                  const matchesAll = conditions.every(condition => {
+                    switch (condition.operator) {
+                      case '==':
+                        return data[condition.field] === condition.value;
+                      case '!=':
+                        return data[condition.field] !== condition.value;
+                      case '>':
+                        return data[condition.field] > condition.value;
+                      case '>=':
+                        return data[condition.field] >= condition.value;
+                      case '<':
+                        return data[condition.field] < condition.value;
+                      case '<=':
+                        return data[condition.field] <= condition.value;
+                      default:
+                        return data[condition.field] === condition.value;
                     }
                   });
+                  
+                  if (matchesAll) {
+                    docs.push({
+                      data: () => data,
+                      ref: {
+                        update: (updateData) => {
+                          storage.set(key, { ...data, ...updateData });
+                          return Promise.resolve();
+                        }
+                      }
+                    });
+                  }
                 }
               }
+              return Promise.resolve({ 
+                docs,
+                empty: docs.length === 0
+              });
             }
-            return Promise.resolve({ 
-              docs,
-              empty: docs.length === 0
-            });
-          }
-        })
+          });
+          
+          return createChainableQuery([{ field, operator, value }]);
+        }
       })
     };
   }
