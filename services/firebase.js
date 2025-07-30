@@ -113,6 +113,12 @@ class FirebaseService {
       admin.firestore.FieldValue.serverTimestamp() : 
       new Date();
   }
+
+  getArraySafeTimestamp() {
+    // Always return a regular Date object for use in arrays
+    // FieldValue.serverTimestamp() cannot be used inside arrays in Firestore
+    return new Date();
+  }
 }
 
 module.exports = new FirebaseService();
