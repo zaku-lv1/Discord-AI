@@ -55,6 +55,8 @@ Discord OAuthログインを特徴とするAI機能と Webベース管理パネ�
 4. サービスアカウントに移動:
    - 新しい秘密鍵を生成してJSONファイルをダウンロード
 
+📖 **詳細な手順**: [Firebase設定ガイド](./FIREBASE_SETUP.md)を参照してください
+
 ### 4. Google Gemini APIのセットアップ
 
 1. [Google AI Studio](https://ai.google.dev/)にアクセス
