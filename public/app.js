@@ -17,10 +17,13 @@ document.addEventListener("DOMContentLoaded", () => {
   const navLinks = document.querySelectorAll(".nav-link");
   const panels = document.querySelectorAll(".dashboard-panel");
   const adminNavItem = document.getElementById("nav-item-admin");
+  const userMgmtNavItem = document.getElementById("nav-item-user-management");
 
   // --- プロファイル要素 ---
   const profileDisplayNameInput = document.getElementById("profile-display-name");
   const profileEmailInput = document.getElementById("profile-email");
+  const profileHandleInput = document.getElementById("profile-handle");
+  const profileRoleInput = document.getElementById("profile-role");
   const saveProfileBtn = document.getElementById("save-profile-btn");
 
   // --- AI管理要素 ---
@@ -31,7 +34,15 @@ document.addEventListener("DOMContentLoaded", () => {
   const closeModalBtn = document.querySelector(".close");
   const cancelEditBtn = document.getElementById("cancel-edit-btn");
 
-  // --- 管理者パネル要素 ---
+  // --- ユーザー管理要素 ---
+  const generateRoleInviteBtn = document.getElementById("generate-role-invite-btn");
+  const invitationTargetRole = document.getElementById("invitation-target-role");
+  const roleInviteDisplay = document.getElementById("role-invite-display");
+  const newRoleInviteCode = document.getElementById("new-role-invite-code");
+  const copyRoleInviteBtn = document.getElementById("copy-role-invite-btn");
+  const useInviteBtn = document.getElementById("use-invite-btn");
+  const useInvitationCodeInput = document.getElementById("use-invitation-code");
+  const usersListContainer = document.getElementById("users-list-container");
   const generateInviteCodeBtn = document.getElementById("generate-invite-code-btn");
   const inviteCodeDisplay = document.getElementById("invite-code-display");
   const newInviteCodeInput = document.getElementById("new-invite-code");
@@ -44,7 +55,10 @@ document.addEventListener("DOMContentLoaded", () => {
   let state = {
     user: null,
     admins: [],
+    users: [],
+    userRoles: [],
     isSuperAdmin: false,
+    isOwner: false,
     aiList: [],
     currentEditingAi: null
   };
@@ -171,8 +185,9 @@ document.addEventListener("DOMContentLoaded", () => {
     
     // ユーザー情報を表示
     if (state.user) {
-      // ユーザー名の表示
-      userDisplayNameEl.textContent = state.user.username;
+      // ユーザー名の表示（ハンドル形式を優先）
+      const displayName = state.user.handle || `@${state.user.username}`;
+      userDisplayNameEl.textContent = displayName;
       
       // アバターはローカルユーザーには表示しない
       userAvatarEl.style.display = 'none';
@@ -185,7 +200,6 @@ document.addEventListener("DOMContentLoaded", () => {
       
       // プロファイル情報を設定
       const profileUsernameInput = document.getElementById('profile-username');
-      const profileEmailInput = document.getElementById('profile-email');
       
       if (profileUsernameInput) {
         profileUsernameInput.value = state.user.username;
@@ -193,12 +207,26 @@ document.addEventListener("DOMContentLoaded", () => {
       if (profileEmailInput) {
         profileEmailInput.value = state.user.email || '';
       }
+      if (profileHandleInput) {
+        profileHandleInput.value = state.user.handle || `@${state.user.username}`;
+      }
+      if (profileRoleInput) {
+        profileRoleInput.value = state.user.roleDisplay || state.user.role || '閲覧者';
+      }
       
       // プロファイル概要を更新
       const profileNameDisplay = document.getElementById('profile-name-display');
       if (profileNameDisplay) {
-        profileNameDisplay.textContent = state.user.username;
+        profileNameDisplay.textContent = state.user.displayName || state.user.username;
       }
+      
+      const profileRoleDisplay = document.getElementById('profile-role-display');
+      if (profileRoleDisplay) {
+        profileRoleDisplay.textContent = state.user.roleDisplay || state.user.role || '閲覧者';
+      }
+
+      // ナビゲーション表示制御
+      updateNavigationVisibility();
     }
   }
 
@@ -399,7 +427,160 @@ document.addEventListener("DOMContentLoaded", () => {
     return div.innerHTML;
   }
 
-  // ================ 管理者関連関数 ================
+  // ================ ユーザー管理関数 ================
+  function updateNavigationVisibility() {
+    if (!state.user) return;
+    
+    // Legacy admin check
+    const isAdmin = state.user.isAdmin || state.user.role === 'admin' || state.user.role === 'owner';
+    const isOwner = state.user.isSuperAdmin || state.user.role === 'owner';
+    
+    // Admin panel (legacy compatibility)
+    if (adminNavItem) {
+      adminNavItem.style.display = isAdmin ? "block" : "none";
+    }
+    
+    // User management panel (admin or owner only)
+    if (userMgmtNavItem) {
+      userMgmtNavItem.style.display = isAdmin ? "block" : "none";
+    }
+    
+    // Update role-based UI elements
+    updateRoleBasedUI();
+  }
+
+  function updateRoleBasedUI() {
+    const isOwner = state.user?.role === 'owner' || state.user?.isSuperAdmin;
+    const isAdmin = isOwner || state.user?.role === 'admin' || state.user?.isAdmin;
+    
+    // Show/hide invitation target roles based on user's role
+    if (invitationTargetRole) {
+      const options = invitationTargetRole.querySelectorAll('option');
+      options.forEach(option => {
+        if (option.value === 'owner' || option.value === 'admin') {
+          option.style.display = isOwner ? 'block' : 'none';
+        }
+      });
+    }
+  }
+
+  async function fetchUsers() {
+    try {
+      const response = await fetch('/api/roles/users', {
+        credentials: 'include'
+      });
+      
+      if (response.ok) {
+        const result = await response.json();
+        state.users = result.users || [];
+        renderUsersList();
+      } else {
+        console.log('Cannot fetch users - insufficient permissions');
+        state.users = [];
+      }
+    } catch (error) {
+      console.error('Error fetching users:', error);
+    }
+  }
+
+  function renderUsersList() {
+    if (!usersListContainer) return;
+    
+    usersListContainer.innerHTML = '';
+    
+    if (state.users.length === 0) {
+      usersListContainer.innerHTML = `
+        <div class="empty-state">
+          <p>ユーザーが見つかりません。</p>
+        </div>
+      `;
+      return;
+    }
+
+    state.users.forEach(user => {
+      const userCard = document.createElement('div');
+      userCard.className = 'user-card';
+      
+      const isCurrentUser = user.email === state.user?.email;
+      const canChangeRole = state.user?.role === 'owner' && !isCurrentUser;
+      
+      userCard.innerHTML = `
+        <div class="user-info">
+          <div class="user-details">
+            <h4>${escapeHtml(user.handle || '@' + user.username)}</h4>
+            <p class="user-display-name">${escapeHtml(user.displayName || user.username)}</p>
+            <p class="user-email">${escapeHtml(user.email)}</p>
+          </div>
+          <div class="user-role">
+            <span class="role-badge role-${user.role}">${escapeHtml(user.roleDisplay)}</span>
+            ${isCurrentUser ? '<span class="current-user-badge">（あなた）</span>' : ''}
+          </div>
+        </div>
+        ${canChangeRole ? `
+          <div class="user-actions">
+            <select class="role-selector" data-user-email="${escapeHtml(user.email)}">
+              <option value="viewer" ${user.role === 'viewer' ? 'selected' : ''}>閲覧者</option>
+              <option value="editor" ${user.role === 'editor' ? 'selected' : ''}>編集者</option>
+              <option value="admin" ${user.role === 'admin' ? 'selected' : ''}>管理者</option>
+              <option value="owner" ${user.role === 'owner' ? 'selected' : ''}>オーナー</option>
+            </select>
+            <button class="change-role-btn" data-user-email="${escapeHtml(user.email)}">変更</button>
+          </div>
+        ` : ''}
+      `;
+      
+      usersListContainer.appendChild(userCard);
+    });
+    
+    // Add event listeners for role changes
+    const changeRoleBtns = usersListContainer.querySelectorAll('.change-role-btn');
+    changeRoleBtns.forEach(btn => {
+      btn.addEventListener('click', handleRoleChange);
+    });
+  }
+
+  async function handleRoleChange(event) {
+    const userEmail = event.target.dataset.userEmail;
+    const selector = usersListContainer.querySelector(`select[data-user-email="${userEmail}"]`);
+    const newRole = selector.value;
+    
+    if (!confirm(`このユーザーのロールを「${getRoleDisplayName(newRole)}」に変更しますか？`)) {
+      return;
+    }
+    
+    try {
+      const response = await fetch(`/api/roles/users/${encodeURIComponent(userEmail)}/role`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        credentials: 'include',
+        body: JSON.stringify({ role: newRole })
+      });
+      
+      const result = await response.json();
+      
+      if (result.success) {
+        showSuccessToast(result.message);
+        await fetchUsers(); // Refresh the list
+      } else {
+        showErrorToast(result.message);
+      }
+    } catch (error) {
+      console.error('Role change error:', error);
+      showErrorToast('ロールの変更に失敗しました');
+    }
+  }
+
+  function getRoleDisplayName(role) {
+    const roleNames = {
+      'viewer': '閲覧者',
+      'editor': '編集者', 
+      'admin': '管理者',
+      'owner': 'オーナー'
+    };
+    return roleNames[role] || role;
+  }
   function renderAdminList() {
     adminsListContainer.innerHTML = "";
     (state.admins || []).forEach((admin, index) => {
@@ -488,6 +669,11 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // AI一覧を取得
     await fetchAiList();
+    
+    // ユーザー一覧を取得（管理者以上の場合）
+    if (state.user?.isAdmin || state.user?.role === 'admin' || state.user?.role === 'owner') {
+      await fetchUsers();
+    }
     
     // 設定が正常に読み込まれた場合のみトースト通知を表示
     if (settingsLoaded) {
@@ -800,6 +986,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const username = document.getElementById("register-username").value.trim();
       const password = document.getElementById("register-password").value;
       const email = document.getElementById("register-email").value.trim();
+      const invitationCode = document.getElementById("register-invitation-code").value.trim();
       
       if (!username || !password || !email) {
         showErrorToast("すべての項目を入力してください。");
@@ -817,7 +1004,12 @@ document.addEventListener("DOMContentLoaded", () => {
             'Content-Type': 'application/json'
           },
           credentials: 'include',
-          body: JSON.stringify({ username, password, email })
+          body: JSON.stringify({ 
+            username, 
+            password, 
+            email,
+            invitationCode: invitationCode || undefined
+          })
         });
         
         const result = await response.json();
@@ -925,6 +1117,92 @@ document.addEventListener("DOMContentLoaded", () => {
         showErrorToast('認証メール再送信に失敗しました。');
       } finally {
         resendVerificationBtn.disabled = false;
+      }
+    });
+  }
+
+  // --- ユーザー管理関連 ---
+  if (generateRoleInviteBtn) {
+    generateRoleInviteBtn.addEventListener("click", async () => {
+      if (!state.user) return;
+
+      const targetRole = invitationTargetRole.value;
+      generateRoleInviteBtn.disabled = true;
+
+      try {
+        const response = await fetch("/api/roles/invitation-codes", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          credentials: 'include',
+          body: JSON.stringify({ targetRole: targetRole })
+        });
+
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.message);
+
+        newRoleInviteCode.value = result.code;
+        document.getElementById("invite-code-details").textContent = 
+          `${result.targetRoleDisplay}用の招待コードです。7日間有効です。`;
+        roleInviteDisplay.style.display = "flex";
+        
+        showSuccessToast(result.message);
+      } catch (err) {
+        showErrorToast(`招待コード生成エラー: ${err.message}`);
+      } finally {
+        generateRoleInviteBtn.disabled = false;
+      }
+    });
+  }
+
+  if (copyRoleInviteBtn) {
+    copyRoleInviteBtn.addEventListener("click", () => {
+      newRoleInviteCode.select();
+      document.execCommand("copy");
+      showSuccessToast("招待コードをコピーしました！");
+    });
+  }
+
+  if (useInviteBtn) {
+    useInviteBtn.addEventListener("click", async () => {
+      const code = useInvitationCodeInput.value.trim();
+      
+      if (!code) {
+        showErrorToast("招待コードを入力してください。");
+        return;
+      }
+
+      useInviteBtn.disabled = true;
+      showInfoToast("招待コードを確認中...");
+
+      try {
+        const response = await fetch("/api/roles/use-invitation-code", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          credentials: 'include',
+          body: JSON.stringify({ code: code })
+        });
+
+        const result = await response.json();
+        
+        if (result.success) {
+          showSuccessToast(result.message);
+          useInvitationCodeInput.value = '';
+          // Refresh user data
+          setTimeout(() => {
+            checkAuthStatus();
+          }, 1000);
+        } else {
+          showErrorToast(result.message);
+        }
+      } catch (error) {
+        console.error('招待コード使用エラー:', error);
+        showErrorToast('招待コードの使用に失敗しました。');
+      } finally {
+        useInviteBtn.disabled = false;
       }
     });
   }

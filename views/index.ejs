@@ -53,8 +53,8 @@
               <h3>ログイン</h3>
               <form id="login-form-element">
                 <div class="form-group">
-                  <label for="login-username">ユーザー名またはメールアドレス</label>
-                  <input type="text" id="login-username" required placeholder="ユーザー名またはメールアドレス" />
+                  <label for="login-username">ハンドル名、ユーザー名、またはメールアドレス</label>
+                  <input type="text" id="login-username" required placeholder="@username、username、または email@domain.com" />
                 </div>
                 <div class="form-group">
                   <label for="login-password">パスワード</label>
@@ -77,9 +77,9 @@
               <h3>新規登録</h3>
               <form id="register-form-element">
                 <div class="form-group">
-                  <label for="register-username">ユーザー名</label>
-                  <input type="text" id="register-username" required placeholder="ユーザー名（3文字以上）" />
-                  <small>英数字、アンダースコア、ハイフンのみ使用可能</small>
+                  <label for="register-username">ハンドル名（ユーザー名）</label>
+                  <input type="text" id="register-username" required placeholder="username（@は自動で追加されます）" />
+                  <small>英数字、アンダースコア、ハイフンのみ使用可能。@usernameの形式で保存されます</small>
                 </div>
                 <div class="form-group">
                   <label for="register-email">メールアドレス</label>
@@ -89,6 +89,11 @@
                 <div class="form-group">
                   <label for="register-password">パスワード</label>
                   <input type="password" id="register-password" required placeholder="パスワード（6文字以上）" />
+                </div>
+                <div class="form-group">
+                  <label for="register-invitation-code">招待コード（任意）</label>
+                  <input type="text" id="register-invitation-code" placeholder="編集者以上の権限がある場合に入力" />
+                  <small>招待コードがない場合は閲覧者として登録されます</small>
                 </div>
                 <div class="button-group">
                   <button type="submit" class="save-btn">
@@ -195,6 +200,12 @@
                 <a href="#" class="nav-link" data-target="panel-admins">
                   <i class="fas fa-users-cog" style="margin-right: 12px;"></i>
                   管理者設定
+                </a>
+              </li>
+              <li id="nav-item-user-management" style="display: none;">
+                <a href="#" class="nav-link" data-target="panel-user-management">
+                  <i class="fas fa-users" style="margin-right: 12px;"></i>
+                  ユーザー管理
                 </a>
               </li>
             </ul>
@@ -346,6 +357,28 @@
                   アカウント設定
                 </h3>
                 <div class="form-group">
+                  <label for="profile-handle">ハンドル名</label>
+                  <input
+                    type="text"
+                    id="profile-handle"
+                    readonly
+                    style="background: var(--accent-bg); opacity: 0.8;"
+                  />
+                  <small>@username形式のハンドル名です。</small>
+                </div>
+
+                <div class="form-group">
+                  <label for="profile-role">現在のロール</label>
+                  <input
+                    type="text"
+                    id="profile-role"
+                    readonly
+                    style="background: var(--accent-bg); opacity: 0.8;"
+                  />
+                  <small>システム内での権限レベルです。</small>
+                </div>
+
+                <div class="form-group">
                   <label for="profile-display-name">表示名</label>
                   <input
                     type="text"
@@ -384,6 +417,85 @@
                   <i class="fas fa-save" style="margin-right: 8px;"></i>
                   プロファイルを保存
                 </button>
+              </div>
+            </div>
+
+            <!-- ユーザー管理パネル -->
+            <div id="panel-user-management" class="dashboard-panel">
+              <div class="admin-header">
+                <h2>ユーザー管理</h2>
+                <p class="admin-description">システム内のユーザーとその権限を管理します。</p>
+              </div>
+
+              <!-- 招待コード生成セクション -->
+              <div class="invite-section">
+                <div class="invite-card">
+                  <h3>
+                    <i class="fas fa-user-plus" style="margin-right: 8px;"></i>
+                    新しいユーザーを招待
+                  </h3>
+                  <p>ロール別の招待コードを生成して、新しいユーザーをシステムに追加できます。</p>
+                  
+                  <div class="form-group">
+                    <label for="invitation-target-role">招待するロール</label>
+                    <select id="invitation-target-role">
+                      <option value="editor">編集者 - コンテンツの編集が可能</option>
+                      <option value="admin">管理者 - ユーザー管理とコンテンツ管理</option>
+                      <option value="owner">オーナー - 全ての権限</option>
+                    </select>
+                  </div>
+
+                  <button type="button" id="generate-role-invite-btn" class="save-btn">
+                    <i class="fas fa-ticket-alt" style="margin-right: 8px;"></i>
+                    招待コードを生成
+                  </button>
+                  
+                  <div id="role-invite-display" class="invite-code-result" style="display:none;">
+                    <div class="invite-code-box">
+                      <label>生成された招待コード:</label>
+                      <div class="code-input-group">
+                        <input type="text" id="new-role-invite-code" readonly />
+                        <button type="button" id="copy-role-invite-btn" class="secondary-btn">
+                          <i class="fas fa-copy"></i>
+                          コピー
+                        </button>
+                      </div>
+                      <small id="invite-code-details">このコードを新しいユーザーに伝えてください。</small>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- 招待コード使用セクション -->
+              <div class="invite-section">
+                <div class="invite-card">
+                  <h3>
+                    <i class="fas fa-key" style="margin-right: 8px;"></i>
+                    招待コードを使用
+                  </h3>
+                  <p>招待コードを使用して、あなたのロールをアップグレードします。</p>
+                  
+                  <div class="form-group">
+                    <label for="use-invitation-code">招待コード</label>
+                    <input type="text" id="use-invitation-code" placeholder="招待コードを入力" />
+                  </div>
+
+                  <button type="button" id="use-invite-btn" class="save-btn">
+                    <i class="fas fa-arrow-up" style="margin-right: 8px;"></i>
+                    招待コードを使用
+                  </button>
+                </div>
+              </div>
+
+              <!-- ユーザー一覧 -->
+              <div class="user-management">
+                <h3>
+                  <i class="fas fa-users" style="margin-right: 8px;"></i>
+                  ユーザー一覧
+                </h3>
+                <div id="users-list-container" class="users-list">
+                  <!-- ユーザーリストがここに動的に追加されます -->
+                </div>
               </div>
             </div>
 

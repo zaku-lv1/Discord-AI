@@ -50,7 +50,7 @@ router.post('/login', (req, res, next) => {
 
 router.post('/register', async (req, res) => {
   try {
-    const { username, password, email } = req.body;
+    const { username, password, email, invitationCode } = req.body;
     
     // Validation
     if (!username || !password || !email) {
@@ -74,15 +74,16 @@ router.post('/register', async (req, res) => {
       });
     }
     
-    // Username validation (alphanumeric and some special characters)
-    if (!/^[a-zA-Z0-9_-]+$/.test(username)) {
+    // Username validation (alphanumeric and some special characters, no @ at start)
+    const cleanUsername = username.startsWith('@') ? username.substring(1) : username;
+    if (!/^[a-zA-Z0-9_-]+$/.test(cleanUsername)) {
       return res.status(400).json({ 
         success: false, 
         message: 'ユーザー名は英数字、アンダースコア、ハイフンのみ使用可能です' 
       });
     }
     
-    const user = await authService.createLocalUser(username, password, email);
+    const user = await authService.createLocalUser(cleanUsername, password, email, false, invitationCode);
     
     console.log('[SUCCESS] ユーザー登録成功:', user.username);
     res.json({ 
@@ -91,8 +92,11 @@ router.post('/register', async (req, res) => {
       user: {
         id: user.id,
         username: user.username,
+        handle: user.handle,
         email: user.email,
         type: user.type,
+        role: user.role,
+        displayName: user.displayName,
         verified: user.verified
       },
       requiresVerification: !user.verified
@@ -244,8 +248,12 @@ router.get('/user', (req, res) => {
       user: {
         id: user.id,
         username: user.username,
+        handle: user.handle || `@${user.username}`,
         email: user.email,
         type: user.type,
+        role: user.role,
+        roleDisplay: user.roleDisplay,
+        displayName: user.displayName || user.username,
         verified: user.verified
       },
       authenticated: true,

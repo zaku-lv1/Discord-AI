@@ -1,4 +1,5 @@
 const firebaseService = require("../services/firebase");
+const roleService = require("../services/roles");
 
 const verifyAuthentication = async (req, res, next) => {
   // Email認証をチェック
@@ -12,36 +13,14 @@ const verifyAuthentication = async (req, res, next) => {
   }
 
   try {
-    const db = firebaseService.getDB();
-    // 管理者権限をチェック
-    const settingsDoc = await db
-      .collection("bot_settings")
-      .doc("toka_profile")
-      .get();
+    // Get user's current role
+    const userRole = await roleService.getUserRole(req.user.email);
+    req.user.role = userRole;
+    req.user.roleDisplay = roleService.displayNames[userRole];
     
-    if (!settingsDoc.exists) {
-      // 設定がない場合、最初のユーザーを管理者とする
-      req.user.isAdmin = true;
-      req.user.isSuperAdmin = true;
-      return next();
-    }
-
-    const admins = Array.isArray(settingsDoc.data().admins)
-      ? settingsDoc.data().admins
-      : [];
-    
-    // メールアドレスで管理者チェック
-    const isAdmin = admins.some(admin => 
-      admin.email === req.user.email
-    );
-
-    if (admins.length > 0 && !isAdmin) {
-      return res.status(403).json({ message: 'アクセス権限がありません' });
-    }
-
-    req.user.isAdmin = true;
-    req.user.isSuperAdmin = admins.length === 0 || 
-      (admins[0].email === req.user.email);
+    // Set legacy flags for backward compatibility
+    req.user.isAdmin = roleService.hasRole(userRole, roleService.roles.ADMIN);
+    req.user.isSuperAdmin = roleService.hasRole(userRole, roleService.roles.OWNER);
     
     next();
   } catch (error) {
@@ -49,6 +28,36 @@ const verifyAuthentication = async (req, res, next) => {
     res.status(500).json({ message: 'サーバーエラー' });
   }
 };
+
+// Role-based access control middleware
+const requireRole = (requiredRole) => {
+  return async (req, res, next) => {
+    try {
+      if (!req.user || !req.user.role) {
+        return res.status(401).json({ message: '認証が必要です' });
+      }
+
+      if (!roleService.hasRole(req.user.role, requiredRole)) {
+        return res.status(403).json({ 
+          message: 'この操作を行う権限がありません',
+          required: roleService.displayNames[requiredRole],
+          current: roleService.displayNames[req.user.role]
+        });
+      }
+
+      next();
+    } catch (error) {
+      console.error('Role check error:', error);
+      res.status(500).json({ message: 'サーバーエラー' });
+    }
+  };
+};
+
+// Convenience middleware for specific roles
+const requireOwner = requireRole(roleService.roles.OWNER);
+const requireAdmin = requireRole(roleService.roles.ADMIN);
+const requireEditor = requireRole(roleService.roles.EDITOR);
+const requireViewer = requireRole(roleService.roles.VIEWER);
 
 // Error handling middleware
 const errorHandler = (err, req, res, next) => {
@@ -65,5 +74,10 @@ const errorHandler = (err, req, res, next) => {
 
 module.exports = {
   verifyAuthentication,
+  requireRole,
+  requireOwner,
+  requireAdmin, 
+  requireEditor,
+  requireViewer,
   errorHandler
 };

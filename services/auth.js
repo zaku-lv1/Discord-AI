@@ -3,6 +3,7 @@ const LocalStrategy = require("passport-local").Strategy;
 const bcrypt = require("bcrypt");
 const firebaseService = require("./firebase");
 const emailService = require("./email");
+const roleService = require("./roles");
 
 class AuthService {
   constructor() {
@@ -18,7 +19,7 @@ class AuthService {
     return await bcrypt.compare(password, hashedPassword);
   }
 
-  async createLocalUser(username, password, email, skipEmailVerification = false) {
+  async createLocalUser(username, password, email, skipEmailVerification = false, invitationCode = null) {
     const db = firebaseService.getDB();
     
     if (!email) {
@@ -30,9 +31,19 @@ class AuthService {
     if (!emailRegex.test(email)) {
       throw new Error('有効なメールアドレスを入力してください');
     }
+
+    // Format handle (@username)
+    const handle = roleService.formatHandle(username);
+    const plainUsername = roleService.extractUsername(handle);
     
-    // Check if username already exists
-    const existingUser = await db.collection('users').where('username', '==', username).get();
+    // Check if handle already exists
+    const existingHandleUser = await db.collection('users').where('handle', '==', handle).get();
+    if (!existingHandleUser.empty) {
+      throw new Error('このハンドルは既に使用されています');
+    }
+
+    // Check if username already exists (legacy compatibility)
+    const existingUser = await db.collection('users').where('username', '==', plainUsername).get();
     if (!existingUser.empty) {
       throw new Error('ユーザー名が既に使用されています');
     }
@@ -46,6 +57,25 @@ class AuthService {
     const hashedPassword = await this.hashPassword(password);
     const userId = Date.now().toString(); // Simple ID generation
     
+    // Determine role based on invitation code or default
+    let role = roleService.roles.VIEWER; // Default role
+    if (invitationCode) {
+      try {
+        const inviteDoc = await db.collection("invitation_codes").doc(invitationCode).get();
+        if (inviteDoc.exists && !inviteDoc.data().used) {
+          role = inviteDoc.data().targetRole || roleService.roles.VIEWER;
+        }
+      } catch (error) {
+        console.log('Invalid invitation code, using default role');
+      }
+    }
+
+    // Check if this is the first user (should be owner)
+    const usersCount = await db.collection('users').get();
+    if (usersCount.empty) {
+      role = roleService.roles.OWNER;
+    }
+    
     // テスト環境またはメールサービスが無効な場合は認証をスキップ
     const shouldSkipVerification = skipEmailVerification || 
       !emailService.isInitialized() || 
@@ -54,10 +84,13 @@ class AuthService {
     
     const userDoc = {
       id: userId,
-      username: username,
+      username: plainUsername,
+      handle: handle,
       email: email,
       password: hashedPassword,
       type: 'email',
+      role: role,
+      displayName: plainUsername, // Default display name is username
       verified: shouldSkipVerification, // メール認証をスキップする場合はtrue
       verificationToken: shouldSkipVerification ? null : emailService.generateVerificationToken(),
       verificationTokenExpires: shouldSkipVerification ? null : new Date(Date.now() + 24 * 60 * 60 * 1000), // 24時間
@@ -66,11 +99,24 @@ class AuthService {
     };
 
     await db.collection('users').doc(userId).set(userDoc);
+
+    // Mark invitation code as used if provided
+    if (invitationCode && role !== roleService.roles.VIEWER) {
+      try {
+        await db.collection("invitation_codes").doc(invitationCode).update({
+          used: true,
+          usedBy: email,
+          usedAt: firebaseService.getServerTimestamp()
+        });
+      } catch (error) {
+        console.log('Could not mark invitation code as used:', error);
+      }
+    }
     
     // メール認証が有効でメール送信可能な場合、認証メールを送信
     if (!shouldSkipVerification && emailService.isInitialized()) {
       try {
-        await emailService.sendVerificationEmail(email, username, userDoc.verificationToken);
+        await emailService.sendVerificationEmail(email, plainUsername, userDoc.verificationToken);
         console.log(`[情報] 認証メールを送信しました: ${email}`);
       } catch (error) {
         console.error('[エラー] 認証メール送信に失敗:', error);
@@ -83,24 +129,39 @@ class AuthService {
     return userWithoutPassword;
   }
 
-  async findLocalUser(username) {
+  async findLocalUser(usernameOrEmailOrHandle) {
     const db = firebaseService.getDB();
     
-    // ユーザー名またはメールアドレスで検索
-    let userQuery;
-    if (username.includes('@')) {
-      // メールアドレスの場合
-      userQuery = await db.collection('users').where('email', '==', username).get();
+    // ハンドル形式で検索（@username）
+    if (usernameOrEmailOrHandle.startsWith('@')) {
+      const userQuery = await db.collection('users').where('handle', '==', usernameOrEmailOrHandle).get();
+      if (!userQuery.empty) {
+        return userQuery.docs[0].data();
+      }
+    }
+    
+    // メールアドレスで検索
+    if (usernameOrEmailOrHandle.includes('@') && usernameOrEmailOrHandle.includes('.')) {
+      const userQuery = await db.collection('users').where('email', '==', usernameOrEmailOrHandle).get();
+      if (!userQuery.empty) {
+        return userQuery.docs[0].data();
+      }
     } else {
-      // ユーザー名の場合
-      userQuery = await db.collection('users').where('username', '==', username).get();
+      // ユーザー名で検索（@なしのハンドルまたは従来のユーザー名）
+      let userQuery = await db.collection('users').where('username', '==', usernameOrEmailOrHandle).get();
+      if (!userQuery.empty) {
+        return userQuery.docs[0].data();
+      }
+      
+      // ハンドル形式でも検索してみる
+      const handle = roleService.formatHandle(usernameOrEmailOrHandle);
+      userQuery = await db.collection('users').where('handle', '==', handle).get();
+      if (!userQuery.empty) {
+        return userQuery.docs[0].data();
+      }
     }
     
-    if (userQuery.empty) {
-      return null;
-    }
-    
-    return userQuery.docs[0].data();
+    return null;
   }
 
   async updateLocalUserLastLogin(userId) {
