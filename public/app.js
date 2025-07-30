@@ -272,11 +272,12 @@ document.addEventListener("DOMContentLoaded", () => {
     aiListContainer.innerHTML = "";
 
     if (state.aiList.length === 0) {
+      const canCreateAI = canUserEditAI();
       aiListContainer.innerHTML = `
         <div class="empty-state">
           <h3>AIがまだ作成されていません</h3>
-          <p>「AI作成」タブから新しいAIを作成してください。</p>
-          <button onclick="switchToPanel('panel-create-ai')" class="save-btn">AIを作成する</button>
+          ${canCreateAI ? '<p>「AI作成」タブから新しいAIを作成してください。</p>' : '<p>AIの作成は編集者以上の権限が必要です。</p>'}
+          ${canCreateAI ? '<button onclick="switchToPanel(\'panel-create-ai\')" class="save-btn">AIを作成する</button>' : ''}
         </div>
       `;
       return;
@@ -284,6 +285,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const aiGrid = document.createElement("div");
     aiGrid.className = "ai-grid";
+    const canEdit = canUserEditAI();
 
     state.aiList.forEach(ai => {
       const aiCard = document.createElement("div");
@@ -299,10 +301,10 @@ document.addEventListener("DOMContentLoaded", () => {
           <p><strong>名前認識:</strong> ${ai.enableNameRecognition ? '有効' : '無効'}</p>
           <p><strong>Bot反応:</strong> ${ai.enableBotMessageResponse ? '有効' : '無効'}</p>
         </div>
-        <div class="ai-card-actions">
+        ${canEdit ? `<div class="ai-card-actions">
           <button class="secondary-btn" onclick="editAi('${escapeHtml(ai.id)}')">編集</button>
           <button class="delete-btn" onclick="deleteAi('${escapeHtml(ai.id)}', '${escapeHtml(ai.name)}')">削除</button>
-        </div>
+        </div>` : ''}
       `;
       aiGrid.appendChild(aiCard);
     });
@@ -420,7 +422,6 @@ document.addEventListener("DOMContentLoaded", () => {
     document.getElementById("edit-ai-id").value = ai.id;
     document.getElementById("edit-ai-name").value = ai.name;
     document.getElementById("edit-ai-model-mode").value = ai.modelMode || 'hybrid';
-    document.getElementById("edit-ai-base-user-id").value = ai.baseUserId || '';
     document.getElementById("edit-ai-name-recognition").checked = ai.enableNameRecognition ?? true;
     document.getElementById("edit-ai-bot-response").checked = ai.enableBotMessageResponse ?? false;
     document.getElementById("edit-ai-reply-delay").value = ai.replyDelayMs || 0;
@@ -442,6 +443,25 @@ document.addEventListener("DOMContentLoaded", () => {
     return div.innerHTML;
   }
 
+  // ================ 権限チェック関数 ================
+  function canUserEditAI() {
+    if (!state.user) return false;
+    
+    // Check if user has editor role or higher
+    const userRole = state.user.role;
+    const roleHierarchy = {
+      'viewer': 1,
+      'editor': 2,
+      'admin': 3,
+      'owner': 4
+    };
+    
+    const userLevel = roleHierarchy[userRole] || 0;
+    const requiredLevel = roleHierarchy['editor'] || 2;
+    
+    return userLevel >= requiredLevel;
+  }
+
   // ================ ユーザー管理関数 ================
   function updateNavigationVisibility() {
     if (!state.user) return;
@@ -449,6 +469,13 @@ document.addEventListener("DOMContentLoaded", () => {
     // Legacy admin check
     const isAdmin = state.user.isAdmin || state.user.role === 'admin' || state.user.role === 'owner';
     const isOwner = state.user.isSuperAdmin || state.user.role === 'owner';
+    const canEdit = canUserEditAI();
+    
+    // Control AI creation panel access
+    const createAiNavItem = document.querySelector('a[data-target="panel-create-ai"]')?.parentElement;
+    if (createAiNavItem) {
+      createAiNavItem.style.display = canEdit ? "block" : "none";
+    }
     
     // Admin panel (legacy compatibility)
     if (adminNavItem) {
@@ -797,7 +824,6 @@ document.addEventListener("DOMContentLoaded", () => {
       id: document.getElementById("ai-id").value.trim(),
       name: document.getElementById("ai-name").value.trim(),
       modelMode: document.getElementById("ai-model-mode").value,
-      baseUserId: document.getElementById("ai-base-user-id").value.trim() || null,
       enableNameRecognition: document.getElementById("ai-name-recognition").checked,
       enableBotMessageResponse: document.getElementById("ai-bot-response").checked,
       replyDelayMs: parseInt(document.getElementById("ai-reply-delay").value) || 0,
@@ -828,7 +854,6 @@ document.addEventListener("DOMContentLoaded", () => {
     const aiData = {
       name: document.getElementById("edit-ai-name").value.trim(),
       modelMode: document.getElementById("edit-ai-model-mode").value,
-      baseUserId: document.getElementById("edit-ai-base-user-id").value.trim() || null,
       enableNameRecognition: document.getElementById("edit-ai-name-recognition").checked,
       enableBotMessageResponse: document.getElementById("edit-ai-bot-response").checked,
       replyDelayMs: parseInt(document.getElementById("edit-ai-reply-delay").value) || 0,

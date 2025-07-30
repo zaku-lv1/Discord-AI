@@ -17,7 +17,7 @@
     <!-- Font Awesome -->
     <script src="https://kit.fontawesome.com/4cb452c6bc.js" crossorigin="anonymous"></script>
 
-    <!-- Discord OAuth Config -->
+    <!-- Email Authentication System -->
     <script>
       // Email authentication system - no OAuth config needed
       const authConfig = { type: 'email' };
@@ -250,7 +250,7 @@
                     placeholder="例: アシスタント太郎"
                     required
                   />
-                  <small>Discordで表示される名前です。</small>
+                  <small>AIがシステムで表示される名前です。</small>
                 </div>
 
                 <div class="form-group">
@@ -260,16 +260,6 @@
                     <option value="flash_only">Flash (高速)</option>
                   </select>
                   <small>使用するAIモデルを選択します。</small>
-                </div>
-
-                <div class="form-group">
-                  <label for="ai-base-user-id">ベースユーザーID</label>
-                  <input
-                    type="text"
-                    id="ai-base-user-id"
-                    placeholder="AIの見た目と名前の元になるDiscordユーザーID"
-                  />
-                  <small>空白の場合はボットのデフォルト設定を使用します。</small>
                 </div>
 
                 <div class="form-group">
@@ -766,11 +756,6 @@
               <option value="hybrid">ハイブリッド (高品質)</option>
               <option value="flash_only">Flash (高速)</option>
             </select>
-          </div>
-
-          <div class="form-group">
-            <label for="edit-ai-base-user-id">ベースユーザーID</label>
-            <input type="text" id="edit-ai-base-user-id" />
           </div>
 
           <div class="form-group">

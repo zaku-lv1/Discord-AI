@@ -1,5 +1,5 @@
 const express = require("express");
-const { verifyAuthentication } = require("../middleware/auth");
+const { verifyAuthentication, requireEditor } = require("../middleware/auth");
 const firebaseService = require("../services/firebase");
 
 const router = express.Router();
@@ -24,14 +24,13 @@ router.get("/", verifyAuthentication, async (req, res) => {
 });
 
 // AI作成
-router.post("/", verifyAuthentication, async (req, res) => {
+router.post("/", verifyAuthentication, requireEditor, async (req, res) => {
   try {
     const {
       id,
       name,
       systemPrompt,
       modelMode,
-      baseUserId,
       enableNameRecognition,
       enableBotMessageResponse,
       replyDelayMs,
@@ -57,7 +56,6 @@ router.post("/", verifyAuthentication, async (req, res) => {
       name,
       systemPrompt: systemPrompt || "",
       modelMode: modelMode || "hybrid",
-      baseUserId: baseUserId || null,
       enableNameRecognition: enableNameRecognition ?? true,
       enableBotMessageResponse: enableBotMessageResponse ?? false,
       replyDelayMs: replyDelayMs ?? 0,
@@ -82,14 +80,13 @@ router.post("/", verifyAuthentication, async (req, res) => {
 });
 
 // AI更新
-router.put("/:id", verifyAuthentication, async (req, res) => {
+router.put("/:id", verifyAuthentication, requireEditor, async (req, res) => {
   try {
     const aiId = req.params.id;
     const {
       name,
       systemPrompt,
       modelMode,
-      baseUserId,
       enableNameRecognition,
       enableBotMessageResponse,
       replyDelayMs,
@@ -115,7 +112,6 @@ router.put("/:id", verifyAuthentication, async (req, res) => {
       name: name || existingProfiles[profileIndex].name,
       systemPrompt: systemPrompt !== undefined ? systemPrompt : existingProfiles[profileIndex].systemPrompt,
       modelMode: modelMode || existingProfiles[profileIndex].modelMode,
-      baseUserId: baseUserId !== undefined ? baseUserId : existingProfiles[profileIndex].baseUserId,
       enableNameRecognition: enableNameRecognition !== undefined ? enableNameRecognition : existingProfiles[profileIndex].enableNameRecognition,
       enableBotMessageResponse: enableBotMessageResponse !== undefined ? enableBotMessageResponse : existingProfiles[profileIndex].enableBotMessageResponse,
       replyDelayMs: replyDelayMs !== undefined ? replyDelayMs : existingProfiles[profileIndex].replyDelayMs,
@@ -137,7 +133,7 @@ router.put("/:id", verifyAuthentication, async (req, res) => {
 });
 
 // AI削除
-router.delete("/:id", verifyAuthentication, async (req, res) => {
+router.delete("/:id", verifyAuthentication, requireEditor, async (req, res) => {
   try {
     const aiId = req.params.id;
 
