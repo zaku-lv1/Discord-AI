@@ -106,6 +106,7 @@ module.exports = {
         .setName("ai_id")
         .setDescription("召喚するAIのID")
         .setRequired(false)
+        .setAutocomplete(true)
     ),
 
   async execute(interaction) {
@@ -284,6 +285,38 @@ module.exports = {
         content: "[ERROR] コマンドの実行中にエラーが発生しました。",
         ephemeral: true,
       });
+    }
+  },
+
+  async autocomplete(interaction) {
+    try {
+      const db = interaction.client.db;
+      const aiProfilesDoc = await db.collection("bot_settings").doc("ai_profiles").get();
+      
+      if (!aiProfilesDoc.exists || !aiProfilesDoc.data().profiles || aiProfilesDoc.data().profiles.length === 0) {
+        await interaction.respond([]);
+        return;
+      }
+
+      const aiProfiles = aiProfilesDoc.data().profiles;
+      const focusedValue = interaction.options.getFocused();
+      
+      // Filter AI profiles based on user input
+      const filtered = aiProfiles.filter(ai => 
+        ai.id.toLowerCase().includes(focusedValue.toLowerCase()) ||
+        ai.name.toLowerCase().includes(focusedValue.toLowerCase())
+      );
+      
+      // Limit to 25 choices (Discord's limit)
+      const choices = filtered.slice(0, 25).map(ai => ({
+        name: `${ai.name} (ID: ${ai.id})`,
+        value: ai.id
+      }));
+      
+      await interaction.respond(choices);
+    } catch (error) {
+      console.error("[AI_AUTOCOMPLETE_ERROR]", error);
+      await interaction.respond([]);
     }
   },
 };
