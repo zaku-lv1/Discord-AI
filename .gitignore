@@ -40,3 +40,4 @@ firebase-debug.log
 temp/
 index.js.backup
 cookies.txt
+.env
