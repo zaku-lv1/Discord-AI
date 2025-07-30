@@ -1361,7 +1361,7 @@ select:focus,
 
 .admin-entry {
   display: grid;
-  grid-template-columns: 1fr 1fr auto;
+  grid-template-columns: 2fr 2fr auto auto;
   gap: 1rem;
   align-items: center;
   padding: 1.5rem;
@@ -1370,6 +1370,7 @@ select:focus,
   border-radius: 12px;
   margin-bottom: 1rem;
   transition: all 0.3s ease;
+  position: relative;
 }
 
 .admin-entry:hover {
@@ -1398,9 +1399,72 @@ select:focus,
   font-size: 1.2rem;
   color: var(--warning-color);
   font-weight: bold;
-  grid-column: span 3;
-  text-align: center;
-  margin-top: 0.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  background: rgba(245, 158, 11, 0.1);
+  padding: 0.5rem 1rem;
+  border-radius: 8px;
+  border: 1px solid rgba(245, 158, 11, 0.2);
+}
+
+.admin-info-display {
+  background: var(--accent-bg);
+  padding: 1rem;
+  border-radius: 8px;
+  margin-bottom: 1.5rem;
+  border: 1px solid var(--border-color);
+}
+
+.admin-info-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.admin-info-item:last-child {
+  border-bottom: none;
+}
+
+.admin-info-label {
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.admin-info-value {
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.admin-role-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.25rem 0.75rem;
+  border-radius: 6px;
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.admin-role-badge.owner {
+  background: rgba(245, 158, 11, 0.1);
+  color: var(--warning-color);
+  border: 1px solid rgba(245, 158, 11, 0.2);
+}
+
+.admin-role-badge.admin {
+  background: rgba(79, 70, 229, 0.1);
+  color: var(--accent-color);
+  border: 1px solid rgba(79, 70, 229, 0.2);
+}
+
+.admin-role-badge.editor {
+  background: rgba(16, 185, 129, 0.1);
+  color: var(--success-color);
+  border: 1px solid rgba(16, 185, 129, 0.2);
 }
 
 .admin-actions {
@@ -1412,6 +1476,38 @@ select:focus,
 .admin-actions small {
   color: var(--text-secondary);
   font-style: italic;
+}
+
+.admin-help-text {
+  background: rgba(79, 70, 229, 0.05);
+  border: 1px solid rgba(79, 70, 229, 0.1);
+  border-radius: 8px;
+  padding: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.admin-help-text .fas {
+  color: var(--accent-color);
+  margin-right: 0.5rem;
+}
+
+.admin-field-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.admin-field-group label {
+  font-weight: 600;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+}
+
+.admin-actions-buttons {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  justify-content: center;
 }
 
 /* ========== ボタングループ ========== */

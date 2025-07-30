@@ -97,31 +97,36 @@ router.post("/update-profile", verifyAuthentication, async (req, res) => {
 
     if (adminIndex === -1) {
       // 新規ユーザーの場合は追加
-      updatedAdmins = [
-        ...admins,
-        {
-          email: userEmail,
-          discordId: userDiscordId,
-          name: displayName,
-          username: req.user.username,
-          discriminator: req.user.discriminator,
-          avatar: req.user.avatar,
-          updatedAt: new Date().toISOString(),
-        },
-      ];
+      const newAdmin = {
+        email: userEmail,
+        discordId: userDiscordId,
+        name: displayName,
+        updatedAt: new Date().toISOString(),
+      };
+      
+      // Optional fields - only add if they exist to avoid Firestore undefined errors
+      if (req.user.username) newAdmin.username = req.user.username;
+      if (req.user.discriminator) newAdmin.discriminator = req.user.discriminator;
+      if (req.user.avatar) newAdmin.avatar = req.user.avatar;
+      
+      updatedAdmins = [...admins, newAdmin];
     } else {
       // 既存ユーザーの場合は更新
       updatedAdmins = admins.map((admin, index) => {
         if (index === adminIndex) {
-          return {
+          const updatedAdmin = {
             ...admin,
             name: displayName,
             discordId: userDiscordId,
-            username: req.user.username,
-            discriminator: req.user.discriminator,
-            avatar: req.user.avatar,
             updatedAt: new Date().toISOString(),
           };
+          
+          // Optional fields - only add if they exist to avoid Firestore undefined errors
+          if (req.user.username) updatedAdmin.username = req.user.username;
+          if (req.user.discriminator) updatedAdmin.discriminator = req.user.discriminator;
+          if (req.user.avatar) updatedAdmin.avatar = req.user.avatar;
+          
+          return updatedAdmin;
         }
         return admin;
       });
@@ -141,16 +146,20 @@ router.post("/update-profile", verifyAuthentication, async (req, res) => {
     console.log("データベース更新完了");
 
     // 成功レスポンス
-    res.json({
+    const responseData = {
       message: "プロファイルを更新しました。",
       displayName,
       username: req.user.username,
-      discriminator: req.user.discriminator,
       avatar: req.user.avatar,
       discordId: userDiscordId,
       email: userEmail,
       timestamp: new Date().toISOString(),
-    });
+    };
+    
+    // Optional fields - only add if they exist
+    if (req.user.discriminator) responseData.discriminator = req.user.discriminator;
+    
+    res.json(responseData);
   } catch (error) {
     // エラーの詳細をログに記録
     console.error("プロファイル更新エラー:", {

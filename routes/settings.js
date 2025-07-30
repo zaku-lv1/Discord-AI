@@ -28,9 +28,9 @@ router.get("/toka", verifyAuthentication, async (req, res) => {
       currentUser: { 
         isSuperAdmin: req.user.isSuperAdmin,
         username: req.user.username,
-        discriminator: req.user.discriminator,
         avatar: req.user.avatar,
-        discordId: req.user.id
+        discordId: req.user.id,
+        ...(req.user.discriminator && { discriminator: req.user.discriminator })
       },
       replyDelayMs: data.replyDelayMs ?? 0,
       errorOopsMessage: data.errorOopsMessage || "",
@@ -109,11 +109,12 @@ router.post("/admins", verifyAuthentication, async (req, res) => {
     let finalAdmins = newAdminsList || [];
     if (!docSnap.exists || finalAdmins.length === 0) {
       // Clean admin object to avoid Firestore undefined values error
-      const cleanAdminObject = {};
-      if (req.user.username) cleanAdminObject.name = req.user.username;
-      else cleanAdminObject.name = "管理者";
+      const cleanAdminObject = {
+        name: req.user.username || "管理者",
+        email: req.user.email || "",
+      };
       
-      if (req.user.email) cleanAdminObject.email = req.user.email;
+      // Optional fields - only add if they exist to avoid Firestore undefined errors
       if (req.user.id) cleanAdminObject.discordId = req.user.id;
       if (req.user.username) cleanAdminObject.username = req.user.username;
       if (req.user.discriminator) cleanAdminObject.discriminator = req.user.discriminator;
@@ -125,12 +126,18 @@ router.post("/admins", verifyAuthentication, async (req, res) => {
     // Clean all admin objects to remove undefined values
     finalAdmins = finalAdmins.map(admin => {
       const cleanAdmin = {};
-      if (admin.name) cleanAdmin.name = admin.name;
-      if (admin.email) cleanAdmin.email = admin.email;
+      
+      // Required fields
+      cleanAdmin.name = admin.name || "管理者";
+      cleanAdmin.email = admin.email || "";
+      
+      // Optional fields - only add if they exist to avoid Firestore undefined errors
       if (admin.discordId) cleanAdmin.discordId = admin.discordId;
       if (admin.username) cleanAdmin.username = admin.username;
       if (admin.discriminator) cleanAdmin.discriminator = admin.discriminator;
       if (admin.avatar) cleanAdmin.avatar = admin.avatar;
+      if (admin.updatedAt) cleanAdmin.updatedAt = admin.updatedAt;
+      
       return cleanAdmin;
     });
 
