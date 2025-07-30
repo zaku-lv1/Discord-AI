@@ -30,7 +30,10 @@ module.exports = {
         baseUser = await interaction.client.users.fetch(kttUserId);
     } catch (error) {
         console.error(`KTTベースユーザーID (${kttUserId}) の取得に失敗:`, error);
-        await interaction.editReply({ content: 'KTTのベースとなるユーザー情報の取得に失敗しました。', ephemeral: true });
+        await interaction.editReply({ 
+          content: '❌ KTTキャラクターのベースユーザー情報の取得に失敗しました。ユーザーIDが正しいか確認してください。', 
+          ephemeral: true 
+        });
         return;
     }
 
@@ -42,7 +45,10 @@ module.exports = {
         webhooks = await channel.fetchWebhooks();
     } catch (error) {
         console.error(`Webhookの取得に失敗 (Channel: ${channel.id}):`, error);
-        await interaction.editReply({ content: 'Webhook情報の取得に失敗しました。ボットに「ウェブフックの管理」権限があるか確認してください。', ephemeral: true });
+        await interaction.editReply({ 
+          content: '⚠️ Webhook情報の取得に失敗しました。ボットに「ウェブフックの管理」権限があるか確認してください。', 
+          ephemeral: true 
+        });
         return;
     }
 
@@ -66,7 +72,10 @@ module.exports = {
         await interaction.editReply({ embeds: [embed] });
       } catch (error) {
         console.error("Webhook削除エラー:", error);
-        await interaction.editReply({ content: 'Webhookの退出処理中にエラーが発生しました。', ephemeral: true});
+        await interaction.editReply({ 
+          content: '⚠️ キャラクターの退出処理中にエラーが発生しました。ボットに「ウェブフックの管理」権限があるか確認してください。', 
+          ephemeral: true
+        });
       }
       return;
     }
@@ -93,7 +102,10 @@ module.exports = {
       // 作成途中で失敗した場合、作成済みのものを削除
       if (newKttWebhook) await newKttWebhook.delete().catch(console.error);
       if (newIharaWebhook) await newIharaWebhook.delete().catch(console.error);
-      await interaction.editReply({ content: 'Webhookの作成に失敗しました。ボットに「ウェブフックの管理」権限があるか確認してください。', ephemeral: true });
+      await interaction.editReply({ 
+        content: '⚠️ KTTと井原先生の召喚に失敗しました。ボットに「ウェブフックの管理」権限があるか確認してください。', 
+        ephemeral: true 
+      });
       return;
     }
 

@@ -121,7 +121,9 @@ module.exports = {
           baseUser = await interaction.client.users.fetch(targetUserId);
       } catch (error) {
           console.error(`ベースユーザーID (${targetUserId}) の取得に失敗 (Tamama):`, error);
-          await interaction.editReply({ content: 'Webhookアバター用のユーザー情報取得に失敗しました。' });
+          await interaction.editReply({ 
+            content: '❌ キャラクターのベースユーザー情報の取得に失敗しました。ユーザーIDが正しいか確認してください。' 
+          });
           return;
       }
       
@@ -139,7 +141,9 @@ module.exports = {
           webhooks = await channel.fetchWebhooks();
       } catch (error) {
           console.error("Webhookの取得に失敗 (Tamama):", error);
-          await interaction.editReply({ content: 'Webhook情報の取得に失敗しました。権限を確認してください。' });
+          await interaction.editReply({ 
+            content: '⚠️ Webhook情報の取得に失敗しました。ボットに「ウェブフックの管理」権限があるか確認してください。' 
+          });
           return;
       }
       
@@ -158,7 +162,10 @@ module.exports = {
           await interaction.editReply({ embeds: [embed] }); 
         } catch (error) {
           console.error("Webhook退出処理エラー (Tamama):", error);
-          await interaction.editReply({ content: 'Webhookの退出処理中にエラーが発生しました。' });
+          await interaction.editReply({ 
+            content: '⚠️ キャラクターの退出処理中にエラーが発生しました。ボットに「ウェブフックの管理」権限があるか確認してください。',
+            ephemeral: true 
+          });
         }
         return; 
       }
@@ -173,7 +180,10 @@ module.exports = {
           });
       } catch (error) {
           console.error("Webhook作成エラー (Tamama):", error);
-          await interaction.editReply({ content: `Webhook「${webhookCharacterName}」の作成に失敗しました。権限を確認してください。` });
+          const errorContent = error.message.includes('50013') || error.message.includes('権限') 
+            ? `⚠️ キャラクター「${webhookCharacterName}」の召喚に失敗しました。ボットに「ウェブフックの管理」権限を与えてください。`
+            : `❌ キャラクター「${webhookCharacterName}」の召喚に失敗しました: ${error.message}`;
+          await interaction.editReply({ content: errorContent });
           return;
       }
       
@@ -238,9 +248,19 @@ module.exports = {
       const embed = new EmbedBuilder().setColor(0x00FF00).setDescription(`${webhookCharacterName} を召喚しました。お前もしかしてロリコンか？かっけぇ！！！`);
       await interaction.editReply({ embeds: [embed] }); 
     } catch (err) {
-      // エラー時、まだ返信してなければ reply
+      // エラー時、より詳細なフィードバックを提供
+      console.error("コマンドエラー (character1):", err);
+      
+      const errorContent = err.message.includes('権限') || err.message.includes('50013')
+        ? '⚠️ ボットに必要な権限がありません。「ウェブフックの管理」権限を確認してください。'
+        : err.message.includes('API')
+        ? '🤖 AI機能が一時的に利用できません。後ほどお試しください。'
+        : `❌ キャラクター1の操作中にエラーが発生しました: ${err.message}`;
+      
       if (!interaction.deferred && !interaction.replied) {
-        await interaction.reply({ content: 'エラーが発生しました。', ephemeral: true });
+        await interaction.reply({ content: errorContent, ephemeral: true });
+      } else {
+        await interaction.editReply({ content: errorContent });
       }
       console.error("コマンドエラー (character1):", err);
     }

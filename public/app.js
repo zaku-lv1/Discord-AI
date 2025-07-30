@@ -114,6 +114,13 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   };
 
+  // ================ グローバルトースト関数 ================
+  window.showToast = showToast;
+  window.showSuccessToast = showSuccessToast;
+  window.showErrorToast = showErrorToast;
+  window.showWarningToast = showWarningToast;
+  window.showInfoToast = showInfoToast;
+
   // ================ 認証状態チェック ================
   async function checkAuthStatus() {
     try {
@@ -144,17 +151,13 @@ document.addEventListener("DOMContentLoaded", () => {
     // URLパラメータをチェックして認証エラーを表示
     const urlParams = new URLSearchParams(window.location.search);
     if (urlParams.get('error') === 'verification_failed') {
-      statusMessage.textContent = 'メール認証に失敗しました: ' + (urlParams.get('message') || '不明なエラー');
-      statusMessage.style.color = '#e74c3c';
+      showErrorToast('メール認証に失敗しました: ' + (urlParams.get('message') || '不明なエラー'));
     } else if (urlParams.get('error') === 'invalid_token') {
-      statusMessage.textContent = '無効なトークンです: ' + (urlParams.get('message') || '不明なエラー');
-      statusMessage.style.color = '#e74c3c';
+      showErrorToast('無効なトークンです: ' + (urlParams.get('message') || '不明なエラー'));
     } else if (urlParams.get('error') === 'login_failed') {
-      statusMessage.textContent = 'ログインに失敗しました: ' + (urlParams.get('message') || '不明なエラー');
-      statusMessage.style.color = '#e74c3c';
+      showErrorToast('ログインに失敗しました: ' + (urlParams.get('message') || '不明なエラー'));
     } else if (urlParams.get('auth') === 'verified') {
-      statusMessage.textContent = 'メールアドレスの認証が完了しました。';
-      statusMessage.style.color = '#27ae60';
+      showSuccessToast('メールアドレスの認証が完了しました。');
       // 成功時は少し待ってから再チェック
       setTimeout(checkAuthStatus, 1000);
     }
@@ -218,7 +221,7 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     } catch (error) {
       console.error("AI一覧の取得エラー:", error);
-      statusMessage.textContent = `エラー: AI一覧の取得に失敗しました - ${error.message}`;
+      showErrorToast(`AI一覧の取得に失敗しました: ${error.message}`);
     }
   }
 
@@ -535,12 +538,12 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // ID検証
     if (!/^[a-zA-Z0-9_-]+$/.test(aiData.id)) {
-      statusMessage.textContent = "AI IDは英数字、ハイフン、アンダースコアのみ使用可能です。";
+      showErrorToast("AI IDは英数字、ハイフン、アンダースコアのみ使用可能です。");
       return;
     }
 
     createAiForm.querySelector('button[type="submit"]').disabled = true;
-    statusMessage.textContent = "AIを作成中...";
+    showInfoToast("AIを作成中...");
 
     await createAi(aiData);
     
@@ -565,7 +568,7 @@ document.addEventListener("DOMContentLoaded", () => {
     };
 
     editAiForm.querySelector('button[type="submit"]').disabled = true;
-    statusMessage.textContent = "AIを更新中...";
+    showInfoToast("AIを更新中...");
 
     await updateAi(aiId, aiData);
     
@@ -593,7 +596,7 @@ document.addEventListener("DOMContentLoaded", () => {
       if (!state.user || saveProfileBtn.disabled) return;
 
       saveProfileBtn.disabled = true;
-      statusMessage.textContent = "プロファイルを更新中...";
+      showInfoToast("プロファイルを更新中...");
 
       try {
         const newDisplayName = profileDisplayNameInput.value.trim();
@@ -614,7 +617,7 @@ document.addEventListener("DOMContentLoaded", () => {
         }
 
         const result = await res.json();
-        statusMessage.textContent = result.message;
+        showSuccessToast(result.message);
 
         // メールアドレスが変更された場合の処理
         if (newEmail && newEmail !== state.user.email) {
@@ -632,20 +635,20 @@ document.addEventListener("DOMContentLoaded", () => {
             });
 
             if (emailRes.ok) {
-              statusMessage.textContent = "プロファイルとメールアドレスを更新しました。";
+              showSuccessToast("プロファイルとメールアドレスを更新しました。");
             } else {
               const emailError = await emailRes.json();
-              statusMessage.textContent = `プロファイルは更新されましたが、メールアドレスの更新に失敗: ${emailError.message}`;
+              showWarningToast(`プロファイルは更新されましたが、メールアドレスの更新に失敗: ${emailError.message}`);
             }
           } catch (emailError) {
-            statusMessage.textContent = `プロファイルは更新されましたが、メールアドレスの更新に失敗: ${emailError.message}`;
+            showWarningToast(`プロファイルは更新されましたが、メールアドレスの更新に失敗: ${emailError.message}`);
           }
         }
 
         await fetchSettings();
       } catch (err) {
         console.error("プロファイル更新エラー:", err);
-        statusMessage.textContent = `エラー: ${err.message}`;
+        showErrorToast(`プロファイルの更新中にエラーが発生しました: ${err.message}`);
       } finally {
         saveProfileBtn.disabled = false;
       }
@@ -696,7 +699,7 @@ document.addEventListener("DOMContentLoaded", () => {
       newInviteCodeInput.value = result.code;
       inviteCodeDisplay.style.display = "flex";
     } catch (err) {
-      statusMessage.textContent = `エラー: ${err.message}`;
+      showErrorToast(`招待コード生成エラー: ${err.message}`);
     } finally {
       generateInviteCodeBtn.disabled = false;
     }
@@ -705,14 +708,14 @@ document.addEventListener("DOMContentLoaded", () => {
   copyInviteCodeBtn.addEventListener("click", () => {
     newInviteCodeInput.select();
     document.execCommand("copy");
-    statusMessage.textContent = "招待コードをコピーしました！";
+    showSuccessToast("招待コードをコピーしました！");
   });
 
   saveAdminsBtn.addEventListener("click", async () => {
     if (!state.user || saveAdminsBtn.disabled) return;
 
     saveAdminsBtn.disabled = true;
-    statusMessage.textContent = "管理者リストを保存中...";
+    showInfoToast("管理者リストを保存中...");
 
     try {
       const adminsArray = state.admins.filter((admin) => admin.email && admin.name);
@@ -729,10 +732,10 @@ document.addEventListener("DOMContentLoaded", () => {
       const result = await res.json();
       if (!res.ok) throw new Error(result.message);
 
-      statusMessage.textContent = result.message;
+      showSuccessToast(result.message);
       await fetchSettings();
     } catch (err) {
-      statusMessage.textContent = `エラー: ${err.message}`;
+      showErrorToast(`管理者リスト保存エラー: ${err.message}`);
     } finally {
       saveAdminsBtn.disabled = false;
     }
@@ -752,15 +755,13 @@ document.addEventListener("DOMContentLoaded", () => {
       const password = document.getElementById("login-password").value;
       
       if (!username || !password) {
-        statusMessage.textContent = "ユーザー名またはメールアドレス、パスワードを入力してください。";
-        statusMessage.style.color = "#e74c3c";
+        showErrorToast("ユーザー名またはメールアドレス、パスワードを入力してください。");
         return;
       }
       
       const submitBtn = loginForm.querySelector('button[type="submit"]');
       submitBtn.disabled = true;
-      statusMessage.textContent = "ログイン中...";
-      statusMessage.style.color = "#2c3e50";
+      showInfoToast("ログイン中...");
       
       try {
         const response = await fetch('/auth/login', {
@@ -801,15 +802,13 @@ document.addEventListener("DOMContentLoaded", () => {
       const email = document.getElementById("register-email").value.trim();
       
       if (!username || !password || !email) {
-        statusMessage.textContent = "すべての項目を入力してください。";
-        statusMessage.style.color = "#e74c3c";
+        showErrorToast("すべての項目を入力してください。");
         return;
       }
       
       const submitBtn = registerForm.querySelector('button[type="submit"]');
       submitBtn.disabled = true;
-      statusMessage.textContent = "アカウントを作成中...";
-      statusMessage.style.color = "#2c3e50";
+      showInfoToast("アカウントを作成中...");
       
       try {
         const response = await fetch('/auth/register', {
@@ -855,15 +854,13 @@ document.addEventListener("DOMContentLoaded", () => {
       const email = document.getElementById("reset-email").value.trim();
       
       if (!email) {
-        statusMessage.textContent = "メールアドレスを入力してください。";
-        statusMessage.style.color = "#e74c3c";
+        showErrorToast("メールアドレスを入力してください。");
         return;
       }
       
       const submitBtn = passwordResetForm.querySelector('button[type="submit"]');
       submitBtn.disabled = true;
-      statusMessage.textContent = "パスワード再設定メールを送信中...";
-      statusMessage.style.color = "#2c3e50";
+      showInfoToast("パスワード再設定メールを送信中...");
       
       try {
         const response = await fetch('/auth/request-password-reset', {
@@ -877,21 +874,18 @@ document.addEventListener("DOMContentLoaded", () => {
         const result = await response.json();
         
         if (result.success) {
-          statusMessage.textContent = result.message;
-          statusMessage.style.color = "#27ae60";
+          showSuccessToast(result.message);
           // フォームをリセットしてログインフォームに戻る
           setTimeout(() => {
             passwordResetForm.reset();
             showLoginForm();
           }, 3000);
         } else {
-          statusMessage.textContent = result.message;
-          statusMessage.style.color = "#e74c3c";
+          showErrorToast(result.message);
         }
       } catch (error) {
         console.error('パスワード再設定エラー:', error);
-        statusMessage.textContent = 'パスワード再設定に失敗しました。';
-        statusMessage.style.color = "#e74c3c";
+        showErrorToast('パスワード再設定に失敗しました。');
       } finally {
         submitBtn.disabled = false;
       }
@@ -903,14 +897,12 @@ document.addEventListener("DOMContentLoaded", () => {
       const email = document.getElementById("verification-email").textContent;
       
       if (!email) {
-        statusMessage.textContent = "メールアドレスが見つかりません。";
-        statusMessage.style.color = "#e74c3c";
+        showErrorToast("メールアドレスが見つかりません。");
         return;
       }
       
       resendVerificationBtn.disabled = true;
-      statusMessage.textContent = "認証メールを再送信中...";
-      statusMessage.style.color = "#2c3e50";
+      showInfoToast("認証メールを再送信中...");
       
       try {
         const response = await fetch('/auth/resend-verification', {
@@ -924,16 +916,13 @@ document.addEventListener("DOMContentLoaded", () => {
         const result = await response.json();
         
         if (result.success) {
-          statusMessage.textContent = result.message;
-          statusMessage.style.color = "#27ae60";
+          showSuccessToast(result.message);
         } else {
-          statusMessage.textContent = result.message;
-          statusMessage.style.color = "#e74c3c";
+          showErrorToast(result.message);
         }
       } catch (error) {
         console.error('認証メール再送信エラー:', error);
-        statusMessage.textContent = '認証メール再送信に失敗しました。';
-        statusMessage.style.color = "#e74c3c";
+        showErrorToast('認証メール再送信に失敗しました。');
       } finally {
         resendVerificationBtn.disabled = false;
       }
