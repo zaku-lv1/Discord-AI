@@ -16,9 +16,8 @@ class FirebaseService {
       }
       
       // テスト環境での簡易設定
-      if (serviceAccountString.includes('test-project') || 
-          process.env.NODE_ENV === 'test' ||
-          process.env.NODE_ENV === 'development') {
+      if (serviceAccountString.includes('test-project') && 
+          process.env.NODE_ENV === 'test') {
         console.log("[警告] テスト環境でのFirebase設定を使用しています。");
         this.useMockDB = true;
         this.mockDB = this.createMockDB();
@@ -27,7 +26,8 @@ class FirebaseService {
         return;
       }
 
-      const serviceAccount = JSON.parse(serviceAccountString);
+      // Validate service account JSON structure
+      const serviceAccount = this.validateServiceAccountJSON(serviceAccountString);
       
       // Firebase Admin SDKが既に初期化されているかチェック
       if (!admin.apps.length) {
@@ -40,13 +40,88 @@ class FirebaseService {
       this.initialized = true;
       console.log("[情報] Firebase Admin SDKが正常に初期化されました。");
     } catch (error) {
-      console.error("[致命的エラー] Firebase Admin SDKの初期化に失敗しました:", error.message);
-      console.log("[情報] テスト用のモックDBを使用します。");
-      this.useMockDB = true;
-      this.mockDB = this.createMockDB();
-      this.db = this.createProxyDB();
-      this.initialized = true;
+      this.handleInitializationError(error);
     }
+  }
+
+  validateServiceAccountJSON(serviceAccountString) {
+    try {
+      const serviceAccount = JSON.parse(serviceAccountString);
+      
+      // Check required fields
+      const requiredFields = [
+        'type', 'project_id', 'private_key_id', 'private_key', 
+        'client_email', 'client_id', 'auth_uri', 'token_uri'
+      ];
+      
+      const missingFields = requiredFields.filter(field => !serviceAccount[field]);
+      if (missingFields.length > 0) {
+        throw new Error(`Firebase サービスアカウントJSONに必要なフィールドが不足しています: ${missingFields.join(', ')}`);
+      }
+      
+      // Validate service account type
+      if (serviceAccount.type !== 'service_account') {
+        throw new Error('Firebase サービスアカウントJSONのtypeが "service_account" ではありません。');
+      }
+      
+      // Validate private key format
+      if (!serviceAccount.private_key.includes('BEGIN PRIVATE KEY') || 
+          !serviceAccount.private_key.includes('END PRIVATE KEY')) {
+        throw new Error('Firebase サービスアカウントJSONのprivate_keyの形式が正しくありません。');
+      }
+      
+      // Validate email format
+      if (!serviceAccount.client_email.includes('@') || 
+          !serviceAccount.client_email.includes('.iam.gserviceaccount.com')) {
+        throw new Error('Firebase サービスアカウントJSONのclient_emailの形式が正しくありません。');
+      }
+      
+      return serviceAccount;
+    } catch (parseError) {
+      if (parseError.message.includes('Unexpected token')) {
+        throw new Error('Firebase サービスアカウントJSONの形式が正しくありません。有効なJSONではありません。');
+      }
+      throw parseError;
+    }
+  }
+
+  handleInitializationError(error) {
+    const isAuthError = error.message.includes('UNAUTHENTICATED') ||
+                       error.message.includes('authentication credentials') ||
+                       error.message.includes('OAuth') ||
+                       error.message.includes('private key') ||
+                       error.code === 16;
+
+    const isMissingCredentials = error.message.includes('環境変数') ||
+                                error.message.includes('が設定されていません');
+
+    if (isAuthError || isMissingCredentials) {
+      if (isMissingCredentials) {
+        console.error("[エラー] Firebase設定エラー:", error.message);
+      } else {
+        console.error("[エラー] Firebase認証エラー:", error.message);
+      }
+      
+      console.log("\n=== Firebase設定ガイド ===");
+      console.log("このエラーを解決するには:");
+      console.log("1. Firebase Console (https://console.firebase.google.com) にアクセス");
+      console.log("2. プロジェクト設定 → サービスアカウント → Firebase Admin SDK");
+      console.log("3. '新しい秘密鍵の生成' ボタンをクリック");
+      console.log("4. ダウンロードしたJSONファイルを開く");
+      console.log("5. .env ファイルに以下の形式で設定:");
+      console.log("   FIREBASE_SERVICE_ACCOUNT_JSON='{\"type\":\"service_account\",\"project_id\":\"your-project-id\",\"private_key_id\":\"...\",\"private_key\":\"-----BEGIN PRIVATE KEY-----\\n...\\n-----END PRIVATE KEY-----\\n\",\"client_email\":\"...\",\"client_id\":\"...\",\"auth_uri\":\"https://accounts.google.com/o/oauth2/auth\",\"token_uri\":\"https://oauth2.googleapis.com/token\"}'");
+      console.log("6. .env ファイルを保存してアプリケーションを再起動");
+      console.log("詳細な手順は FIREBASE_SETUP.md を参照してください。");
+      console.log("========================\n");
+    } else {
+      console.error("[致命的エラー] Firebase Admin SDKの初期化に失敗しました:", error.message);
+    }
+    
+    console.log("[情報] モックDBに切り替えて続行します。データは一時的にメモリに保存されます。");
+    this.useMockDB = true;
+    this.mockDB = this.createMockDB();
+    this.db = this.createProxyDB();
+    this.initialized = true;
   }
 
   createProxyDB(realDB = null) {
@@ -150,10 +225,28 @@ class FirebaseService {
     // Check if this is an authentication error
     if (error.code === 16 || 
         error.message.includes('UNAUTHENTICATED') ||
-        error.message.includes('invalid authentication credentials')) {
+        error.message.includes('invalid authentication credentials') ||
+        error.message.includes('OAuth 2 access token') ||
+        error.message.includes('login cookie')) {
       
       console.error('[ERROR] ローカル認証エラー:', error.message);
-      console.log('[INFO] モックDBに切り替えています...');
+      console.log('[INFO] Firebase認証に失敗しました。モックDBに切り替えています...');
+      
+      if (!this.useMockDB) {
+        console.log("\n=== Firebase認証エラーの解決方法 ===");
+        console.log("このエラーは以下の原因で発生します:");
+        console.log("1. FIREBASE_SERVICE_ACCOUNT_JSON 環境変数が設定されていない");
+        console.log("2. サービスアカウントJSONの形式が正しくない");
+        console.log("3. サービスアカウントの権限が不足している");
+        console.log("4. プロジェクトIDが間違っている");
+        console.log("\n解決手順:");
+        console.log("1. Firebase Console → プロジェクト設定 → サービスアカウント");
+        console.log("2. '新しい秘密鍵の生成' をクリック");
+        console.log("3. ダウンロードしたJSONの内容を .env に設定:");
+        console.log("   FIREBASE_SERVICE_ACCOUNT_JSON='{\"type\":\"service_account\",...}'");
+        console.log("詳細な手順は FIREBASE_SETUP.md を参照してください。");
+        console.log("=====================================\n");
+      }
       
       // Switch to mock DB for future operations
       this.useMockDB = true;
