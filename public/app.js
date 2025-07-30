@@ -583,6 +583,24 @@ document.addEventListener("DOMContentLoaded", () => {
   }
   function renderAdminList() {
     adminsListContainer.innerHTML = "";
+    
+    // Add help text at the top
+    const helpDiv = document.createElement("div");
+    helpDiv.className = "admin-help-text";
+    helpDiv.innerHTML = `
+      <div>
+        <i class="fas fa-info-circle"></i>
+        <strong>管理者リストについて:</strong>
+        <ul style="margin: 0.5rem 0 0 1.5rem; padding-left: 1rem;">
+          <li>リストの一番上の管理者が「最高管理者」として設定されます</li>
+          <li>最高管理者は他の管理者の追加・削除・招待コード生成ができます</li>
+          <li>管理者はAIの設定やプロファイルを編集できます</li>
+          <li>表示名は管理者パネルでの識別用です</li>
+        </ul>
+      </div>
+    `;
+    adminsListContainer.appendChild(helpDiv);
+    
     (state.admins || []).forEach((admin, index) => {
       const entryDiv = document.createElement("div");
       entryDiv.className = "admin-entry";
@@ -590,18 +608,64 @@ document.addEventListener("DOMContentLoaded", () => {
       entryDiv.dataset.index = index;
 
       let html = `
-        <input type="text" class="admin-name" data-field="name" 
-               placeholder="表示名" value="${admin.name || ""}">
-        <input type="email" class="admin-email" data-field="email" 
-               placeholder="管理者メールアドレス" value="${admin.email || ""}">
+        <div class="admin-field-group">
+          <label for="admin-name-${index}">表示名</label>
+          <input type="text" id="admin-name-${index}" class="admin-name" data-field="name" 
+                 placeholder="表示名を入力してください" value="${admin.name || ""}"
+                 ${!state.isSuperAdmin ? 'disabled' : ''}>
+        </div>
+        <div class="admin-field-group">
+          <label for="admin-email-${index}">メールアドレス</label>
+          <input type="email" id="admin-email-${index}" class="admin-email" data-field="email" 
+                 placeholder="admin@example.com" value="${admin.email || ""}"
+                 ${!state.isSuperAdmin ? 'disabled' : ''}>
+        </div>
       `;
 
       if (index === 0) {
         entryDiv.classList.add("super-admin");
-        html += '<span class="super-admin-label">👑</span>';
+        html += `
+          <div class="super-admin-label">
+            <i class="fas fa-crown"></i>
+            最高管理者
+          </div>
+        `;
+      } else {
+        html += `
+          <div class="admin-role-badge admin">
+            <i class="fas fa-user-shield"></i>
+            管理者
+          </div>
+        `;
       }
 
-      html += '<button type="button" class="delete-btn">削除</button>';
+      html += `
+        <div class="admin-actions-buttons">
+          ${state.isSuperAdmin && index > 0 ? '<button type="button" class="delete-btn">削除</button>' : ''}
+        </div>
+      `;
+
+      // Add admin info display if available
+      if (admin.username || admin.discordId) {
+        html += `
+          <div class="admin-info-display" style="grid-column: 1 / -1;">
+            <div class="admin-info-label">追加情報:</div>
+            ${admin.username ? `<div class="admin-info-item">
+              <span class="admin-info-label">ユーザー名:</span>
+              <span class="admin-info-value">@${admin.username}</span>
+            </div>` : ''}
+            ${admin.discordId ? `<div class="admin-info-item">
+              <span class="admin-info-label">Discord ID:</span>
+              <span class="admin-info-value">${admin.discordId}</span>
+            </div>` : ''}
+            ${admin.updatedAt ? `<div class="admin-info-item">
+              <span class="admin-info-label">最終更新:</span>
+              <span class="admin-info-value">${new Date(admin.updatedAt).toLocaleString('ja-JP')}</span>
+            </div>` : ''}
+          </div>
+        `;
+      }
+
       entryDiv.innerHTML = html;
       adminsListContainer.appendChild(entryDiv);
     });
