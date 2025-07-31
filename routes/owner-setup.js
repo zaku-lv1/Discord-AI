@@ -15,16 +15,24 @@ router.get("/", async (req, res) => {
     if (isCompleted) {
       return res.render("owner-setup", { 
         error: "オーナー設定は既に完了しています",
-        completed: true 
+        completed: true,
+        canSkipSetupKey: false
       });
     }
 
-    res.render("owner-setup", { completed: false });
+    // Check if setup key can be skipped (initial setup)
+    const canSkipSetupKey = await systemSettingsService.canSkipSetupKey();
+
+    res.render("owner-setup", { 
+      completed: false,
+      canSkipSetupKey: canSkipSetupKey
+    });
   } catch (error) {
     console.error("[エラー] オーナー設定ページの表示に失敗:", error);
     res.render("owner-setup", { 
       error: "システムエラーが発生しました",
-      completed: false 
+      completed: false,
+      canSkipSetupKey: false
     });
   }
 });
@@ -36,11 +44,22 @@ router.post("/", async (req, res) => {
   try {
     const { setupKey, username, email, password, confirmPassword } = req.body;
 
-    // Validate required fields
-    if (!setupKey || !username || !email || !password || !confirmPassword) {
+    // Check if setup key can be skipped
+    const canSkipSetupKey = await systemSettingsService.canSkipSetupKey();
+
+    // Validate required fields (setupKey is optional if can be skipped)
+    if (!username || !email || !password || !confirmPassword) {
       return res.status(400).json({
         success: false,
         message: "全ての項目を入力してください"
+      });
+    }
+
+    // Validate setup key only if it cannot be skipped
+    if (!canSkipSetupKey && !setupKey) {
+      return res.status(400).json({
+        success: false,
+        message: "オーナー設定キーが必要です"
       });
     }
 
@@ -69,7 +88,7 @@ router.post("/", async (req, res) => {
       });
     }
 
-    // Validate setup key
+    // Validate setup key (this will handle the skip logic internally)
     await systemSettingsService.validateOwnerSetupKey(setupKey);
 
     // Create owner account
@@ -112,9 +131,11 @@ router.post("/", async (req, res) => {
 router.get("/status", async (req, res) => {
   try {
     const isCompleted = await systemSettingsService.isOwnerSetupCompleted();
+    const canSkipSetupKey = await systemSettingsService.canSkipSetupKey();
     res.json({
       success: true,
-      completed: isCompleted
+      completed: isCompleted,
+      canSkipSetupKey: canSkipSetupKey
     });
   } catch (error) {
     console.error("[エラー] オーナー設定状況の確認に失敗:", error);
