@@ -2017,6 +2017,96 @@ select:focus,
   font-style: italic;
 }
 
+/* ========== AI-specific Nickname Management Styles ========== */
+.ai-nickname-management {
+  margin-top: 2rem;
+  padding: 1.5rem;
+  background: var(--secondary-bg);
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+}
+
+.ai-nickname-management h4 {
+  margin: 0 0 1rem 0;
+  color: var(--text-primary);
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+.ai-nickname-management .section-description {
+  margin-bottom: 1.5rem;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+}
+
+.nickname-input-section {
+  margin-bottom: 2rem;
+}
+
+.ai-nicknames-list h5 {
+  margin: 0 0 1rem 0;
+  color: var(--text-primary);
+  font-size: 1rem;
+  font-weight: 500;
+}
+
+.nicknames-container {
+  background: var(--primary-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.nickname-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.nickname-item:last-child {
+  border-bottom: none;
+}
+
+.nickname-item:hover {
+  background: var(--secondary-bg);
+}
+
+.nickname-info {
+  flex: 1;
+}
+
+.nickname-info .discord-id {
+  font-family: monospace;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  margin-bottom: 0.25rem;
+}
+
+.nickname-info .nickname {
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.nickname-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.nickname-actions .secondary-btn {
+  padding: 0.4rem 0.8rem;
+  font-size: 0.8rem;
+}
+
+.empty-nicknames {
+  padding: 2rem;
+  text-align: center;
+  color: var(--text-secondary);
+  font-style: italic;
+}
+
 /* ========== User Management Styles ========== */
 .users-list {
   display: flex;
