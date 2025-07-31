@@ -464,14 +464,12 @@ document.addEventListener("DOMContentLoaded", () => {
     // Check if user has editor role or higher
     const userRole = state.user.role;
     const roleHierarchy = {
-      'viewer': 1,
-      'editor': 2,
-      'admin': 3,
-      'owner': 4
+      'editor': 1,
+      'owner': 2
     };
     
     const userLevel = roleHierarchy[userRole] || 0;
-    const requiredLevel = roleHierarchy['editor'] || 2;
+    const requiredLevel = roleHierarchy['editor'] || 1;
     
     return userLevel >= requiredLevel;
   }
@@ -480,8 +478,8 @@ document.addEventListener("DOMContentLoaded", () => {
   function updateNavigationVisibility() {
     if (!state.user) return;
     
-    // Legacy admin check
-    const isAdmin = state.user.isAdmin || state.user.role === 'admin' || state.user.role === 'owner';
+    // Legacy admin check - now only owners have admin privileges
+    const isAdmin = state.user.isAdmin || state.user.role === 'owner';
     const isOwner = state.user.isSuperAdmin || state.user.role === 'owner';
     const canEdit = canUserEditAI();
     
@@ -512,13 +510,12 @@ document.addEventListener("DOMContentLoaded", () => {
 
   function updateRoleBasedUI() {
     const isOwner = state.user?.role === 'owner' || state.user?.isSuperAdmin;
-    const isAdmin = isOwner || state.user?.role === 'admin' || state.user?.isAdmin;
     
     // Show/hide invitation target roles based on user's role
     if (invitationTargetRole) {
       const options = invitationTargetRole.querySelectorAll('option');
       options.forEach(option => {
-        if (option.value === 'owner' || option.value === 'admin') {
+        if (option.value === 'owner') {
           option.style.display = isOwner ? 'block' : 'none';
         }
       });
@@ -580,9 +577,7 @@ document.addEventListener("DOMContentLoaded", () => {
         ${canChangeRole ? `
           <div class="user-actions">
             <select class="role-selector" data-user-email="${escapeHtml(user.email)}">
-              <option value="viewer" ${user.role === 'viewer' ? 'selected' : ''}>閲覧者</option>
               <option value="editor" ${user.role === 'editor' ? 'selected' : ''}>編集者</option>
-              <option value="admin" ${user.role === 'admin' ? 'selected' : ''}>管理者</option>
               <option value="owner" ${user.role === 'owner' ? 'selected' : ''}>オーナー</option>
             </select>
             <button class="change-role-btn" data-user-email="${escapeHtml(user.email)}">変更</button>
@@ -635,9 +630,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   function getRoleDisplayName(role) {
     const roleNames = {
-      'viewer': '閲覧者',
       'editor': '編集者', 
-      'admin': '管理者',
       'owner': 'オーナー'
     };
     return roleNames[role] || role;
@@ -795,8 +788,8 @@ document.addEventListener("DOMContentLoaded", () => {
     // AI一覧を取得
     await fetchAiList();
     
-    // ユーザー一覧を取得（管理者以上の場合）
-    if (state.user?.isAdmin || state.user?.role === 'admin' || state.user?.role === 'owner') {
+    // ユーザー一覧を取得（オーナーのみ）
+    if (state.user?.role === 'owner') {
       await fetchUsers();
     }
     

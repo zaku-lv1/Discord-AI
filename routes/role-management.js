@@ -1,11 +1,11 @@
 const express = require("express");
-const { verifyAuthentication, requireOwner, requireAdmin, requireEditor } = require("../middleware/auth");
+const { verifyAuthentication, requireOwner, requireEditor } = require("../middleware/auth");
 const roleService = require("../services/roles");
 
 const router = express.Router();
 
-// Get all users with their roles (Admin+ only)
-router.get("/users", verifyAuthentication, requireAdmin, async (req, res) => {
+// Get all users with their roles (Owner only)
+router.get("/users", verifyAuthentication, requireOwner, async (req, res) => {
   try {
     const users = await roleService.listUsersWithRoles();
     res.json({
@@ -65,8 +65,8 @@ router.put("/users/:identifier/role", verifyAuthentication, requireOwner, async 
   }
 });
 
-// Create invitation code for specific role (Admin+ only)
-router.post("/invitation-codes", verifyAuthentication, requireAdmin, async (req, res) => {
+// Create invitation code for specific role (Owner only)
+router.post("/invitation-codes", verifyAuthentication, requireOwner, async (req, res) => {
   try {
     const { targetRole } = req.body;
 
@@ -85,12 +85,12 @@ router.post("/invitation-codes", verifyAuthentication, requireAdmin, async (req,
       });
     }
 
-    // Only owners can create owner/admin codes
-    if ((targetRole === roleService.roles.OWNER || targetRole === roleService.roles.ADMIN) && 
+    // Only owners can create owner codes, editors can only create editor codes
+    if (targetRole === roleService.roles.OWNER && 
         !roleService.hasRole(req.user.role, roleService.roles.OWNER)) {
       return res.status(403).json({
         success: false,
-        message: "オーナー・管理者の招待コードはオーナーのみ作成できます"
+        message: "オーナーの招待コードはオーナーのみ作成できます"
       });
     }
 

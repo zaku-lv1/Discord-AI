@@ -58,12 +58,12 @@ class AuthService {
     const userId = Date.now().toString(); // Simple ID generation
     
     // Determine role based on invitation code or default
-    let role = roleService.roles.VIEWER; // Default role
+    let role = roleService.roles.EDITOR; // Default role is now EDITOR
     if (invitationCode) {
       try {
         const inviteDoc = await db.collection("invitation_codes").doc(invitationCode).get();
         if (inviteDoc.exists && !inviteDoc.data().used) {
-          role = inviteDoc.data().targetRole || roleService.roles.VIEWER;
+          role = inviteDoc.data().targetRole || roleService.roles.EDITOR;
         }
       } catch (error) {
         console.log('Invalid invitation code, using default role');
@@ -101,7 +101,7 @@ class AuthService {
     await db.collection('users').doc(userId).set(userDoc);
 
     // Mark invitation code as used if provided
-    if (invitationCode && role !== roleService.roles.VIEWER) {
+    if (invitationCode && role !== roleService.roles.EDITOR) {
       try {
         await db.collection("invitation_codes").doc(invitationCode).update({
           used: true,
