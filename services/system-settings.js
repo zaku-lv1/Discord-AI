@@ -9,12 +9,12 @@ class SystemSettingsService {
   constructor() {
     this.settingsDocId = "main";
     this.defaultSettings = {
-      requireInvitationCodes: false,
+      requireInvitationCodes: true, // Always require invitation codes for new registrations
       maintenanceMode: false,
       ownerSetupCompleted: false,
       ownerSetupKey: null,
       maintenanceMessage: "システムメンテナンス中です。しばらくお待ちください。",
-      allowOpenRegistration: true,
+      allowOpenRegistration: false, // Disable open registration - invitation codes are mandatory
       systemVersion: "1.0.0",
       lastModified: null,
       modifiedBy: null
@@ -157,14 +157,31 @@ class SystemSettingsService {
 
   /**
    * Check if invitation codes are required for registration
+   * Always returns true except for the first user (owner setup)
    */
   async requiresInvitationCode() {
     try {
+      // Check if owner setup is completed
       const settings = await this.getSettings();
-      return settings.requireInvitationCodes || false;
+      
+      // If owner setup is not completed, invitation codes are not required for the first user
+      if (!settings.ownerSetupCompleted) {
+        // Check if there are any users in the system
+        const firebaseService = require("./firebase");
+        const db = firebaseService.getDB();
+        const usersSnapshot = await db.collection('users').get();
+        
+        // If no users exist, this is the first user (owner) - no invitation required
+        if (usersSnapshot.empty) {
+          return false;
+        }
+      }
+      
+      // For all other cases, invitation codes are required
+      return true;
     } catch (error) {
       console.error("[エラー] 招待コード要件の確認に失敗:", error);
-      return false;
+      return true; // Default to requiring invitation codes for security
     }
   }
 
@@ -195,7 +212,7 @@ class SystemSettingsService {
   }
 
   /**
-   * Transfer ownership to another user
+   * Transfer ownership to another user (ensures only one owner exists)
    */
   async transferOwnership(currentOwnerEmail, newOwnerEmail, modifiedBy) {
     try {
@@ -207,9 +224,15 @@ class SystemSettingsService {
         throw new Error("現在のユーザーはオーナーではありません");
       }
 
-      // Update roles
-      await roleService.updateUserRole(newOwnerEmail, roleService.roles.OWNER);
+      // Ensure new owner exists and is not already owner
+      const newOwnerRole = await roleService.getUserRole(newOwnerEmail);
+      if (newOwnerRole === roleService.roles.OWNER) {
+        throw new Error("指定されたユーザーは既にオーナーです");
+      }
+
+      // Update roles atomically - first demote current owner, then promote new owner
       await roleService.updateUserRole(currentOwnerEmail, roleService.roles.EDITOR);
+      await roleService.updateUserRole(newOwnerEmail, roleService.roles.OWNER);
 
       // Log the transfer
       await this.updateSettings({

@@ -65,44 +65,37 @@ class AuthService {
       // First user becomes owner regardless of invitation code
       role = roleService.roles.OWNER;
     } else {
-      // For subsequent users, check invitation code requirements
-      const systemSettingsService = require('./system-settings');
-      const requiresInvitation = await systemSettingsService.requiresInvitationCode();
+      // For all subsequent users, invitation code is ALWAYS required
+      if (!invitationCode) {
+        throw new Error('新規登録には招待コードが必要です');
+      }
       
-      if (requiresInvitation) {
-        // Invitation code is required
-        if (!invitationCode) {
-          throw new Error('新規登録には招待コードが必要です');
+      // Validate invitation code
+      const inviteDoc = await db.collection("invitation_codes").doc(invitationCode).get();
+      if (!inviteDoc.exists) {
+        throw new Error('無効な招待コードです');
+      }
+      
+      const inviteData = inviteDoc.data();
+      if (inviteData.used) {
+        throw new Error('この招待コードは既に使用されています');
+      }
+      
+      // Check expiration if set
+      if (inviteData.expiresAt && inviteData.expiresAt.toDate() < new Date()) {
+        throw new Error('この招待コードは期限切れです');
+      }
+      
+      // Use specified role from invitation or default to EDITOR
+      role = inviteData.targetRole || roleService.roles.EDITOR;
+      
+      // Ensure only one owner exists - if invitation tries to create another owner, make them editor instead
+      if (role === roleService.roles.OWNER) {
+        const existingOwners = await db.collection('users').where('role', '==', roleService.roles.OWNER).get();
+        if (!existingOwners.empty) {
+          console.log('[警告] オーナーが既に存在するため、新規ユーザーを編集者として作成します');
+          role = roleService.roles.EDITOR;
         }
-        
-        // Validate invitation code
-        const inviteDoc = await db.collection("invitation_codes").doc(invitationCode).get();
-        if (!inviteDoc.exists) {
-          throw new Error('無効な招待コードです');
-        }
-        
-        const inviteData = inviteDoc.data();
-        if (inviteData.used) {
-          throw new Error('この招待コードは既に使用されています');
-        }
-        
-        // Use specified role from invitation or default to EDITOR
-        role = inviteData.targetRole || roleService.roles.EDITOR;
-      } else {
-        // Invitation code is not required, but if provided, validate it
-        if (invitationCode) {
-          try {
-            const inviteDoc = await db.collection("invitation_codes").doc(invitationCode).get();
-            if (inviteDoc.exists && !inviteDoc.data().used) {
-              role = inviteDoc.data().targetRole || roleService.roles.EDITOR;
-            } else {
-              throw new Error('無効または使用済みの招待コードです');
-            }
-          } catch (error) {
-            throw new Error('無効な招待コードです: ' + error.message);
-          }
-        }
-        // If no invitation code provided and not required, use default EDITOR role
       }
     }
     

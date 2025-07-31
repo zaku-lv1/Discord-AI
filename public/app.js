@@ -169,13 +169,13 @@ document.addEventListener("DOMContentLoaded", () => {
       const data = await response.json();
       
       if (data.success) {
-        const { requireInvitationCodes } = data.status;
-        updateInvitationCodeField(requireInvitationCodes);
+        // Always require invitation codes (they are automatically handled on the backend)
+        updateInvitationCodeField(true);
       }
     } catch (error) {
       console.error('システム設定の取得に失敗:', error);
-      // エラー時はデフォルトとして任意扱いにする
-      updateInvitationCodeField(false);
+      // エラー時はデフォルトとして必須にする（セキュリティ重視）
+      updateInvitationCodeField(true);
     }
   }
 
@@ -184,19 +184,11 @@ document.addEventListener("DOMContentLoaded", () => {
     const invitationCodeInput = document.getElementById('register-invitation-code');
     const smallText = invitationCodeGroup.querySelector('small');
     
-    if (required) {
-      // 招待コード必須の場合
-      invitationCodeInput.required = true;
-      invitationCodeInput.placeholder = '招待コードを入力してください（必須）';
-      smallText.textContent = '新規登録には招待コードが必要です。登録後は編集者権限が付与されます。';
-      smallText.style.color = '#dc3545'; // 赤色で必須であることを強調
-    } else {
-      // 招待コード任意の場合
-      invitationCodeInput.required = false;
-      invitationCodeInput.placeholder = '編集者以上の権限がある場合に入力';
-      smallText.textContent = '招待コードがない場合は編集者として登録されます';
-      smallText.style.color = '#6c757d'; // グレー色で任意であることを示す
-    }
+    // Invitation codes are always required (except for the first user, which is handled on the backend)
+    invitationCodeInput.required = true;
+    invitationCodeInput.placeholder = '招待コードを入力してください（必須）';
+    smallText.textContent = '新規登録には招待コードが必要です。登録後は編集者権限が付与されます。';
+    smallText.style.color = '#dc3545'; // 赤色で必須であることを強調
   }
 
   // ================ 認証状態チェック ================
@@ -1613,12 +1605,29 @@ document.addEventListener("DOMContentLoaded", () => {
       maintenanceMessageInput.value = settings.maintenanceMessage || '';
     }
     
+    // Remove invitation codes toggle - they are always required
     if (requireInvitationCodesToggle) {
-      requireInvitationCodesToggle.checked = settings.requireInvitationCodes || false;
+      requireInvitationCodesToggle.checked = true;
+      requireInvitationCodesToggle.disabled = true; // Disable the toggle
+      const toggleContainer = requireInvitationCodesToggle.parentElement;
+      if (toggleContainer) {
+        const label = toggleContainer.querySelector('label');
+        if (label && !label.textContent.includes('常時有効')) {
+          label.innerHTML += ' <small class="text-muted">(常時有効)</small>';
+        }
+      }
     }
     
     if (allowOpenRegistrationToggle) {
-      allowOpenRegistrationToggle.checked = settings.allowOpenRegistration !== false;
+      allowOpenRegistrationToggle.checked = false; // Always false since invitation codes are required
+      allowOpenRegistrationToggle.disabled = true; // Disable the toggle
+      const toggleContainer = allowOpenRegistrationToggle.parentElement;
+      if (toggleContainer) {
+        const label = toggleContainer.querySelector('label');
+        if (label && !label.textContent.includes('招待コード必須')) {
+          label.innerHTML += ' <small class="text-muted">(招待コード必須のため無効)</small>';
+        }
+      }
     }
   }
   
@@ -1671,8 +1680,9 @@ document.addEventListener("DOMContentLoaded", () => {
         const settings = {
           maintenanceMode: maintenanceModeToggle.checked,
           maintenanceMessage: maintenanceMessageInput.value.trim(),
-          requireInvitationCodes: requireInvitationCodesToggle.checked,
-          allowOpenRegistration: allowOpenRegistrationToggle.checked
+          // Invitation codes and open registration are fixed server-side
+          requireInvitationCodes: true, 
+          allowOpenRegistration: false
         };
         
         const response = await fetch('/api/system-settings', {

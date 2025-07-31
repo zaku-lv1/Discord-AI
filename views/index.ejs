@@ -91,9 +91,9 @@
                   <input type="password" id="register-password" required placeholder="パスワード（6文字以上）" />
                 </div>
                 <div class="form-group">
-                  <label for="register-invitation-code">招待コード（任意）</label>
-                  <input type="text" id="register-invitation-code" placeholder="編集者以上の権限がある場合に入力" />
-                  <small>招待コードがない場合は閲覧者として登録されます</small>
+                  <label for="register-invitation-code">招待コード（必須）</label>
+                  <input type="text" id="register-invitation-code" placeholder="招待コードを入力してください（必須）" required />
+                  <small>新規登録には招待コードが必要です。登録後は編集者権限が付与されます。</small>
                 </div>
                 <div class="button-group">
                   <button type="submit" class="save-btn">

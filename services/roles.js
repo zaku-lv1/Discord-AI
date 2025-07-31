@@ -100,7 +100,7 @@ class RoleService {
   }
 
   /**
-   * Update user role
+   * Update user role (with owner uniqueness constraint)
    */
   async updateUserRole(emailOrHandle, newRole) {
     try {
@@ -109,6 +109,14 @@ class RoleService {
       // Validate role
       if (!Object.values(USER_ROLES).includes(newRole)) {
         throw new Error('Invalid role specified');
+      }
+
+      // If trying to assign OWNER role, ensure only one owner exists
+      if (newRole === USER_ROLES.OWNER) {
+        const existingOwners = await db.collection('users').where('role', '==', USER_ROLES.OWNER).get();
+        if (!existingOwners.empty) {
+          throw new Error('システムには既にオーナーが存在します。オーナーは1人だけです。');
+        }
       }
 
       // Find user
