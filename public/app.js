@@ -160,6 +160,45 @@ document.addEventListener("DOMContentLoaded", () => {
   window.showWarningToast = showWarningToast;
   window.showInfoToast = showInfoToast;
 
+  // ================ システム設定チェック ================
+  async function checkSystemSettings() {
+    try {
+      const response = await fetch('/api/system-settings/status', {
+        credentials: 'include'
+      });
+      const data = await response.json();
+      
+      if (data.success) {
+        const { requireInvitationCodes } = data.status;
+        updateInvitationCodeField(requireInvitationCodes);
+      }
+    } catch (error) {
+      console.error('システム設定の取得に失敗:', error);
+      // エラー時はデフォルトとして任意扱いにする
+      updateInvitationCodeField(false);
+    }
+  }
+
+  function updateInvitationCodeField(required) {
+    const invitationCodeGroup = document.querySelector('label[for="register-invitation-code"]').parentElement;
+    const invitationCodeInput = document.getElementById('register-invitation-code');
+    const smallText = invitationCodeGroup.querySelector('small');
+    
+    if (required) {
+      // 招待コード必須の場合
+      invitationCodeInput.required = true;
+      invitationCodeInput.placeholder = '招待コードを入力してください（必須）';
+      smallText.textContent = '新規登録には招待コードが必要です。登録後は編集者権限が付与されます。';
+      smallText.style.color = '#dc3545'; // 赤色で必須であることを強調
+    } else {
+      // 招待コード任意の場合
+      invitationCodeInput.required = false;
+      invitationCodeInput.placeholder = '編集者以上の権限がある場合に入力';
+      smallText.textContent = '招待コードがない場合は編集者として登録されます';
+      smallText.style.color = '#6c757d'; // グレー色で任意であることを示す
+    }
+  }
+
   // ================ 認証状態チェック ================
   async function checkAuthStatus() {
     try {
@@ -815,8 +854,9 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   // --- 認証関連 ---
-  // 初期化時に認証状態をチェック
+  // 初期化時に認証状態とシステム設定をチェック
   checkAuthStatus();
+  checkSystemSettings();
 
   // ログアウトボタン
   if (logoutBtn) {
@@ -1305,9 +1345,16 @@ document.addEventListener("DOMContentLoaded", () => {
       const password = document.getElementById("register-password").value;
       const email = document.getElementById("register-email").value.trim();
       const invitationCode = document.getElementById("register-invitation-code").value.trim();
+      const invitationCodeInput = document.getElementById("register-invitation-code");
       
       if (!username || !password || !email) {
         showErrorToast("すべての項目を入力してください。");
+        return;
+      }
+      
+      // Check if invitation code is required and provided
+      if (invitationCodeInput.required && !invitationCode) {
+        showErrorToast("招待コードは必須です。");
         return;
       }
       

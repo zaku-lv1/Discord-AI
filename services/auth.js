@@ -57,23 +57,53 @@ class AuthService {
     const hashedPassword = await this.hashPassword(password);
     const userId = Date.now().toString(); // Simple ID generation
     
-    // Determine role based on invitation code or default
-    let role = roleService.roles.EDITOR; // Default role is now EDITOR
-    if (invitationCode) {
-      try {
-        const inviteDoc = await db.collection("invitation_codes").doc(invitationCode).get();
-        if (inviteDoc.exists && !inviteDoc.data().used) {
-          role = inviteDoc.data().targetRole || roleService.roles.EDITOR;
-        }
-      } catch (error) {
-        console.log('Invalid invitation code, using default role');
-      }
-    }
-
     // Check if this is the first user (should be owner)
     const usersCount = await db.collection('users').get();
+    let role = roleService.roles.EDITOR; // Default role for regular users is EDITOR
+    
     if (usersCount.empty) {
+      // First user becomes owner regardless of invitation code
       role = roleService.roles.OWNER;
+    } else {
+      // For subsequent users, check invitation code requirements
+      const systemSettingsService = require('./system-settings');
+      const requiresInvitation = await systemSettingsService.requiresInvitationCode();
+      
+      if (requiresInvitation) {
+        // Invitation code is required
+        if (!invitationCode) {
+          throw new Error('新規登録には招待コードが必要です');
+        }
+        
+        // Validate invitation code
+        const inviteDoc = await db.collection("invitation_codes").doc(invitationCode).get();
+        if (!inviteDoc.exists) {
+          throw new Error('無効な招待コードです');
+        }
+        
+        const inviteData = inviteDoc.data();
+        if (inviteData.used) {
+          throw new Error('この招待コードは既に使用されています');
+        }
+        
+        // Use specified role from invitation or default to EDITOR
+        role = inviteData.targetRole || roleService.roles.EDITOR;
+      } else {
+        // Invitation code is not required, but if provided, validate it
+        if (invitationCode) {
+          try {
+            const inviteDoc = await db.collection("invitation_codes").doc(invitationCode).get();
+            if (inviteDoc.exists && !inviteDoc.data().used) {
+              role = inviteDoc.data().targetRole || roleService.roles.EDITOR;
+            } else {
+              throw new Error('無効または使用済みの招待コードです');
+            }
+          } catch (error) {
+            throw new Error('無効な招待コードです: ' + error.message);
+          }
+        }
+        // If no invitation code provided and not required, use default EDITOR role
+      }
     }
     
     // テスト環境またはメールサービスが無効な場合は認証をスキップ
@@ -100,16 +130,19 @@ class AuthService {
 
     await db.collection('users').doc(userId).set(userDoc);
 
-    // Mark invitation code as used if provided
-    if (invitationCode && role !== roleService.roles.EDITOR) {
+    // Mark invitation code as used if provided and valid
+    if (invitationCode) {
       try {
         await db.collection("invitation_codes").doc(invitationCode).update({
           used: true,
           usedBy: email,
+          usedByDiscordId: null, // Will be set when Discord account is linked
           usedAt: firebaseService.getServerTimestamp()
         });
+        console.log(`[情報] 招待コード ${invitationCode} が使用されました: ${email}`);
       } catch (error) {
-        console.log('Could not mark invitation code as used:', error);
+        console.error('[警告] 招待コードの使用済みマークに失敗:', error);
+        // Don't throw error here as user creation was successful
       }
     }
     
