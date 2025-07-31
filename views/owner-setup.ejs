@@ -162,6 +162,9 @@
                            placeholder="管理者から受け取ったキーを入力">
                     <small>このキーはシステム管理者から受け取った秘密のキーです。</small>
                 </div>
+                <% } else { %>
+                <!-- Setup key not required for initial owner setup -->
+                <input type="hidden" name="setupKey" value="">
                 <% } %>
 
                 <div class="form-group">
