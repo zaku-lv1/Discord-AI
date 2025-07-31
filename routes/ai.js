@@ -165,4 +165,32 @@ router.delete("/:id", verifyAuthentication, requireEditor, async (req, res) => {
   }
 });
 
+// 全ユーザーのDiscord IDマッピング取得（AI使用用）
+router.get("/discord-mappings", verifyAuthentication, async (req, res) => {
+  try {
+    const db = firebaseService.getDB();
+    
+    // 全ユーザーのDiscord IDマッピングを取得
+    const mappingsSnapshot = await db.collection("discord_id_mappings").get();
+    
+    let globalMappings = {};
+    
+    mappingsSnapshot.forEach(doc => {
+      const data = doc.data();
+      if (data.mappings) {
+        // 各ユーザーのマッピングをグローバルマッピングにマージ
+        Object.assign(globalMappings, data.mappings);
+      }
+    });
+    
+    res.json({ mappings: globalMappings });
+  } catch (error) {
+    console.error("グローバルDiscord IDマッピング取得エラー:", error);
+    res.status(500).json({
+      message: "Discord IDマッピングの取得中にエラーが発生しました。",
+      details: error.message,
+    });
+  }
+});
+
 module.exports = router;

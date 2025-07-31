@@ -56,7 +56,7 @@ router.post("/update-email", verifyAuthentication, async (req, res) => {
 // プロファイル更新
 router.post("/update-profile", verifyAuthentication, async (req, res) => {
   try {
-    const { displayName } = req.body;
+    const { displayName, discordId } = req.body;
     const userDiscordId = req.user.id;
     const userEmail = req.user.email;
 
@@ -64,6 +64,7 @@ router.post("/update-profile", verifyAuthentication, async (req, res) => {
       userDiscordId,
       userEmail,
       displayName,
+      discordId,
       timestamp: new Date().toISOString(),
     });
 
@@ -71,6 +72,13 @@ router.post("/update-profile", verifyAuthentication, async (req, res) => {
     if (!displayName || typeof displayName !== "string") {
       return res.status(400).json({
         message: "表示名が正しく指定されていません。",
+      });
+    }
+
+    // Discord IDの検証（オプション）
+    if (discordId && !/^\d{17,19}$/.test(discordId)) {
+      return res.status(400).json({
+        message: "Discord IDは17-19桁の数字である必要があります。",
       });
     }
 
@@ -101,6 +109,7 @@ router.post("/update-profile", verifyAuthentication, async (req, res) => {
         email: userEmail,
         discordId: userDiscordId,
         name: displayName,
+        profileDiscordId: discordId || '',
         updatedAt: new Date().toISOString(),
       };
       
@@ -118,6 +127,7 @@ router.post("/update-profile", verifyAuthentication, async (req, res) => {
             ...admin,
             name: displayName,
             discordId: userDiscordId,
+            profileDiscordId: discordId || '',
             updatedAt: new Date().toISOString(),
           };
           
@@ -152,6 +162,7 @@ router.post("/update-profile", verifyAuthentication, async (req, res) => {
       username: req.user.username,
       avatar: req.user.avatar,
       discordId: userDiscordId,
+      profileDiscordId: discordId || '',
       email: userEmail,
       timestamp: new Date().toISOString(),
     };
@@ -174,6 +185,201 @@ router.post("/update-profile", verifyAuthentication, async (req, res) => {
       message: "プロファイルの更新中にエラーが発生しました。",
       details: error.message,
       timestamp: new Date().toISOString(),
+    });
+  }
+});
+
+// Discord ID管理エンドポイント
+
+// Discord ID/ニックネーム マッピング取得
+router.get("/discord-mappings", verifyAuthentication, async (req, res) => {
+  try {
+    const db = firebaseService.getDB();
+    const userEmail = req.user.email;
+    
+    // ユーザーのDiscord IDマッピングを取得
+    const mappingsRef = db.collection("discord_id_mappings").doc(userEmail);
+    const mappingsDoc = await mappingsRef.get();
+    
+    if (!mappingsDoc.exists) {
+      return res.json({ mappings: {} });
+    }
+    
+    const data = mappingsDoc.data();
+    res.json({ mappings: data.mappings || {} });
+  } catch (error) {
+    console.error("Discord IDマッピング取得エラー:", error);
+    res.status(500).json({
+      message: "Discord IDマッピングの取得中にエラーが発生しました。",
+      details: error.message,
+    });
+  }
+});
+
+// Discord ID/ニックネーム マッピング追加
+router.post("/discord-mappings", verifyAuthentication, async (req, res) => {
+  try {
+    const { discordId, nickname } = req.body;
+    const userEmail = req.user.email;
+    
+    // 入力値の検証
+    if (!discordId || !nickname) {
+      return res.status(400).json({
+        message: "Discord IDとニックネームの両方が必要です。",
+      });
+    }
+    
+    // Discord IDの形式チェック（18桁の数字）
+    if (!/^\d{17,19}$/.test(discordId)) {
+      return res.status(400).json({
+        message: "Discord IDは17-19桁の数字である必要があります。",
+      });
+    }
+    
+    const db = firebaseService.getDB();
+    const mappingsRef = db.collection("discord_id_mappings").doc(userEmail);
+    const mappingsDoc = await mappingsRef.get();
+    
+    let currentMappings = {};
+    if (mappingsDoc.exists) {
+      currentMappings = mappingsDoc.data().mappings || {};
+    }
+    
+    // Discord IDが重複していないかチェック
+    if (currentMappings[discordId]) {
+      return res.status(400).json({
+        message: "このDiscord IDは既に登録されています。",
+      });
+    }
+    
+    // 新しいマッピングを追加
+    currentMappings[discordId] = {
+      nickname: nickname.trim(),
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+    
+    await mappingsRef.set({
+      mappings: currentMappings,
+      updatedAt: firebaseService.getServerTimestamp(),
+      userEmail: userEmail
+    }, { merge: true });
+    
+    res.json({
+      message: "Discord IDマッピングを追加しました。",
+      discordId,
+      nickname: nickname.trim(),
+      mappings: currentMappings
+    });
+  } catch (error) {
+    console.error("Discord IDマッピング追加エラー:", error);
+    res.status(500).json({
+      message: "Discord IDマッピングの追加中にエラーが発生しました。",
+      details: error.message,
+    });
+  }
+});
+
+// Discord ID/ニックネーム マッピング更新
+router.put("/discord-mappings/:discordId", verifyAuthentication, async (req, res) => {
+  try {
+    const { discordId } = req.params;
+    const { nickname } = req.body;
+    const userEmail = req.user.email;
+    
+    if (!nickname) {
+      return res.status(400).json({
+        message: "ニックネームが必要です。",
+      });
+    }
+    
+    const db = firebaseService.getDB();
+    const mappingsRef = db.collection("discord_id_mappings").doc(userEmail);
+    const mappingsDoc = await mappingsRef.get();
+    
+    if (!mappingsDoc.exists) {
+      return res.status(404).json({
+        message: "Discord IDマッピングが見つかりません。",
+      });
+    }
+    
+    const currentMappings = mappingsDoc.data().mappings || {};
+    
+    if (!currentMappings[discordId]) {
+      return res.status(404).json({
+        message: "指定されたDiscord IDが見つかりません。",
+      });
+    }
+    
+    // マッピングを更新
+    currentMappings[discordId] = {
+      ...currentMappings[discordId],
+      nickname: nickname.trim(),
+      updatedAt: new Date().toISOString()
+    };
+    
+    await mappingsRef.update({
+      mappings: currentMappings,
+      updatedAt: firebaseService.getServerTimestamp()
+    });
+    
+    res.json({
+      message: "Discord IDマッピングを更新しました。",
+      discordId,
+      nickname: nickname.trim(),
+      mappings: currentMappings
+    });
+  } catch (error) {
+    console.error("Discord IDマッピング更新エラー:", error);
+    res.status(500).json({
+      message: "Discord IDマッピングの更新中にエラーが発生しました。",
+      details: error.message,
+    });
+  }
+});
+
+// Discord ID/ニックネーム マッピング削除
+router.delete("/discord-mappings/:discordId", verifyAuthentication, async (req, res) => {
+  try {
+    const { discordId } = req.params;
+    const userEmail = req.user.email;
+    
+    const db = firebaseService.getDB();
+    const mappingsRef = db.collection("discord_id_mappings").doc(userEmail);
+    const mappingsDoc = await mappingsRef.get();
+    
+    if (!mappingsDoc.exists) {
+      return res.status(404).json({
+        message: "Discord IDマッピングが見つかりません。",
+      });
+    }
+    
+    const currentMappings = mappingsDoc.data().mappings || {};
+    
+    if (!currentMappings[discordId]) {
+      return res.status(404).json({
+        message: "指定されたDiscord IDが見つかりません。",
+      });
+    }
+    
+    // マッピングを削除
+    delete currentMappings[discordId];
+    
+    await mappingsRef.update({
+      mappings: currentMappings,
+      updatedAt: firebaseService.getServerTimestamp()
+    });
+    
+    res.json({
+      message: "Discord IDマッピングを削除しました。",
+      discordId,
+      mappings: currentMappings
+    });
+  } catch (error) {
+    console.error("Discord IDマッピング削除エラー:", error);
+    res.status(500).json({
+      message: "Discord IDマッピングの削除中にエラーが発生しました。",
+      details: error.message,
     });
   }
 });
