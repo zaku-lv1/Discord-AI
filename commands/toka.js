@@ -377,14 +377,8 @@ module.exports = {
             }
             await historyDocRef.set({ history: newHistory });
 
-            // AI の応答でも名前をメンションに変換
-            const responseWithMentions = replaceNamesWithMentions(
-              responseText,
-              nameToIdMappings,
-              message.guild
-            );
-            
-            const messageChunks = splitMessage(responseWithMentions);
+            // AI の応答では名前をメンションに変換しない（不要な通知を避けるため）
+            const messageChunks = splitMessage(responseText);
 
             for (const chunk of messageChunks) {
               if (aiSettings.replyDelayMs > 0) {
