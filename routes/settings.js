@@ -6,10 +6,10 @@ const { v4: uuidv4 } = require("uuid");
 const router = express.Router();
 
 // 設定取得
-router.get("/toka", verifyAuthentication, async (req, res) => {
+router.get("/ai", verifyAuthentication, async (req, res) => {
   try {
     const db = firebaseService.getDB();
-    const doc = await db.collection("bot_settings").doc("toka_profile").get();
+    const doc = await db.collection("bot_settings").doc("ai_profile").get();
     if (!doc.exists) {
       return res.status(404).json({ message: "設定がまだありません。" });
     }
@@ -42,7 +42,7 @@ router.get("/toka", verifyAuthentication, async (req, res) => {
 });
 
 // 設定保存
-router.post("/toka", verifyAuthentication, async (req, res) => {
+router.post("/ai", verifyAuthentication, async (req, res) => {
   try {
     const {
       baseUserId,
@@ -67,10 +67,10 @@ router.post("/toka", verifyAuthentication, async (req, res) => {
     const db = firebaseService.getDB();
     await db
       .collection("bot_settings")
-      .doc("toka_profile")
+      .doc("ai_profile")
       .set(dataToSave, { merge: true });
 
-    res.status(200).json({ message: "とーか設定を更新しました。" });
+    res.status(200).json({ message: "AI設定を更新しました。" });
   } catch (error) {
     console.error("設定保存エラー:", error);
     res.status(500).json({ message: "サーバーエラー" });
@@ -82,7 +82,7 @@ router.post("/admins", verifyAuthentication, async (req, res) => {
   try {
     const { admins: newAdminsList } = req.body;
     const db = firebaseService.getDB();
-    const docRef = db.collection("bot_settings").doc("toka_profile");
+    const docRef = db.collection("bot_settings").doc("ai_profile");
     const docSnap = await docRef.get();
     const currentAdmins =
       docSnap.exists && Array.isArray(docSnap.data().admins)

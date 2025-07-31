@@ -20,7 +20,7 @@ router.post("/update-email", verifyAuthentication, async (req, res) => {
 
     // Firestoreでのメールアドレス更新
     const db = firebaseService.getDB();
-    const settingsRef = db.collection("bot_settings").doc("toka_profile");
+    const settingsRef = db.collection("bot_settings").doc("ai_profile");
     const settingsDoc = await settingsRef.get();
 
     if (settingsDoc.exists) {
@@ -82,9 +82,9 @@ router.post("/update-profile", verifyAuthentication, async (req, res) => {
       });
     }
 
-    // bot_settingsコレクションのtoka_profileドキュメントを取得
+    // bot_settingsコレクションのai_profileドキュメントを取得
     const db = firebaseService.getDB();
-    const settingsRef = db.collection("bot_settings").doc("toka_profile");
+    const settingsRef = db.collection("bot_settings").doc("ai_profile");
     const settingsDoc = await settingsRef.get();
 
     console.log("設定ドキュメントの存在:", settingsDoc.exists);

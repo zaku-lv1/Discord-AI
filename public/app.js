@@ -767,16 +767,16 @@ document.addEventListener("DOMContentLoaded", () => {
     let settingsLoaded = false;
 
     try {
-      const tokaRes = await fetch("/api/settings/toka", {
+      const aiRes = await fetch("/api/settings/ai", {
         credentials: 'include'
       });
 
-      if (tokaRes.status === 403 || tokaRes.status === 401) {
+      if (aiRes.status === 403 || aiRes.status === 401) {
         throw new Error("アクセスが拒否されました。");
       }
 
-      if (tokaRes.ok) {
-        const data = await tokaRes.json();
+      if (aiRes.ok) {
+        const data = await aiRes.json();
         const currentUserAdminInfo = (data.admins || []).find(
           (admin) => admin.email === state.user.email || admin.discordId === state.user.id
         );
@@ -802,7 +802,7 @@ document.addEventListener("DOMContentLoaded", () => {
         }
         
         settingsLoaded = true;
-      } else if (tokaRes.status === 404) {
+      } else if (aiRes.status === 404) {
         // 初回セットアップの場合
         state.isSuperAdmin = true;
         adminNavItem.style.display = "block";
@@ -810,7 +810,7 @@ document.addEventListener("DOMContentLoaded", () => {
         profileEmailInput.value = state.user.email || "";
         settingsLoaded = true;
       } else {
-        const errData = await tokaRes.json().catch(() => ({}));
+        const errData = await aiRes.json().catch(() => ({}));
         throw new Error(errData.message || "設定の読み込みに失敗");
       }
     } catch (err) {

@@ -81,8 +81,8 @@ router.post("/", async (req, res) => {
       null  // No invitation code needed
     );
 
-    // Ensure user has owner role
-    await roleService.updateUserRole(email, roleService.roles.OWNER);
+    // Note: The auth service automatically assigns OWNER role to first user
+    // No need to call roleService.updateUserRole here
 
     // Complete owner setup
     await systemSettingsService.completeOwnerSetup(email);

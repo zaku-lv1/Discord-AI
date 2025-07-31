@@ -106,8 +106,22 @@ class Server {
     });
 
     // Main page
-    this.app.get("/", (req, res) => {
-      res.render("index");
+    this.app.get("/", async (req, res) => {
+      try {
+        // Check if owner setup is completed
+        const isOwnerSetupCompleted = await systemSettingsService.isOwnerSetupCompleted();
+        
+        if (!isOwnerSetupCompleted) {
+          // If no owner exists, redirect to owner setup
+          return res.redirect("/owner-setup");
+        }
+        
+        // Otherwise, show the main index page
+        res.render("index");
+      } catch (error) {
+        console.error("[エラー] メインページの表示に失敗:", error);
+        res.render("index"); // Fallback to index if error occurs
+      }
     });
 
     // Status page
