@@ -19,7 +19,7 @@ const verifyAuthentication = async (req, res, next) => {
     req.user.roleDisplay = roleService.displayNames[userRole];
     
     // Set legacy flags for backward compatibility
-    req.user.isAdmin = roleService.hasRole(userRole, roleService.roles.ADMIN);
+    req.user.isAdmin = roleService.hasRole(userRole, roleService.roles.OWNER); // Only owners have admin privileges now
     req.user.isSuperAdmin = roleService.hasRole(userRole, roleService.roles.OWNER);
     
     next();
@@ -55,9 +55,7 @@ const requireRole = (requiredRole) => {
 
 // Convenience middleware for specific roles
 const requireOwner = requireRole(roleService.roles.OWNER);
-const requireAdmin = requireRole(roleService.roles.ADMIN);
 const requireEditor = requireRole(roleService.roles.EDITOR);
-const requireViewer = requireRole(roleService.roles.VIEWER);
 
 // Error handling middleware
 const errorHandler = (err, req, res, next) => {
@@ -76,8 +74,6 @@ module.exports = {
   verifyAuthentication,
   requireRole,
   requireOwner,
-  requireAdmin, 
   requireEditor,
-  requireViewer,
   errorHandler
 };

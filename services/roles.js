@@ -1,27 +1,21 @@
 const firebaseService = require("./firebase");
 
-// Define user roles with hierarchy
+// Define user roles with hierarchy (simplified to OWNER and EDITOR only)
 const USER_ROLES = {
-  OWNER: 'owner',        // オーナー - full system control
-  ADMIN: 'admin',        // 管理者 - manage content and users  
-  EDITOR: 'editor',      // 編集者 - edit content, limited permissions
-  VIEWER: 'viewer'       // 閲覧者 - read-only access
+  OWNER: 'owner',        // オーナー - full system control including invitation codes and maintenance mode
+  EDITOR: 'editor'       // 編集者 - edit content, limited permissions
 };
 
 // Role hierarchy (higher number = more permissions)
 const ROLE_HIERARCHY = {
-  [USER_ROLES.VIEWER]: 1,
-  [USER_ROLES.EDITOR]: 2, 
-  [USER_ROLES.ADMIN]: 3,
-  [USER_ROLES.OWNER]: 4
+  [USER_ROLES.EDITOR]: 1, 
+  [USER_ROLES.OWNER]: 2
 };
 
 // Role display names in Japanese
 const ROLE_DISPLAY_NAMES = {
   [USER_ROLES.OWNER]: 'オーナー',
-  [USER_ROLES.ADMIN]: '管理者', 
-  [USER_ROLES.EDITOR]: '編集者',
-  [USER_ROLES.VIEWER]: '閲覧者'
+  [USER_ROLES.EDITOR]: '編集者'
 };
 
 class RoleService {
@@ -76,7 +70,16 @@ class RoleService {
       
       if (!userQuery.empty) {
         const userData = userQuery.docs[0].data();
-        return userData.role || USER_ROLES.VIEWER;
+        const userRole = userData.role || USER_ROLES.EDITOR;
+        // Ensure role is valid in simplified system
+        if (Object.values(USER_ROLES).includes(userRole)) {
+          return userRole;
+        }
+        // Map old roles to new simplified system
+        if (userRole === 'admin' || userRole === 'viewer') {
+          return USER_ROLES.EDITOR;
+        }
+        return USER_ROLES.EDITOR;
       }
 
       // Fallback: check legacy admin system
@@ -85,14 +88,14 @@ class RoleService {
         const admins = settingsDoc.data().admins || [];
         const admin = admins.find(a => a.email === emailOrHandle);
         if (admin) {
-          return admins[0].email === emailOrHandle ? USER_ROLES.OWNER : USER_ROLES.ADMIN;
+          return admins[0].email === emailOrHandle ? USER_ROLES.OWNER : USER_ROLES.EDITOR;
         }
       }
 
-      return USER_ROLES.VIEWER;
+      return USER_ROLES.EDITOR;
     } catch (error) {
       console.error('Error getting user role:', error);
-      return USER_ROLES.VIEWER;
+      return USER_ROLES.EDITOR;
     }
   }
 
@@ -145,13 +148,25 @@ class RoleService {
       const users = [];
       usersSnapshot.forEach(doc => {
         const userData = doc.data();
+        let userRole = userData.role || USER_ROLES.EDITOR;
+        
+        // Map old roles to simplified system
+        if (userRole === 'admin' || userRole === 'viewer') {
+          userRole = USER_ROLES.EDITOR;
+        }
+        
+        // Ensure role is valid in simplified system
+        if (!Object.values(USER_ROLES).includes(userRole)) {
+          userRole = USER_ROLES.EDITOR;
+        }
+        
         users.push({
           id: doc.id,
           handle: userData.handle || this.formatHandle(userData.username),
           email: userData.email,
           displayName: userData.displayName || userData.username,
-          role: userData.role || USER_ROLES.VIEWER,
-          roleDisplay: this.displayNames[userData.role || USER_ROLES.VIEWER],
+          role: userRole,
+          roleDisplay: this.displayNames[userRole],
           verified: userData.verified,
           createdAt: userData.createdAt,
           lastLogin: userData.lastLogin

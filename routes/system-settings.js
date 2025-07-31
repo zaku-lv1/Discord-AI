@@ -120,11 +120,14 @@ router.post("/transfer-ownership", verifyAuthentication, requireOwner, async (re
 
     // Check if target user exists
     const targetUserRole = await roleService.getUserRole(newOwnerEmail);
-    if (targetUserRole === roleService.roles.VIEWER || !targetUserRole) {
-      return res.status(400).json({
-        success: false,
-        message: "指定されたユーザーが見つからないか、システムに登録されていません"
-      });
+    if (targetUserRole === roleService.roles.EDITOR || !targetUserRole) {
+      // Target user must exist and be an editor to be eligible for ownership transfer
+      if (!targetUserRole) {
+        return res.status(400).json({
+          success: false,
+          message: "指定されたユーザーが見つからないか、システムに登録されていません"
+        });
+      }
     }
 
     // Transfer ownership
@@ -183,10 +186,10 @@ router.get("/users-for-transfer", verifyAuthentication, requireOwner, async (req
   try {
     const users = await roleService.listUsersWithRoles();
     
-    // Filter out the current owner and only include admin+ level users
+    // Filter out the current owner and only include editor level users
     const eligibleUsers = users.filter(user => 
       user.email !== req.user.email &&
-      roleService.hasRole(user.role, roleService.roles.ADMIN) &&
+      roleService.hasRole(user.role, roleService.roles.EDITOR) &&
       user.verified
     );
 

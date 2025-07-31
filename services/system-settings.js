@@ -209,7 +209,7 @@ class SystemSettingsService {
 
       // Update roles
       await roleService.updateUserRole(newOwnerEmail, roleService.roles.OWNER);
-      await roleService.updateUserRole(currentOwnerEmail, roleService.roles.ADMIN);
+      await roleService.updateUserRole(currentOwnerEmail, roleService.roles.EDITOR);
 
       // Log the transfer
       await this.updateSettings({
