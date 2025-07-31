@@ -27,16 +27,15 @@ function replaceNamesWithMentions(message, nameToIdMappings, guild) {
     const discordId = nameToIdMappings[name];
     if (!discordId) continue;
     
-    // 名前を様々なパターンでマッチ（完全一致を優先）
+    // 名前を様々なパターンでマッチ（完全一致を優先、より厳密に）
     const patterns = [
       new RegExp(`\\b${escapeRegExp(name)}\\b`, 'gi'), // 完全単語マッチ（英数字）
-      new RegExp(`(?<![a-zA-Z0-9])${escapeRegExp(name)}(?![a-zA-Z0-9])`, 'gi'), // 英数字以外の境界
-      new RegExp(`${escapeRegExp(name)}(?=[\\s、。！？,!?]|$)`, 'gi'), // 句読点・終端前
-      new RegExp(`(?<=[\\s、。])${escapeRegExp(name)}(?=[\\s、。！？,!?]|$)`, 'gi'), // 句読点間
-      new RegExp(`^${escapeRegExp(name)}(?=[\\s、。！？,!?]|$)`, 'gi'), // 文頭
+      new RegExp(`(?<![a-zA-Z0-9_-])${escapeRegExp(name)}(?![a-zA-Z0-9_-])`, 'gi'), // 英数字・アンダースコア・ハイフン以外の境界
+      new RegExp(`(?<=[\\s、。！？,!?]|^)${escapeRegExp(name)}(?=[\\s、。！？,!?]|$)`, 'gi'), // 句読点・空白・文頭文末
     ];
     
     for (const pattern of patterns) {
+      const currentProcessedMessage = processedMessage;
       processedMessage = processedMessage.replace(pattern, (match) => {
         try {
           // Discordメンションの形式で置換
@@ -52,6 +51,11 @@ function replaceNamesWithMentions(message, nameToIdMappings, guild) {
           return match;
         }
       });
+      
+      // マッチした場合は他のパターンを試さない（重複置換防止）
+      if (currentProcessedMessage !== processedMessage) {
+        break;
+      }
     }
   }
   
