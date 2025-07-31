@@ -181,6 +181,26 @@ module.exports = {
         modelMode: selectedAI.modelMode || "hybrid"
       };
 
+      // グローバルDiscord IDマッピングを取得
+      let globalDiscordMappings = {};
+      try {
+        // DBから直接取得する方法に変更
+        const mappingsSnapshot = await db.collection("discord_id_mappings").get();
+        
+        mappingsSnapshot.forEach(doc => {
+          const data = doc.data();
+          if (data.mappings) {
+            // 各ユーザーのマッピングをグローバルマッピングにマージ
+            Object.assign(globalDiscordMappings, data.mappings);
+          }
+        });
+      } catch (mappingError) {
+        console.warn('グローバルDiscord IDマッピングの取得に失敗:', mappingError.message);
+      }
+
+      // AI固有のニックネームとグローバルマッピングをマージ（AI固有が優先）
+      const combinedUserNicknames = { ...globalDiscordMappings, ...aiSettings.userNicknames };
+
       const finalSystemPrompt = aiSettings.systemPrompt + forcedInstructions;
 
       try {
@@ -251,7 +271,7 @@ module.exports = {
           let contentForAI;
 
           const userId = message.author.id;
-          const nickname = aiSettings.userNicknames[userId];
+          const nickname = combinedUserNicknames[userId];
           const authorName =
             nickname || message.member?.displayName || message.author.username;
 

@@ -406,6 +406,61 @@
                   />
                   <small>ログイン時に使用するユーザー名です。</small>
                 </div>
+
+                <div class="form-group">
+                  <label for="profile-discord-id">Discord ID</label>
+                  <input
+                    type="text"
+                    id="profile-discord-id"
+                    placeholder="Discord IDを入力（例: 123456789012345678）"
+                  />
+                  <small>AIが名前認識でDiscordユーザーを特定するために使用されます。Discord設定の「開発者モード」を有効にしてユーザーIDをコピーしてください。</small>
+                </div>
+              </div>
+
+              <!-- Discord ID管理セクション -->
+              <div class="discord-management-section">
+                <h3>
+                  <i class="fab fa-discord" style="margin-right: 8px;"></i>
+                  Discord ID管理
+                </h3>
+                <p class="section-description">AIがDiscordでの会話時に使用する名前とDiscord IDの関連付けを管理します。</p>
+                
+                <div class="discord-id-manager">
+                  <div class="form-group">
+                    <label for="new-discord-id">Discord ID</label>
+                    <input
+                      type="text"
+                      id="new-discord-id"
+                      placeholder="Discord ID（例: 123456789012345678）"
+                    />
+                    <small>Discord設定の「開発者モード」を有効にしてユーザーを右クリック → 「ユーザーIDをコピー」で取得できます。</small>
+                  </div>
+                  
+                  <div class="form-group">
+                    <label for="new-discord-nickname">ニックネーム</label>
+                    <input
+                      type="text"
+                      id="new-discord-nickname"
+                      placeholder="AIが使用する名前（例: 田中さん、太郎くん）"
+                    />
+                    <small>AIがこのDiscordユーザーを呼ぶときに使用する名前です。</small>
+                  </div>
+                  
+                  <div class="button-group">
+                    <button type="button" id="add-discord-mapping-btn" class="save-btn">
+                      <i class="fas fa-plus" style="margin-right: 8px;"></i>
+                      Discord IDを追加
+                    </button>
+                  </div>
+                </div>
+
+                <div class="discord-mappings-list">
+                  <h4>登録済みDiscord ID一覧</h4>
+                  <div id="discord-mappings-container" class="mappings-container">
+                    <!-- Discord ID mappings will be populated here -->
+                  </div>
+                </div>
               </div>
 
               <div class="button-group">

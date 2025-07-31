@@ -1573,10 +1573,10 @@ select:focus,
 }
 
 .login-form {
-  max-width: 520px; /* Increased from 480px */
+  max-width: 800px; /* Increased from 520px for better readability */
   margin: 0 auto;
   background: linear-gradient(135deg, var(--primary-bg) 0%, rgba(248, 250, 252, 0.95) 100%);
-  padding: 3.5rem 3rem; /* Increased padding */
+  padding: 3.5rem 4rem; /* Increased horizontal padding */
   border-radius: 24px;
   box-shadow: 0 20px 40px var(--shadow-medium), 0 0 0 1px rgba(255, 255, 255, 0.8);
   border: 1px solid var(--border-color);
@@ -1876,6 +1876,7 @@ select:focus,
     margin: 1rem;
     padding: 2.5rem 2rem; /* Increased padding for mobile */
     border-radius: 20px;
+    max-width: calc(100% - 2rem); /* Ensure full width usage on mobile */
   }
   
   .login-form h2 {
@@ -1897,6 +1898,123 @@ select:focus,
     min-height: 64px; /* Larger touch target on mobile */
     font-size: 18px;
   }
+}
+
+/* Wider screens optimization */
+@media (min-width: 1200px) {
+  .login-form {
+    max-width: 900px; /* Even wider on large screens */
+    padding: 4rem 5rem; /* More spacious padding */
+  }
+  
+  .form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.8rem;
+  }
+  
+  .form-group input[type="text"],
+  .form-group input[type="password"], 
+  .form-group input[type="email"] {
+    padding: 1.2rem 1.5rem; /* More spacious input fields */
+    font-size: 1.1rem;
+  }
+}
+
+/* Discord Management Section Styling */
+.discord-management-section {
+  margin-top: 2.5rem;
+  padding: 2rem;
+  background: linear-gradient(135deg, var(--secondary-bg), rgba(248, 250, 252, 0.8));
+  border-radius: 16px;
+  border: 1px solid var(--border-color);
+  box-shadow: 0 4px 12px var(--shadow-light);
+}
+
+.discord-management-section h3 {
+  color: #5865f2; /* Discord blue */
+  margin-bottom: 1rem;
+}
+
+.section-description {
+  color: var(--text-secondary);
+  margin-bottom: 1.5rem;
+  font-size: 0.95rem;
+  line-height: 1.5;
+}
+
+.discord-id-manager {
+  background: var(--primary-bg);
+  padding: 1.5rem;
+  border-radius: 12px;
+  border: 1px solid var(--border-color);
+  margin-bottom: 2rem;
+}
+
+.discord-mappings-list h4 {
+  color: var(--text-primary);
+  margin-bottom: 1rem;
+  font-size: 1.1rem;
+}
+
+.mappings-container {
+  max-height: 300px;
+  overflow-y: auto;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  background: var(--primary-bg);
+}
+
+.discord-mapping-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 1.5rem;
+  border-bottom: 1px solid var(--border-color);
+  transition: background-color 0.2s ease;
+}
+
+.discord-mapping-item:last-child {
+  border-bottom: none;
+}
+
+.discord-mapping-item:hover {
+  background: var(--secondary-bg);
+}
+
+.mapping-info {
+  flex: 1;
+}
+
+.mapping-info .discord-id {
+  font-family: 'Courier New', monospace;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  margin-bottom: 0.25rem;
+}
+
+.mapping-info .nickname {
+  color: var(--text-primary);
+  font-weight: 600;
+  font-size: 1rem;
+}
+
+.mapping-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.mapping-actions .secondary-btn {
+  padding: 0.5rem 1rem;
+  font-size: 0.85rem;
+  min-height: auto;
+}
+
+.empty-mappings {
+  padding: 2rem;
+  text-align: center;
+  color: var(--text-secondary);
+  font-style: italic;
 }
 
 /* ========== User Management Styles ========== */

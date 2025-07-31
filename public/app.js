@@ -25,7 +25,14 @@ document.addEventListener("DOMContentLoaded", () => {
   const profileEmailInput = document.getElementById("profile-email");
   const profileHandleInput = document.getElementById("profile-handle");
   const profileRoleInput = document.getElementById("profile-role");
+  const profileDiscordIdInput = document.getElementById("profile-discord-id");
   const saveProfileBtn = document.getElementById("save-profile-btn");
+
+  // --- Discord ID管理要素 ---
+  const newDiscordIdInput = document.getElementById("new-discord-id");
+  const newDiscordNicknameInput = document.getElementById("new-discord-nickname");
+  const addDiscordMappingBtn = document.getElementById("add-discord-mapping-btn");
+  const discordMappingsContainer = document.getElementById("discord-mappings-container");
 
   // --- AI管理要素 ---
   const aiListContainer = document.getElementById("ai-list-container");
@@ -75,7 +82,8 @@ document.addEventListener("DOMContentLoaded", () => {
     isOwner: false,
     systemSettings: null,
     aiList: [],
-    currentEditingAi: null
+    currentEditingAi: null,
+    discordMappings: {}
   };
 
   // ================ トースト通知システム ================
@@ -228,6 +236,12 @@ document.addEventListener("DOMContentLoaded", () => {
       if (profileRoleInput) {
         profileRoleInput.value = state.user.roleDisplay || state.user.role || '閲覧者';
       }
+      if (profileDiscordIdInput) {
+        profileDiscordIdInput.value = state.user.discordId || '';
+      }
+      
+      // Discord ID/ニックネームマッピングを読み込み
+      loadDiscordMappings();
       
       // プロファイル概要を更新
       const profileNameDisplay = document.getElementById('profile-name-display');
@@ -896,6 +910,7 @@ document.addEventListener("DOMContentLoaded", () => {
       try {
         const newDisplayName = profileDisplayNameInput.value.trim();
         const newEmail = profileEmailInput.value.trim();
+        const newDiscordId = profileDiscordIdInput.value.trim();
 
         const res = await fetch("/api/update-profile", {
           method: "POST",
@@ -903,7 +918,10 @@ document.addEventListener("DOMContentLoaded", () => {
             "Content-Type": "application/json"
           },
           credentials: 'include',
-          body: JSON.stringify({ displayName: newDisplayName }),
+          body: JSON.stringify({ 
+            displayName: newDisplayName,
+            discordId: newDiscordId 
+          }),
         });
 
         if (!res.ok) {
@@ -946,6 +964,194 @@ document.addEventListener("DOMContentLoaded", () => {
         showErrorToast(`プロファイルの更新中にエラーが発生しました: ${err.message}`);
       } finally {
         saveProfileBtn.disabled = false;
+      }
+    });
+  }
+
+  // ================ Discord ID管理機能 ================
+  
+  // Discord IDマッピング読み込み
+  async function loadDiscordMappings() {
+    try {
+      const res = await fetch('/api/discord-mappings', {
+        method: 'GET',
+        credentials: 'include'
+      });
+      
+      if (!res.ok) {
+        throw new Error('Discord IDマッピングの読み込みに失敗しました');
+      }
+      
+      const data = await res.json();
+      state.discordMappings = data.mappings || {};
+      renderDiscordMappings();
+    } catch (error) {
+      console.error('Discord IDマッピング読み込みエラー:', error);
+      showErrorToast(`Discord IDマッピングの読み込みに失敗しました: ${error.message}`);
+    }
+  }
+  
+  // Discord IDマッピングリストの描画
+  function renderDiscordMappings() {
+    if (!discordMappingsContainer) return;
+    
+    const mappings = state.discordMappings;
+    const mappingKeys = Object.keys(mappings);
+    
+    if (mappingKeys.length === 0) {
+      discordMappingsContainer.innerHTML = `
+        <div class="empty-mappings">
+          <i class="fas fa-users" style="font-size: 2rem; color: var(--text-secondary); margin-bottom: 1rem;"></i>
+          <p>まだDiscord IDが登録されていません</p>
+        </div>
+      `;
+      return;
+    }
+    
+    discordMappingsContainer.innerHTML = mappingKeys.map(discordId => {
+      const mapping = mappings[discordId];
+      return `
+        <div class="discord-mapping-item" data-discord-id="${discordId}">
+          <div class="mapping-info">
+            <div class="discord-id">Discord ID: ${discordId}</div>
+            <div class="nickname">${mapping.nickname}</div>
+          </div>
+          <div class="mapping-actions">
+            <button type="button" class="secondary-btn edit-discord-mapping-btn" data-discord-id="${discordId}">
+              <i class="fas fa-edit"></i> 編集
+            </button>
+            <button type="button" class="secondary-btn delete-discord-mapping-btn" data-discord-id="${discordId}">
+              <i class="fas fa-trash"></i> 削除
+            </button>
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
+  
+  // Discord IDマッピング追加
+  if (addDiscordMappingBtn) {
+    addDiscordMappingBtn.addEventListener('click', async () => {
+      const discordId = newDiscordIdInput.value.trim();
+      const nickname = newDiscordNicknameInput.value.trim();
+      
+      if (!discordId || !nickname) {
+        showWarningToast('Discord IDとニックネームを入力してください');
+        return;
+      }
+      
+      if (!/^\d{17,19}$/.test(discordId)) {
+        showWarningToast('Discord IDは17-19桁の数字である必要があります');
+        return;
+      }
+      
+      try {
+        addDiscordMappingBtn.disabled = true;
+        showInfoToast('Discord IDマッピングを追加中...');
+        
+        const res = await fetch('/api/discord-mappings', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          credentials: 'include',
+          body: JSON.stringify({
+            discordId: discordId,
+            nickname: nickname
+          })
+        });
+        
+        if (!res.ok) {
+          const data = await res.json();
+          throw new Error(data.message || 'Discord IDマッピングの追加に失敗しました');
+        }
+        
+        const data = await res.json();
+        state.discordMappings = data.mappings;
+        renderDiscordMappings();
+        
+        // 入力フィールドをクリア
+        newDiscordIdInput.value = '';
+        newDiscordNicknameInput.value = '';
+        
+        showSuccessToast('Discord IDマッピングを追加しました');
+      } catch (error) {
+        console.error('Discord IDマッピング追加エラー:', error);
+        showErrorToast(`Discord IDマッピングの追加に失敗しました: ${error.message}`);
+      } finally {
+        addDiscordMappingBtn.disabled = false;
+      }
+    });
+  }
+  
+  // Discord IDマッピングの編集・削除
+  if (discordMappingsContainer) {
+    discordMappingsContainer.addEventListener('click', async (e) => {
+      const discordId = e.target.dataset.discordId;
+      if (!discordId) return;
+      
+      if (e.target.classList.contains('edit-discord-mapping-btn')) {
+        // 編集モード
+        const mapping = state.discordMappings[discordId];
+        const newNickname = prompt(`Discord ID ${discordId} のニックネームを編集:`, mapping.nickname);
+        
+        if (newNickname === null || newNickname.trim() === '') return;
+        
+        try {
+          showInfoToast('Discord IDマッピングを更新中...');
+          
+          const res = await fetch(`/api/discord-mappings/${discordId}`, {
+            method: 'PUT',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            credentials: 'include',
+            body: JSON.stringify({
+              nickname: newNickname.trim()
+            })
+          });
+          
+          if (!res.ok) {
+            const data = await res.json();
+            throw new Error(data.message || 'Discord IDマッピングの更新に失敗しました');
+          }
+          
+          const data = await res.json();
+          state.discordMappings = data.mappings;
+          renderDiscordMappings();
+          showSuccessToast('Discord IDマッピングを更新しました');
+        } catch (error) {
+          console.error('Discord IDマッピング更新エラー:', error);
+          showErrorToast(`Discord IDマッピングの更新に失敗しました: ${error.message}`);
+        }
+      } else if (e.target.classList.contains('delete-discord-mapping-btn')) {
+        // 削除確認
+        const mapping = state.discordMappings[discordId];
+        if (!confirm(`Discord ID "${discordId}" (${mapping.nickname}) を削除しますか？`)) {
+          return;
+        }
+        
+        try {
+          showInfoToast('Discord IDマッピングを削除中...');
+          
+          const res = await fetch(`/api/discord-mappings/${discordId}`, {
+            method: 'DELETE',
+            credentials: 'include'
+          });
+          
+          if (!res.ok) {
+            const data = await res.json();
+            throw new Error(data.message || 'Discord IDマッピングの削除に失敗しました');
+          }
+          
+          const data = await res.json();
+          state.discordMappings = data.mappings;
+          renderDiscordMappings();
+          showSuccessToast('Discord IDマッピングを削除しました');
+        } catch (error) {
+          console.error('Discord IDマッピング削除エラー:', error);
+          showErrorToast(`Discord IDマッピングの削除に失敗しました: ${error.message}`);
+        }
       }
     });
   }
