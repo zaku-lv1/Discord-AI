@@ -31,17 +31,16 @@ class SystemSettingsService {
       const settingsDoc = await settingsRef.get();
 
       if (!settingsDoc.exists) {
-        // Create default settings with auto-generated owner setup key
+        // Create default settings without owner setup key (no longer needed)
         const defaultSettings = {
           ...this.defaultSettings,
-          ownerSetupKey: this.generateOwnerSetupKey(),
+          ownerSetupKey: null, // No setup key required for owner setup
           createdAt: firebaseService.getServerTimestamp()
         };
         
         await settingsRef.set(defaultSettings);
         console.log("[情報] システム設定を初期化しました");
-        console.log("[重要] オーナー設定キー:", defaultSettings.ownerSetupKey);
-        console.log("[重要] このキーを安全に保管してください");
+        console.log("[情報] オーナー設定キーは不要です - 誰でも最初のオーナーになれます");
       }
 
       return true;
@@ -102,32 +101,27 @@ class SystemSettingsService {
   }
 
   /**
-   * Check if setup key can be skipped (when no owner exists)
+   * Check if setup key can be skipped (always true for owner setup when not completed)
    */
   async canSkipSetupKey() {
     try {
       const settings = await this.getSettings();
       
-      // If owner setup is already completed, key cannot be skipped
+      // If owner setup is already completed, setup is no longer available
       if (settings.ownerSetupCompleted) {
         return false;
       }
 
-      // Check if there are any users in the system
-      const firebaseService = require("./firebase");
-      const db = firebaseService.getDB();
-      const usersSnapshot = await db.collection('users').get();
-      
-      // If no users exist, this is the initial setup - key can be skipped
-      return usersSnapshot.empty;
+      // For owner setup, setup key is never required - anyone can set up the first owner
+      return true;
     } catch (error) {
       console.error("[エラー] セットアップキースキップ確認に失敗:", error);
-      return false; // Default to requiring key for security
+      return true; // Default to allowing setup for initial owner
     }
   }
 
   /**
-   * Validate owner setup key
+   * Validate owner setup key (always valid when owner setup not completed)
    */
   async validateOwnerSetupKey(inputKey) {
     try {
@@ -138,17 +132,7 @@ class SystemSettingsService {
         throw new Error("オーナー設定は既に完了しています");
       }
 
-      // Check if we can skip the setup key (initial setup with no users)
-      const canSkip = await this.canSkipSetupKey();
-      if (canSkip) {
-        return true; // Skip validation for initial owner setup
-      }
-
-      // For subsequent setups (if any), validate the key
-      if (settings.ownerSetupKey !== inputKey) {
-        throw new Error("無効なオーナー設定キーです");
-      }
-
+      // For owner setup, no key validation is required - anyone can set up the first owner
       return true;
     } catch (error) {
       throw error;

@@ -134,13 +134,9 @@
                     セキュリティ情報
                 </h3>
                 <p>
-                    <% if (canSkipSetupKey) { %>
-                        これは初回セットアップです。オーナーアカウントを作成後、このページは無効になります。
-                        追加のユーザーには招待コードが必要となります。
-                    <% } else { %>
-                        オーナー設定は一度のみ実行可能です。設定完了後、このページは無効になります。
-                        設定キーは管理者から受け取った秘密のキーを使用してください。
-                    <% } %>
+                    これは初回セットアップです。誰でもオーナーアカウントを作成できますが、
+                    オーナーになれるのは1人だけです。設定完了後、このページは無効になり、
+                    追加のユーザーには招待コードが必要となります。
                 </p>
             </div>
 
@@ -152,20 +148,8 @@
             <% } %>
 
             <form id="owner-setup-form">
-                <% if (!canSkipSetupKey) { %>
-                <div class="form-group">
-                    <label for="setup-key">
-                        <i class="fas fa-key" style="margin-right: 5px;"></i>
-                        オーナー設定キー <span style="color: #e74c3c;">*</span>
-                    </label>
-                    <input type="password" id="setup-key" name="setupKey" required 
-                           placeholder="管理者から受け取ったキーを入力">
-                    <small>このキーはシステム管理者から受け取った秘密のキーです。</small>
-                </div>
-                <% } else { %>
-                <!-- Setup key not required for initial owner setup -->
+                <!-- Setup key is not required for owner setup -->
                 <input type="hidden" name="setupKey" value="">
-                <% } %>
 
                 <div class="form-group">
                     <label for="username">
