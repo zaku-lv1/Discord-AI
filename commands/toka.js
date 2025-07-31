@@ -13,6 +13,55 @@ function replaceMentionsWithNames(message, guild) {
   });
 }
 
+function replaceNamesWithMentions(message, nameToIdMappings, guild) {
+  if (!message || typeof message.replace !== "function" || !nameToIdMappings || !guild) {
+    return message;
+  }
+  
+  let processedMessage = message;
+  
+  // ネームマッピングを処理（長い名前から優先して処理）
+  const sortedNames = Object.keys(nameToIdMappings).sort((a, b) => b.length - a.length);
+  
+  for (const name of sortedNames) {
+    const discordId = nameToIdMappings[name];
+    if (!discordId) continue;
+    
+    // 名前を様々なパターンでマッチ（完全一致を優先）
+    const patterns = [
+      new RegExp(`\\b${escapeRegExp(name)}\\b`, 'gi'), // 完全単語マッチ（英数字）
+      new RegExp(`(?<![a-zA-Z0-9])${escapeRegExp(name)}(?![a-zA-Z0-9])`, 'gi'), // 英数字以外の境界
+      new RegExp(`${escapeRegExp(name)}(?=[\\s、。！？,!?]|$)`, 'gi'), // 句読点・終端前
+      new RegExp(`(?<=[\\s、。])${escapeRegExp(name)}(?=[\\s、。！？,!?]|$)`, 'gi'), // 句読点間
+      new RegExp(`^${escapeRegExp(name)}(?=[\\s、。！？,!?]|$)`, 'gi'), // 文頭
+    ];
+    
+    for (const pattern of patterns) {
+      processedMessage = processedMessage.replace(pattern, (match) => {
+        try {
+          // Discordメンションの形式で置換
+          const member = guild.members.cache.get(discordId);
+          if (member) {
+            return `<@${discordId}>`;
+          } else {
+            // ギルドメンバーが見つからない場合は元の名前を保持
+            return match;
+          }
+        } catch (error) {
+          console.warn(`名前「${name}」のDiscord ID「${discordId}」への変換に失敗:`, error.message);
+          return match;
+        }
+      });
+    }
+  }
+  
+  return processedMessage;
+}
+
+function escapeRegExp(string) {
+  return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 function splitMessage(text, { maxLength = 2000 } = {}) {
   if (text.length <= maxLength) {
     return [text];
@@ -201,6 +250,23 @@ module.exports = {
       // AI固有のニックネームとグローバルマッピングをマージ（AI固有が優先）
       const combinedUserNicknames = { ...globalDiscordMappings, ...aiSettings.userNicknames };
 
+      // 名前からDiscord IDへの逆マッピングを作成（プロンプト内の名前をメンションに変換するため）
+      const nameToIdMappings = {};
+      
+      // グローバルマッピングから逆マッピングを作成
+      Object.entries(globalDiscordMappings).forEach(([discordId, nickname]) => {
+        if (nickname && typeof nickname === 'string') {
+          nameToIdMappings[nickname] = discordId;
+        }
+      });
+      
+      // AI固有のニックネームから逆マッピングを作成（AI固有が優先）
+      Object.entries(aiSettings.userNicknames).forEach(([discordId, nickname]) => {
+        if (nickname && typeof nickname === 'string') {
+          nameToIdMappings[nickname] = discordId;
+        }
+      });
+
       const finalSystemPrompt = aiSettings.systemPrompt + forcedInstructions;
 
       try {
@@ -264,8 +330,15 @@ module.exports = {
             ? historyDoc.data().history
             : [];
 
-          const processedContent = replaceMentionsWithNames(
+          // まず名前をメンションに変換してからメンションを名前に変換
+          const contentWithMentions = replaceNamesWithMentions(
             message.content,
+            nameToIdMappings,
+            message.guild
+          );
+          
+          const processedContent = replaceMentionsWithNames(
+            contentWithMentions,
             message.guild
           );
           let contentForAI;
@@ -300,7 +373,14 @@ module.exports = {
             }
             await historyDocRef.set({ history: newHistory });
 
-            const messageChunks = splitMessage(responseText);
+            // AI の応答でも名前をメンションに変換
+            const responseWithMentions = replaceNamesWithMentions(
+              responseText,
+              nameToIdMappings,
+              message.guild
+            );
+            
+            const messageChunks = splitMessage(responseWithMentions);
 
             for (const chunk of messageChunks) {
               if (aiSettings.replyDelayMs > 0) {
@@ -341,4 +421,9 @@ module.exports = {
       });
     }
   },
+
+  // Export functions for testing
+  replaceNamesWithMentions,
+  replaceMentionsWithNames,
+  escapeRegExp
 };
