@@ -83,7 +83,7 @@ class RoleService {
       }
 
       // Fallback: check legacy admin system
-      const settingsDoc = await db.collection("bot_settings").doc("toka_profile").get();
+      const settingsDoc = await db.collection("bot_settings").doc("ai_profile").get();
       if (settingsDoc.exists) {
         const admins = settingsDoc.data().admins || [];
         const admin = admins.find(a => a.email === emailOrHandle);
