@@ -28,11 +28,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const profileDiscordIdInput = document.getElementById("profile-discord-id");
   const saveProfileBtn = document.getElementById("save-profile-btn");
 
-  // --- Discord ID管理要素 ---
-  const newDiscordIdInput = document.getElementById("new-discord-id");
-  const newDiscordNicknameInput = document.getElementById("new-discord-nickname");
-  const addDiscordMappingBtn = document.getElementById("add-discord-mapping-btn");
-  const discordMappingsContainer = document.getElementById("discord-mappings-container");
+  // --- Discord ID管理要素 --- (Removed global Discord mapping, now AI-specific)
 
   // --- AI管理要素 ---
   const aiListContainer = document.getElementById("ai-list-container");
@@ -41,6 +37,12 @@ document.addEventListener("DOMContentLoaded", () => {
   const editAiForm = document.getElementById("edit-ai-form");
   const closeModalBtn = document.querySelector(".close");
   const cancelEditBtn = document.getElementById("cancel-edit-btn");
+
+  // --- AI固有ニックネーム管理要素 ---
+  const editNewDiscordIdInput = document.getElementById("edit-new-discord-id");
+  const editNewNicknameInput = document.getElementById("edit-new-nickname");
+  const addAiNicknameBtn = document.getElementById("add-ai-nickname-btn");
+  const aiNicknamesContainer = document.getElementById("ai-nicknames-container");
 
   // --- ユーザー管理要素 ---
   const generateRoleInviteBtn = document.getElementById("generate-role-invite-btn");
@@ -83,7 +85,7 @@ document.addEventListener("DOMContentLoaded", () => {
     systemSettings: null,
     aiList: [],
     currentEditingAi: null,
-    discordMappings: {}
+    currentAiNicknames: {} // AI固有のニックネーム（編集中のAI用）
   };
 
   // ================ トースト通知システム ================
@@ -239,9 +241,6 @@ document.addEventListener("DOMContentLoaded", () => {
       if (profileDiscordIdInput) {
         profileDiscordIdInput.value = state.user.discordId || '';
       }
-      
-      // Discord ID/ニックネームマッピングを読み込み
-      loadDiscordMappings();
       
       // プロファイル概要を更新
       const profileNameDisplay = document.getElementById('profile-name-display');
@@ -441,6 +440,9 @@ document.addEventListener("DOMContentLoaded", () => {
     document.getElementById("edit-ai-reply-delay").value = ai.replyDelayMs || 0;
     document.getElementById("edit-ai-error-message").value = ai.errorOopsMessage || '';
     document.getElementById("edit-ai-system-prompt").value = ai.systemPrompt || '';
+
+    // AI固有のニックネームを読み込み
+    loadAiNicknames(aiId);
 
     editAiModal.style.display = "block";
   };
@@ -961,59 +963,60 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  // ================ Discord ID管理機能 ================
+  // ================ AI固有ニックネーム管理機能 ================
   
-  // Discord IDマッピング読み込み
-  async function loadDiscordMappings() {
+  // AI固有ニックネーム読み込み
+  async function loadAiNicknames(aiId) {
     try {
-      const res = await fetch('/api/discord-mappings', {
+      const res = await fetch(`/api/ais/${aiId}/nicknames`, {
         method: 'GET',
         credentials: 'include'
       });
       
       if (!res.ok) {
-        throw new Error('Discord IDマッピングの読み込みに失敗しました');
+        throw new Error('AI固有ニックネームの読み込みに失敗しました');
       }
       
       const data = await res.json();
-      state.discordMappings = data.mappings || {};
-      renderDiscordMappings();
+      state.currentAiNicknames = data.nicknames || {};
+      renderAiNicknames();
     } catch (error) {
-      console.error('Discord IDマッピング読み込みエラー:', error);
-      showErrorToast(`Discord IDマッピングの読み込みに失敗しました: ${error.message}`);
+      console.error('AI固有ニックネーム読み込みエラー:', error);
+      showErrorToast(`AI固有ニックネームの読み込みに失敗しました: ${error.message}`);
     }
   }
   
-  // Discord IDマッピングリストの描画
-  function renderDiscordMappings() {
-    if (!discordMappingsContainer) return;
+  // AI固有ニックネームリストの描画
+  function renderAiNicknames() {
+    if (!aiNicknamesContainer) return;
     
-    const mappings = state.discordMappings;
-    const mappingKeys = Object.keys(mappings);
+    const nicknames = state.currentAiNicknames;
+    const nicknameKeys = Object.keys(nicknames);
     
-    if (mappingKeys.length === 0) {
-      discordMappingsContainer.innerHTML = `
-        <div class="empty-mappings">
+    if (nicknameKeys.length === 0) {
+      aiNicknamesContainer.innerHTML = `
+        <div class="empty-nicknames">
           <i class="fas fa-users" style="font-size: 2rem; color: var(--text-secondary); margin-bottom: 1rem;"></i>
-          <p>まだDiscord IDが登録されていません</p>
+          <p>まだニックネームが登録されていません</p>
         </div>
       `;
       return;
     }
     
-    discordMappingsContainer.innerHTML = mappingKeys.map(discordId => {
-      const mapping = mappings[discordId];
+    aiNicknamesContainer.innerHTML = nicknameKeys.map(discordId => {
+      const nickname = nicknames[discordId];
+      
       return `
-        <div class="discord-mapping-item" data-discord-id="${discordId}">
-          <div class="mapping-info">
-            <div class="discord-id">Discord ID: ${discordId}</div>
-            <div class="nickname">${mapping.nickname}</div>
+        <div class="nickname-item" data-discord-id="${discordId}">
+          <div class="nickname-info">
+            <div class="discord-id">${discordId}</div>
+            <div class="nickname">${nickname.nickname}</div>
           </div>
-          <div class="mapping-actions">
-            <button type="button" class="secondary-btn edit-discord-mapping-btn" data-discord-id="${discordId}">
+          <div class="nickname-actions">
+            <button type="button" class="secondary-btn edit-ai-nickname-btn" data-discord-id="${discordId}">
               <i class="fas fa-edit"></i> 編集
             </button>
-            <button type="button" class="secondary-btn delete-discord-mapping-btn" data-discord-id="${discordId}">
+            <button type="button" class="secondary-btn delete-ai-nickname-btn" data-discord-id="${discordId}">
               <i class="fas fa-trash"></i> 削除
             </button>
           </div>
@@ -1022,11 +1025,11 @@ document.addEventListener("DOMContentLoaded", () => {
     }).join('');
   }
   
-  // Discord IDマッピング追加
-  if (addDiscordMappingBtn) {
-    addDiscordMappingBtn.addEventListener('click', async () => {
-      const discordId = newDiscordIdInput.value.trim();
-      const nickname = newDiscordNicknameInput.value.trim();
+  // AI固有ニックネーム追加
+  if (addAiNicknameBtn) {
+    addAiNicknameBtn.addEventListener('click', async () => {
+      const discordId = editNewDiscordIdInput.value.trim();
+      const nickname = editNewNicknameInput.value.trim();
       
       if (!discordId || !nickname) {
         showWarningToast('Discord IDとニックネームを入力してください');
@@ -1038,11 +1041,16 @@ document.addEventListener("DOMContentLoaded", () => {
         return;
       }
       
+      if (!state.currentEditingAi) {
+        showErrorToast('編集中のAIが見つかりません');
+        return;
+      }
+      
       try {
-        addDiscordMappingBtn.disabled = true;
-        showInfoToast('Discord IDマッピングを追加中...');
+        addAiNicknameBtn.disabled = true;
+        showInfoToast('ニックネームを追加中...');
         
-        const res = await fetch('/api/discord-mappings', {
+        const res = await fetch(`/api/ais/${state.currentEditingAi.id}/nicknames`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json'
@@ -1056,44 +1064,46 @@ document.addEventListener("DOMContentLoaded", () => {
         
         if (!res.ok) {
           const data = await res.json();
-          throw new Error(data.message || 'Discord IDマッピングの追加に失敗しました');
+          throw new Error(data.message || 'ニックネームの追加に失敗しました');
         }
         
         const data = await res.json();
-        state.discordMappings = data.mappings;
-        renderDiscordMappings();
+        state.currentAiNicknames = data.nicknames;
+        renderAiNicknames();
         
-        // 入力フィールドをクリア
-        newDiscordIdInput.value = '';
-        newDiscordNicknameInput.value = '';
+        // 入力欄をクリア
+        editNewDiscordIdInput.value = '';
+        editNewNicknameInput.value = '';
         
-        showSuccessToast('Discord IDマッピングを追加しました');
+        showSuccessToast('ニックネームを追加しました');
       } catch (error) {
-        console.error('Discord IDマッピング追加エラー:', error);
-        showErrorToast(`Discord IDマッピングの追加に失敗しました: ${error.message}`);
+        console.error('AI固有ニックネーム追加エラー:', error);
+        showErrorToast(`ニックネームの追加に失敗しました: ${error.message}`);
       } finally {
-        addDiscordMappingBtn.disabled = false;
+        addAiNicknameBtn.disabled = false;
       }
     });
   }
   
-  // Discord IDマッピングの編集・削除
-  if (discordMappingsContainer) {
-    discordMappingsContainer.addEventListener('click', async (e) => {
-      const discordId = e.target.dataset.discordId;
-      if (!discordId) return;
+  // AI固有ニックネームの編集・削除
+  if (aiNicknamesContainer) {
+    aiNicknamesContainer.addEventListener('click', async (e) => {
+      const discordId = e.target.closest('[data-discord-id]')?.dataset.discordId;
+      if (!discordId || !state.currentEditingAi) return;
       
-      if (e.target.classList.contains('edit-discord-mapping-btn')) {
-        // 編集モード
-        const mapping = state.discordMappings[discordId];
-        const newNickname = prompt(`Discord ID ${discordId} のニックネームを編集:`, mapping.nickname);
+      if (e.target.classList.contains('edit-ai-nickname-btn') || e.target.closest('.edit-ai-nickname-btn')) {
+        // 編集
+        const currentNickname = state.currentAiNicknames[discordId]?.nickname || '';
+        const newNickname = prompt('新しいニックネームを入力してください:', currentNickname);
         
-        if (newNickname === null || newNickname.trim() === '') return;
+        if (!newNickname || newNickname.trim() === currentNickname) {
+          return;
+        }
         
         try {
-          showInfoToast('Discord IDマッピングを更新中...');
+          showInfoToast('ニックネームを更新中...');
           
-          const res = await fetch(`/api/discord-mappings/${discordId}`, {
+          const res = await fetch(`/api/ais/${state.currentEditingAi.id}/nicknames/${discordId}`, {
             method: 'PUT',
             headers: {
               'Content-Type': 'application/json'
@@ -1106,44 +1116,44 @@ document.addEventListener("DOMContentLoaded", () => {
           
           if (!res.ok) {
             const data = await res.json();
-            throw new Error(data.message || 'Discord IDマッピングの更新に失敗しました');
+            throw new Error(data.message || 'ニックネームの更新に失敗しました');
           }
           
           const data = await res.json();
-          state.discordMappings = data.mappings;
-          renderDiscordMappings();
-          showSuccessToast('Discord IDマッピングを更新しました');
+          state.currentAiNicknames = data.nicknames;
+          renderAiNicknames();
+          showSuccessToast('ニックネームを更新しました');
         } catch (error) {
-          console.error('Discord IDマッピング更新エラー:', error);
-          showErrorToast(`Discord IDマッピングの更新に失敗しました: ${error.message}`);
+          console.error('AI固有ニックネーム更新エラー:', error);
+          showErrorToast(`ニックネームの更新に失敗しました: ${error.message}`);
         }
-      } else if (e.target.classList.contains('delete-discord-mapping-btn')) {
+      } else if (e.target.classList.contains('delete-ai-nickname-btn') || e.target.closest('.delete-ai-nickname-btn')) {
         // 削除確認
-        const mapping = state.discordMappings[discordId];
-        if (!confirm(`Discord ID "${discordId}" (${mapping.nickname}) を削除しますか？`)) {
+        const nickname = state.currentAiNicknames[discordId];
+        if (!confirm(`Discord ID "${discordId}" (${nickname.nickname}) を削除しますか？`)) {
           return;
         }
         
         try {
-          showInfoToast('Discord IDマッピングを削除中...');
+          showInfoToast('ニックネームを削除中...');
           
-          const res = await fetch(`/api/discord-mappings/${discordId}`, {
+          const res = await fetch(`/api/ais/${state.currentEditingAi.id}/nicknames/${discordId}`, {
             method: 'DELETE',
             credentials: 'include'
           });
           
           if (!res.ok) {
             const data = await res.json();
-            throw new Error(data.message || 'Discord IDマッピングの削除に失敗しました');
+            throw new Error(data.message || 'ニックネームの削除に失敗しました');
           }
           
           const data = await res.json();
-          state.discordMappings = data.mappings;
-          renderDiscordMappings();
-          showSuccessToast('Discord IDマッピングを削除しました');
+          state.currentAiNicknames = data.nicknames;
+          renderAiNicknames();
+          showSuccessToast('ニックネームを削除しました');
         } catch (error) {
-          console.error('Discord IDマッピング削除エラー:', error);
-          showErrorToast(`Discord IDマッピングの削除に失敗しました: ${error.message}`);
+          console.error('AI固有ニックネーム削除エラー:', error);
+          showErrorToast(`ニックネームの削除に失敗しました: ${error.message}`);
         }
       }
     });
