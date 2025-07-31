@@ -19,7 +19,7 @@ router.get("/", async (req, res) => {
       });
     }
 
-    // Check if setup key can be skipped (initial setup)
+    // Check if setup key can be skipped (always true when owner setup not completed)
     const canSkipSetupKey = await systemSettingsService.canSkipSetupKey();
 
     res.render("owner-setup", { 
@@ -52,22 +52,14 @@ router.post("/", async (req, res) => {
 
     const { setupKey, username, email, password, confirmPassword } = req.body;
 
-    // Check if setup key can be skipped
+    // Check if setup key can be skipped (always true when owner setup not completed)
     const canSkipSetupKey = await systemSettingsService.canSkipSetupKey();
 
-    // Validate required fields (setupKey is optional if can be skipped)
+    // Validate required fields (setupKey is not required for owner setup)
     if (!username || !email || !password || !confirmPassword) {
       return res.status(400).json({
         success: false,
         message: "全ての項目を入力してください"
-      });
-    }
-
-    // Validate setup key only if it cannot be skipped
-    if (!canSkipSetupKey && !setupKey) {
-      return res.status(400).json({
-        success: false,
-        message: "オーナー設定キーが必要です"
       });
     }
 
@@ -87,7 +79,7 @@ router.post("/", async (req, res) => {
       });
     }
 
-    // Validate setup key (this will handle the skip logic internally)
+    // Validate owner setup (no key required)
     await systemSettingsService.validateOwnerSetupKey(setupKey);
 
     // Create owner account
