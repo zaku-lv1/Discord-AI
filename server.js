@@ -247,23 +247,31 @@ class Server {
       console.log(`[404] Route not found: ${req.method} ${req.originalUrl}`);
       console.log(`[404] Available routes: /auth/*, /api/*, /`);
 
-      res.status(404).json({ 
-        message: "Not Found",
-        requestedPath: req.originalUrl,
-        availableRoutes: [
-          "GET /",
-          "GET /api/health", 
-          "POST /auth/login",
-          "POST /auth/register",
-          "GET /auth/verify-email",
-          "POST /auth/request-password-reset",
-          "GET /auth/reset-password",
-          "POST /auth/reset-password",
-          "GET /auth/logout",
-          "GET /auth/user",
-          "POST /api/generate-invite-code"
-        ]
-      });
+      // Check if this is an API request (JSON expected)
+      if (req.originalUrl.startsWith('/api/') || req.headers.accept?.includes('application/json')) {
+        res.status(404).json({ 
+          message: "Not Found",
+          requestedPath: req.originalUrl,
+          availableRoutes: [
+            "GET /",
+            "GET /api/health", 
+            "POST /auth/login",
+            "POST /auth/register",
+            "GET /auth/verify-email",
+            "POST /auth/request-password-reset",
+            "GET /auth/reset-password",
+            "POST /auth/reset-password",
+            "GET /auth/logout",
+            "GET /auth/user",
+            "POST /api/generate-invite-code"
+          ]
+        });
+      } else {
+        // For web requests, render the 404 page
+        res.status(404).render("404", {
+          requestedPath: req.originalUrl
+        });
+      }
     });
 
     // Error handler
