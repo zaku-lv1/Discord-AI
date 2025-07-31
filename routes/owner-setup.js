@@ -13,10 +13,9 @@ router.get("/", async (req, res) => {
     // Check if owner setup is already completed
     const isCompleted = await systemSettingsService.isOwnerSetupCompleted();
     if (isCompleted) {
-      return res.render("owner-setup", { 
-        error: "オーナー設定は既に完了しています",
-        completed: true,
-        canSkipSetupKey: false
+      // Return 404 if owner setup is already completed - this page should not be accessible
+      return res.status(404).render("404", { 
+        requestedPath: req.originalUrl
       });
     }
 
@@ -42,6 +41,15 @@ router.get("/", async (req, res) => {
  */
 router.post("/", async (req, res) => {
   try {
+    // Check if owner setup is already completed - this must be the first check
+    const isCompleted = await systemSettingsService.isOwnerSetupCompleted();
+    if (isCompleted) {
+      return res.status(404).json({
+        success: false,
+        message: "このページは利用できません"
+      });
+    }
+
     const { setupKey, username, email, password, confirmPassword } = req.body;
 
     // Check if setup key can be skipped
@@ -76,15 +84,6 @@ router.post("/", async (req, res) => {
       return res.status(400).json({
         success: false,
         message: "パスワードは6文字以上で入力してください"
-      });
-    }
-
-    // Check if owner setup is already completed
-    const isCompleted = await systemSettingsService.isOwnerSetupCompleted();
-    if (isCompleted) {
-      return res.status(400).json({
-        success: false,
-        message: "オーナー設定は既に完了しています"
       });
     }
 
