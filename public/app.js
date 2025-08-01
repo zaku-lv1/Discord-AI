@@ -1302,13 +1302,29 @@ document.addEventListener("DOMContentLoaded", () => {
       const password = document.getElementById("login-password").value;
       
       if (!username || !password) {
-        showErrorToast("ユーザー名またはメールアドレス、パスワードを入力してください。");
+        showErrorToast("ハンドル名またはメールアドレス、パスワードを入力してください。");
+        return;
+      }
+      
+      // Validate input format - only allow email addresses and handles
+      const isEmail = username.includes('@') && username.includes('.');
+      const isHandle = username.startsWith('@');
+      
+      if (!isEmail && !isHandle) {
+        showErrorToast("メールアドレス（例: user@example.com）またはハンドル（例: @username）を入力してください。");
         return;
       }
       
       const submitBtn = loginForm.querySelector('button[type="submit"]');
+      const originalText = submitBtn.innerHTML;
+      
       submitBtn.disabled = true;
-      showInfoToast("ログイン中...");
+      submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin" style="margin-right: 8px;"></i>ログイン中...';
+      
+      // Show loader container for better visual feedback
+      if (loaderContainer) {
+        loaderContainer.style.display = "flex";
+      }
       
       try {
         const response = await fetch('/auth/login', {
@@ -1323,11 +1339,15 @@ document.addEventListener("DOMContentLoaded", () => {
         const result = await response.json();
         
         if (result.success) {
-          showSuccessToast(result.message);
-          // ログイン成功時、少し待ってから認証状態をチェック
-          setTimeout(() => {
-            checkAuthStatus();
-          }, 1000);
+          showSuccessToast("ログインしました。ダッシュボードに移動しています...");
+          
+          // Immediately check auth status without delay for faster redirect
+          await checkAuthStatus();
+          
+          // If checkAuthStatus didn't redirect (fallback), try again after a short delay
+          setTimeout(async () => {
+            await checkAuthStatus();
+          }, 500);
         } else {
           showErrorToast(result.message);
         }
@@ -1335,7 +1355,12 @@ document.addEventListener("DOMContentLoaded", () => {
         console.error('ログインエラー:', error);
         showErrorToast('ログインに失敗しました。');
       } finally {
+        // Always hide loader and restore button
+        if (loaderContainer) {
+          loaderContainer.style.display = "none";
+        }
         submitBtn.disabled = false;
+        submitBtn.innerHTML = originalText;
       }
     });
   }

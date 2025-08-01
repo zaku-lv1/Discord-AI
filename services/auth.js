@@ -195,21 +195,16 @@ class AuthService {
       }
     }
     
-    // メールアドレスで検索
+    // メールアドレスで検索 (must contain @ and .)
     if (emailOrHandle.includes('@') && emailOrHandle.includes('.')) {
       const userQuery = await db.collection('users').where('email', '==', emailOrHandle).get();
       if (!userQuery.empty) {
         return userQuery.docs[0].data();
       }
-    } else {
-      // @なしの文字列の場合は、ハンドル形式に変換して検索
-      const handle = roleService.formatHandle(emailOrHandle);
-      const userQuery = await db.collection('users').where('handle', '==', handle).get();
-      if (!userQuery.empty) {
-        return userQuery.docs[0].data();
-      }
     }
     
+    // プレーンユーザー名でのログインは許可しない
+    // Plain username login is not allowed - only email addresses and handles (@username) are accepted
     return null;
   }
 
