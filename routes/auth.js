@@ -33,16 +33,29 @@ router.post('/login', (req, res, next) => {
       }
       
       console.log('[SUCCESS] ローカル認証成功:', user.username);
-      res.json({ 
-        success: true, 
-        message: 'ログインしました',
-        user: {
-          id: user.id,
-          username: user.username,
-          email: user.email,
-          type: user.type,
-          verified: user.verified
+      
+      // Ensure session is saved before responding
+      req.session.save((saveErr) => {
+        if (saveErr) {
+          console.error('[ERROR] セッション保存エラー:', saveErr);
+          return res.status(500).json({ 
+            success: false, 
+            message: 'ログインに失敗しました' 
+          });
         }
+        
+        console.log('[DEBUG] セッションが正常に保存されました:', req.sessionID);
+        res.json({ 
+          success: true, 
+          message: 'ログインしました',
+          user: {
+            id: user.id,
+            username: user.username,
+            email: user.email,
+            type: user.type,
+            verified: user.verified
+          }
+        });
       });
     });
   })(req, res, next);
@@ -242,6 +255,10 @@ router.get('/logout', (req, res) => {
 });
 
 router.get('/user', (req, res) => {
+  console.log('[DEBUG] Auth check - sessionID:', req.sessionID);
+  console.log('[DEBUG] Auth check - isAuthenticated:', req.isAuthenticated());
+  console.log('[DEBUG] Auth check - session user:', req.user ? req.user.username || req.user.email : 'none');
+  
   if (req.isAuthenticated()) {
     const user = req.user;
     res.json({ 
@@ -260,6 +277,7 @@ router.get('/user', (req, res) => {
       authType: 'email'
     });
   } else {
+    console.log('[DEBUG] Auth check failed - user not authenticated');
     res.json({ authenticated: false });
   }
 });
