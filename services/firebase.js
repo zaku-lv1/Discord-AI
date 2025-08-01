@@ -336,7 +336,11 @@ class FirebaseService {
           }
           return { 
             docs,
-            empty: docs.length === 0
+            empty: docs.length === 0,
+            // Add forEach method to emulate Firestore QuerySnapshot
+            forEach: (callback) => {
+              docs.forEach(callback);
+            }
           };
         },
         where: (field, operator, value) => {
@@ -383,7 +387,11 @@ class FirebaseService {
               }
               return Promise.resolve({ 
                 docs,
-                empty: docs.length === 0
+                empty: docs.length === 0,
+                // Add forEach method to emulate Firestore QuerySnapshot
+                forEach: (callback) => {
+                  docs.forEach(callback);
+                }
               });
             }
           });
