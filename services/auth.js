@@ -184,33 +184,27 @@ class AuthService {
     return userWithoutPassword;
   }
 
-  async findLocalUser(usernameOrEmailOrHandle) {
+  async findLocalUser(emailOrHandle) {
     const db = firebaseService.getDB();
     
     // ハンドル形式で検索（@username）
-    if (usernameOrEmailOrHandle.startsWith('@')) {
-      const userQuery = await db.collection('users').where('handle', '==', usernameOrEmailOrHandle).get();
+    if (emailOrHandle.startsWith('@')) {
+      const userQuery = await db.collection('users').where('handle', '==', emailOrHandle).get();
       if (!userQuery.empty) {
         return userQuery.docs[0].data();
       }
     }
     
     // メールアドレスで検索
-    if (usernameOrEmailOrHandle.includes('@') && usernameOrEmailOrHandle.includes('.')) {
-      const userQuery = await db.collection('users').where('email', '==', usernameOrEmailOrHandle).get();
+    if (emailOrHandle.includes('@') && emailOrHandle.includes('.')) {
+      const userQuery = await db.collection('users').where('email', '==', emailOrHandle).get();
       if (!userQuery.empty) {
         return userQuery.docs[0].data();
       }
     } else {
-      // ユーザー名で検索（@なしのハンドルまたは従来のユーザー名）
-      let userQuery = await db.collection('users').where('username', '==', usernameOrEmailOrHandle).get();
-      if (!userQuery.empty) {
-        return userQuery.docs[0].data();
-      }
-      
-      // ハンドル形式でも検索してみる
-      const handle = roleService.formatHandle(usernameOrEmailOrHandle);
-      userQuery = await db.collection('users').where('handle', '==', handle).get();
+      // @なしの文字列の場合は、ハンドル形式に変換して検索
+      const handle = roleService.formatHandle(emailOrHandle);
+      const userQuery = await db.collection('users').where('handle', '==', handle).get();
       if (!userQuery.empty) {
         return userQuery.docs[0].data();
       }
@@ -440,16 +434,16 @@ class AuthService {
       passport.use(new LocalStrategy({
         usernameField: 'username',
         passwordField: 'password'
-      }, async (username, password, done) => {
+      }, async (emailOrHandle, password, done) => {
         try {
-          const user = await this.findLocalUser(username);
+          const user = await this.findLocalUser(emailOrHandle);
           if (!user) {
-            return done(null, false, { message: 'ユーザー名またはメールアドレス、パスワードが正しくありません' });
+            return done(null, false, { message: 'ハンドルまたはメールアドレス、パスワードが正しくありません' });
           }
 
           const isValidPassword = await this.comparePassword(password, user.password);
           if (!isValidPassword) {
-            return done(null, false, { message: 'ユーザー名またはメールアドレス、パスワードが正しくありません' });
+            return done(null, false, { message: 'ハンドルまたはメールアドレス、パスワードが正しくありません' });
           }
 
           // メール認証チェック（テスト環境では不要）
