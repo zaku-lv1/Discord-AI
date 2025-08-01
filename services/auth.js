@@ -203,8 +203,23 @@ class AuthService {
       }
     }
     
-    // プレーンユーザー名でのログインは許可しない
-    // Plain username login is not allowed - only email addresses and handles (@username) are accepted
+    // プレーンユーザー名での検索 - ハンドル形式に変換して検索
+    // Plain username search - convert to handle format and search
+    if (!emailOrHandle.includes('@') || !emailOrHandle.includes('.')) {
+      const handle = emailOrHandle.startsWith('@') ? emailOrHandle : '@' + emailOrHandle;
+      const userQuery = await db.collection('users').where('handle', '==', handle).get();
+      if (!userQuery.empty) {
+        return userQuery.docs[0].data();
+      }
+      
+      // レガシー互換性: プレーンユーザー名での直接検索も試行
+      // Legacy compatibility: also try direct plain username search
+      const legacyQuery = await db.collection('users').where('username', '==', emailOrHandle).get();
+      if (!legacyQuery.empty) {
+        return legacyQuery.docs[0].data();
+      }
+    }
+    
     return null;
   }
 
