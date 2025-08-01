@@ -665,16 +665,20 @@ document.addEventListener("DOMContentLoaded", () => {
         credentials: 'include'
       });
       
-      if (response.ok) {
-        const result = await response.json();
-        state.users = result.users || [];
+      const result = await safeParseJSON(response);
+      
+      if (result.success && result.data.users) {
+        state.users = result.data.users || [];
         renderUsersList();
       } else {
-        console.log('Cannot fetch users - insufficient permissions');
+        console.log('Cannot fetch users - insufficient permissions or error:', result.error);
         state.users = [];
+        renderUsersList();
       }
     } catch (error) {
       console.error('Error fetching users:', error);
+      state.users = [];
+      renderUsersList();
     }
   }
 
@@ -751,13 +755,14 @@ document.addEventListener("DOMContentLoaded", () => {
         body: JSON.stringify({ role: newRole })
       });
       
-      const result = await response.json();
+      const result = await safeParseJSON(response);
       
-      if (result.success) {
-        showSuccessToast(result.message);
+      if (result.success && result.data.success) {
+        showSuccessToast(result.data.message);
         await fetchUsers(); // Refresh the list
       } else {
-        showErrorToast(result.message);
+        const errorMessage = result.data ? result.data.message : result.error;
+        showErrorToast(errorMessage || 'ロールの変更に失敗しました');
       }
     } catch (error) {
       console.error('Role change error:', error);
@@ -1628,12 +1633,13 @@ document.addEventListener("DOMContentLoaded", () => {
           body: JSON.stringify({ email })
         });
         
-        const result = await response.json();
+        const result = await safeParseJSON(response);
         
-        if (result.success) {
-          showSuccessToast(result.message);
+        if (result.success && result.data.success) {
+          showSuccessToast(result.data.message);
         } else {
-          showErrorToast(result.message);
+          const errorMessage = result.data ? result.data.message : result.error;
+          showErrorToast(errorMessage || '認証メール再送信に失敗しました。');
         }
       } catch (error) {
         console.error('認証メール再送信エラー:', error);
@@ -1662,15 +1668,15 @@ document.addEventListener("DOMContentLoaded", () => {
           body: JSON.stringify({ targetRole: targetRole })
         });
 
-        const result = await response.json();
-        if (!response.ok) throw new Error(result.message);
+        const result = await safeParseJSON(response);
+        if (!result.success) throw new Error(result.data ? result.data.message : result.error);
 
-        newRoleInviteCode.value = result.code;
+        newRoleInviteCode.value = result.data.code;
         document.getElementById("invite-code-details").textContent = 
-          `${result.targetRoleDisplay}用の招待コードです。7日間有効です。`;
+          `${result.data.targetRoleDisplay}用の招待コードです。7日間有効です。`;
         roleInviteDisplay.style.display = "flex";
         
-        showSuccessToast(result.message);
+        showSuccessToast(result.data.message);
       } catch (err) {
         showErrorToast(`招待コード生成エラー: ${err.message}`);
       } finally {
@@ -1709,17 +1715,18 @@ document.addEventListener("DOMContentLoaded", () => {
           body: JSON.stringify({ code: code })
         });
 
-        const result = await response.json();
+        const result = await safeParseJSON(response);
         
-        if (result.success) {
-          showSuccessToast(result.message);
+        if (result.success && result.data.success) {
+          showSuccessToast(result.data.message);
           useInvitationCodeInput.value = '';
           // Refresh user data
           setTimeout(() => {
             checkAuthStatus();
           }, 1000);
         } else {
-          showErrorToast(result.message);
+          const errorMessage = result.data ? result.data.message : result.error;
+          showErrorToast(errorMessage || '招待コードの使用に失敗しました');
         }
       } catch (error) {
         console.error('招待コード使用エラー:', error);
@@ -1858,14 +1865,15 @@ document.addEventListener("DOMContentLoaded", () => {
           body: JSON.stringify(settings)
         });
         
-        const result = await response.json();
+        const result = await safeParseJSON(response);
         
-        if (response.ok) {
+        if (result.success) {
           state.systemSettings = { ...state.systemSettings, ...settings };
           updateSystemStatusDisplay();
           showSuccessToast('システム設定を保存しました');
         } else {
-          showErrorToast(result.message || 'システム設定の保存に失敗しました');
+          const errorMessage = result.data ? result.data.message : result.error;
+          showErrorToast(errorMessage || 'システム設定の保存に失敗しました');
         }
       } catch (error) {
         console.error('システム設定保存エラー:', error);
@@ -1936,9 +1944,9 @@ document.addEventListener("DOMContentLoaded", () => {
           })
         });
         
-        const result = await response.json();
+        const result = await safeParseJSON(response);
         
-        if (response.ok) {
+        if (result.success) {
           showSuccessToast('オーナー権限の移譲が完了しました。ページを再読み込みします。');
           
           // フォームをリセット
@@ -1949,7 +1957,8 @@ document.addEventListener("DOMContentLoaded", () => {
             window.location.reload();
           }, 5000);
         } else {
-          showErrorToast(result.message || 'オーナー権限の移譲に失敗しました');
+          const errorMessage = result.data ? result.data.message : result.error;
+          showErrorToast(errorMessage || 'オーナー権限の移譲に失敗しました');
         }
       } catch (error) {
         console.error('オーナー権限移譲エラー:', error);
