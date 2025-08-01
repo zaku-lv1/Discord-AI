@@ -205,16 +205,29 @@ document.addEventListener("DOMContentLoaded", () => {
   // ================ 認証状態チェック ================
   async function checkAuthStatus() {
     try {
-      const response = await fetch('/auth/user', {
-        credentials: 'include'
-      });
-      const authData = await response.json();
+      console.log('[DEBUG] Checking authentication status...');
       
-      if (authData.authenticated) {
+      const response = await fetch('/auth/user', {
+        credentials: 'include',
+        headers: {
+          'Cache-Control': 'no-cache, no-store, must-revalidate'
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+      
+      const authData = await response.json();
+      console.log('[DEBUG] Auth data received:', authData);
+      
+      if (authData.authenticated && authData.user) {
         state.user = authData.user;
+        console.log('[DEBUG] User authenticated, showing main content...');
         showMainContent();
         await fetchSettings();
       } else {
+        console.log('[DEBUG] User not authenticated, showing auth container...');
         showAuthContainer();
       }
     } catch (error) {
@@ -1306,12 +1319,22 @@ document.addEventListener("DOMContentLoaded", () => {
         return;
       }
       
-      // Validate input format - only allow email addresses and handles
+      // Validate input format and normalize username
       const isEmail = username.includes('@') && username.includes('.');
       const isHandle = username.startsWith('@');
+      const isPlainUsername = !isEmail && !isHandle && username.length >= 3;
       
-      if (!isEmail && !isHandle) {
-        showErrorToast("メールアドレス（例: user@example.com）またはハンドル（例: @username）を入力してください。");
+      // Auto-format plain username as handle by adding @ prefix
+      let loginUsername = username;
+      if (isPlainUsername) {
+        // Validate plain username format (alphanumeric, underscore, hyphen only)
+        if (!/^[a-zA-Z0-9_-]+$/.test(username)) {
+          showErrorToast("ユーザー名は英数字、アンダースコア、ハイフンのみ使用可能です。");
+          return;
+        }
+        loginUsername = '@' + username;
+      } else if (!isEmail && !isHandle) {
+        showErrorToast("メールアドレス（例: user@example.com）、ハンドル（例: @username）、またはユーザー名（例: username）を入力してください。");
         return;
       }
       
@@ -1333,7 +1356,7 @@ document.addEventListener("DOMContentLoaded", () => {
             'Content-Type': 'application/json'
           },
           credentials: 'include',
-          body: JSON.stringify({ username, password })
+          body: JSON.stringify({ username: loginUsername, password })
         });
         
         const result = await response.json();
@@ -1341,13 +1364,29 @@ document.addEventListener("DOMContentLoaded", () => {
         if (result.success) {
           showSuccessToast("ログインしました。ダッシュボードに移動しています...");
           
-          // Immediately check auth status without delay for faster redirect
-          await checkAuthStatus();
+          // Store login state for debugging
+          console.log('[DEBUG] Login successful, checking auth status...');
           
-          // If checkAuthStatus didn't redirect (fallback), try again after a short delay
-          setTimeout(async () => {
+          // Clear any existing error parameters from URL
+          const currentUrl = new URL(window.location);
+          currentUrl.search = '';
+          window.history.replaceState({}, '', currentUrl);
+          
+          // Immediately check auth status without delay for faster redirect
+          try {
             await checkAuthStatus();
-          }, 500);
+            
+            // If we're still showing auth container after first check, try again
+            if (authContainer.style.display !== 'none') {
+              console.log('[DEBUG] First auth check failed, retrying...');
+              setTimeout(async () => {
+                await checkAuthStatus();
+              }, 1000);
+            }
+          } catch (authError) {
+            console.error('[ERROR] Auth status check failed:', authError);
+            showErrorToast('ログイン後の認証確認に失敗しました。ページを再読み込みしてください。');
+          }
         } else {
           showErrorToast(result.message);
         }
