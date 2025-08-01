@@ -163,17 +163,87 @@ document.addEventListener("DOMContentLoaded", () => {
   // ================ グローバルシステム設定関数 ================
   window.checkSystemSettings = checkSystemSettings;
 
+  // ================ 安全なJSON解析ヘルパー関数 ================
+  /**
+   * 安全にレスポンスをJSONとして解析する関数
+   * 502エラーなどでHTMLが返される場合の対応
+   */
+  async function safeParseJSON(response) {
+    try {
+      // レスポンスのContent-Typeをチェック
+      const contentType = response.headers.get('content-type');
+      
+      // レスポンスが2xx以外の場合の処理
+      if (!response.ok) {
+        // JSONレスポンスの場合は解析を試行
+        if (contentType && contentType.includes('application/json')) {
+          const data = await response.json();
+          return { 
+            success: false, 
+            data: data,
+            error: `HTTP ${response.status}: ${data.message || response.statusText}`,
+            isJSON: true 
+          };
+        } else {
+          // HTMLエラーページなどの場合
+          const text = await response.text();
+          return { 
+            success: false, 
+            data: null,
+            error: `サーバーエラーが発生しました (HTTP ${response.status})`,
+            isJSON: false,
+            htmlContent: text
+          };
+        }
+      }
+      
+      // 成功レスポンスの場合
+      if (contentType && contentType.includes('application/json')) {
+        const data = await response.json();
+        return { 
+          success: true, 
+          data: data,
+          error: null,
+          isJSON: true 
+        };
+      } else {
+        // JSONでない成功レスポンス
+        const text = await response.text();
+        return { 
+          success: false, 
+          data: null,
+          error: 'サーバーから予期しないレスポンスが返されました',
+          isJSON: false,
+          htmlContent: text
+        };
+      }
+    } catch (parseError) {
+      console.error('JSON解析エラー:', parseError);
+      return { 
+        success: false, 
+        data: null,
+        error: 'レスポンスの解析に失敗しました',
+        isJSON: false,
+        parseError: parseError
+      };
+    }
+  }
+
   // ================ システム設定チェック ================
   async function checkSystemSettings() {
     try {
       const response = await fetch('/api/system-settings/status', {
         credentials: 'include'
       });
-      const data = await response.json();
+      const result = await safeParseJSON(response);
       
-      if (data.success && data.status) {
+      if (result.success && result.data.success && result.data.status) {
         // Use the actual system setting for invitation code requirement
-        updateInvitationCodeField(data.status.requireInvitationCodes);
+        updateInvitationCodeField(result.data.status.requireInvitationCodes);
+      } else {
+        console.error('システム設定の取得に失敗:', result.error);
+        // エラー時はデフォルトとして必須にする（セキュリティ重視）
+        updateInvitationCodeField(true);
       }
     } catch (error) {
       console.error('システム設定の取得に失敗:', error);
@@ -214,20 +284,18 @@ document.addEventListener("DOMContentLoaded", () => {
         }
       });
       
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-      }
+      const result = await safeParseJSON(response);
       
-      const authData = await response.json();
-      console.log('[DEBUG] Auth data received:', authData);
-      
-      if (authData.authenticated && authData.user) {
-        state.user = authData.user;
+      if (result.success && result.data.authenticated && result.data.user) {
+        state.user = result.data.user;
         console.log('[DEBUG] User authenticated, showing main content...');
         showMainContent();
         await fetchSettings();
       } else {
         console.log('[DEBUG] User not authenticated, showing auth container...');
+        if (!result.success && result.error) {
+          console.error('[ERROR] Auth check failed:', result.error);
+        }
         showAuthContainer();
       }
     } catch (error) {
@@ -322,17 +390,26 @@ document.addEventListener("DOMContentLoaded", () => {
         credentials: 'include'
       });
 
-      if (response.ok) {
-        state.aiList = await response.json();
+      const result = await safeParseJSON(response);
+      
+      if (result.success) {
+        state.aiList = result.data;
         renderAiList();
       } else {
-        console.error("AI一覧の取得に失敗:", response.status);
+        console.error("AI一覧の取得に失敗:", result.error);
         state.aiList = [];
         renderAiList();
+        
+        // Only show error toast for unexpected errors, not auth failures
+        if (!result.error.includes('401') && !result.error.includes('403')) {
+          showErrorToast(`AI一覧の取得に失敗しました: ${result.error}`);
+        }
       }
     } catch (error) {
       console.error("AI一覧の取得エラー:", error);
-      showErrorToast(`AI一覧の取得に失敗しました: ${error.message}`);
+      state.aiList = [];
+      renderAiList();
+      showErrorToast('AI一覧の取得中にネットワークエラーが発生しました');
     }
   }
 
@@ -393,17 +470,18 @@ document.addEventListener("DOMContentLoaded", () => {
         body: JSON.stringify(aiData)
       });
 
-      const result = await response.json();
+      const result = await safeParseJSON(response);
       
-      if (response.ok) {
-        showSuccessToast(result.message);
+      if (result.success && result.data.success) {
+        showSuccessToast(result.data.message);
         await fetchAiList();
         switchToPanel('panel-ai-list');
         createAiForm.reset();
         // Clear status message on success
         statusMessage.textContent = "";
       } else {
-        throw new Error(result.message);
+        const errorMessage = result.data ? result.data.message : result.error;
+        throw new Error(errorMessage);
       }
     } catch (error) {
       console.error("AI作成エラー:", error);
@@ -426,16 +504,17 @@ document.addEventListener("DOMContentLoaded", () => {
         body: JSON.stringify(aiData)
       });
 
-      const result = await response.json();
+      const result = await safeParseJSON(response);
       
-      if (response.ok) {
-        showSuccessToast(result.message);
+      if (result.success && result.data.success) {
+        showSuccessToast(result.data.message);
         await fetchAiList();
         editAiModal.style.display = "none";
         // Clear status message on success
         statusMessage.textContent = "";
       } else {
-        throw new Error(result.message);
+        const errorMessage = result.data ? result.data.message : result.error;
+        throw new Error(errorMessage);
       }
     } catch (error) {
       console.error("AI更新エラー:", error);
@@ -454,13 +533,14 @@ document.addEventListener("DOMContentLoaded", () => {
         credentials: 'include'
       });
 
-      const result = await response.json();
+      const result = await safeParseJSON(response);
       
-      if (response.ok) {
-        showSuccessToast(result.message);
+      if (result.success && result.data.success) {
+        showSuccessToast(result.data.message);
         await fetchAiList();
       } else {
-        throw new Error(result.message);
+        const errorMessage = result.data ? result.data.message : result.error;
+        throw new Error(errorMessage);
       }
     } catch (error) {
       console.error("AI削除エラー:", error);
@@ -1359,9 +1439,9 @@ document.addEventListener("DOMContentLoaded", () => {
           body: JSON.stringify({ username: loginUsername, password })
         });
         
-        const result = await response.json();
+        const result = await safeParseJSON(response);
         
-        if (result.success) {
+        if (result.success && result.data.success) {
           showSuccessToast("ログインしました。ダッシュボードに移動しています...");
           
           // Store login state for debugging
@@ -1388,11 +1468,16 @@ document.addEventListener("DOMContentLoaded", () => {
             showErrorToast('ログイン後の認証確認に失敗しました。ページを再読み込みしてください。');
           }
         } else {
-          showErrorToast(result.message);
+          const errorMessage = result.data ? result.data.message : result.error;
+          showErrorToast(errorMessage || 'ログインに失敗しました。');
         }
       } catch (error) {
         console.error('ログインエラー:', error);
-        showErrorToast('ログインに失敗しました。');
+        if (error.message && error.message.includes('502')) {
+          showErrorToast('サーバーに接続できません。しばらく待ってから再試行してください。');
+        } else {
+          showErrorToast('ログインに失敗しました。ネットワーク接続を確認してください。');
+        }
       } finally {
         // Always hide loader and restore button
         if (loaderContainer) {
@@ -1444,12 +1529,12 @@ document.addEventListener("DOMContentLoaded", () => {
           })
         });
         
-        const result = await response.json();
+        const result = await safeParseJSON(response);
         
-        if (result.success) {
-          showSuccessToast(result.message);
+        if (result.success && result.data.success) {
+          showSuccessToast(result.data.message);
           
-          if (result.requiresVerification) {
+          if (result.data.requiresVerification) {
             // メール認証が必要な場合
             document.getElementById("verification-email").textContent = email;
             showVerificationPendingForm();
@@ -1460,11 +1545,16 @@ document.addEventListener("DOMContentLoaded", () => {
             }, 1000);
           }
         } else {
-          showErrorToast(result.message);
+          const errorMessage = result.data ? result.data.message : result.error;
+          showErrorToast(errorMessage || 'アカウント作成に失敗しました。');
         }
       } catch (error) {
         console.error('登録エラー:', error);
-        showErrorToast('アカウント作成に失敗しました。');
+        if (error.message && error.message.includes('502')) {
+          showErrorToast('サーバーに接続できません。しばらく待ってから再試行してください。');
+        } else {
+          showErrorToast('アカウント作成に失敗しました。ネットワーク接続を確認してください。');
+        }
       } finally {
         submitBtn.disabled = false;
       }
@@ -1495,17 +1585,18 @@ document.addEventListener("DOMContentLoaded", () => {
           body: JSON.stringify({ email })
         });
         
-        const result = await response.json();
+        const result = await safeParseJSON(response);
         
-        if (result.success) {
-          showSuccessToast(result.message);
+        if (result.success && result.data.success) {
+          showSuccessToast(result.data.message);
           // フォームをリセットしてログインフォームに戻る
           setTimeout(() => {
             passwordResetForm.reset();
             showLoginForm();
           }, 3000);
         } else {
-          showErrorToast(result.message);
+          const errorMessage = result.data ? result.data.message : result.error;
+          showErrorToast(errorMessage || 'パスワード再設定に失敗しました。');
         }
       } catch (error) {
         console.error('パスワード再設定エラー:', error);
@@ -1651,14 +1742,15 @@ document.addEventListener("DOMContentLoaded", () => {
         headers: { 'Content-Type': 'application/json' }
       });
       
-      if (response.ok) {
-        const data = await response.json();
-        state.systemSettings = data.settings;
+      const result = await safeParseJSON(response);
+      
+      if (result.success && result.data.settings) {
+        state.systemSettings = result.data.settings;
         updateSystemSettingsDisplay();
         updateSystemStatusDisplay();
       } else {
-        const errorData = await response.json();
-        showErrorToast(errorData.message || 'システム設定の読み込みに失敗しました');
+        const errorMessage = result.data ? result.data.message : result.error;
+        showErrorToast(errorMessage || 'システム設定の読み込みに失敗しました');
       }
     } catch (error) {
       console.error('システム設定読み込みエラー:', error);
