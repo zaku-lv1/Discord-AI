@@ -65,37 +65,66 @@ class AuthService {
       // First user becomes owner regardless of invitation code
       role = roleService.roles.OWNER;
     } else {
-      // For all subsequent users, invitation code is ALWAYS required
-      if (!invitationCode) {
-        throw new Error('新規登録には招待コードが必要です');
-      }
+      // For subsequent users, check if invitation codes are required
+      const systemSettingsService = require('./system-settings');
+      const requiresInvitation = await systemSettingsService.requiresInvitationCode();
       
-      // Validate invitation code
-      const inviteDoc = await db.collection("invitation_codes").doc(invitationCode).get();
-      if (!inviteDoc.exists) {
-        throw new Error('無効な招待コードです');
-      }
-      
-      const inviteData = inviteDoc.data();
-      if (inviteData.used) {
-        throw new Error('この招待コードは既に使用されています');
-      }
-      
-      // Check expiration if set
-      if (inviteData.expiresAt && inviteData.expiresAt.toDate() < new Date()) {
-        throw new Error('この招待コードは期限切れです');
-      }
-      
-      // Use specified role from invitation or default to EDITOR
-      role = inviteData.targetRole || roleService.roles.EDITOR;
-      
-      // Ensure only one owner exists - if invitation tries to create another owner, make them editor instead
-      if (role === roleService.roles.OWNER) {
-        const existingOwners = await db.collection('users').where('role', '==', roleService.roles.OWNER).get();
-        if (!existingOwners.empty) {
-          console.log('[警告] オーナーが既に存在するため、新規ユーザーを編集者として作成します');
-          role = roleService.roles.EDITOR;
+      if (requiresInvitation) {
+        // Invitation code is required by system settings
+        if (!invitationCode) {
+          throw new Error('新規登録には招待コードが必要です');
         }
+        
+        // Validate invitation code
+        const inviteDoc = await db.collection("invitation_codes").doc(invitationCode).get();
+        if (!inviteDoc.exists) {
+          throw new Error('無効な招待コードです');
+        }
+        
+        const inviteData = inviteDoc.data();
+        if (inviteData.used) {
+          throw new Error('この招待コードは既に使用されています');
+        }
+        
+        // Check expiration if set
+        if (inviteData.expiresAt && inviteData.expiresAt.toDate() < new Date()) {
+          throw new Error('この招待コードは期限切れです');
+        }
+        
+        // Use specified role from invitation or default to EDITOR
+        role = inviteData.targetRole || roleService.roles.EDITOR;
+        
+        // Ensure only one owner exists - if invitation tries to create another owner, make them editor instead
+        if (role === roleService.roles.OWNER) {
+          const existingOwners = await db.collection('users').where('role', '==', roleService.roles.OWNER).get();
+          if (!existingOwners.empty) {
+            console.log('[警告] オーナーが既に存在するため、新規ユーザーを編集者として作成します');
+            role = roleService.roles.EDITOR;
+          }
+        }
+      } else {
+        // Invitation codes are not required - allow open registration
+        // If invitation code is provided anyway, validate and use it
+        if (invitationCode) {
+          const inviteDoc = await db.collection("invitation_codes").doc(invitationCode).get();
+          if (inviteDoc.exists) {
+            const inviteData = inviteDoc.data();
+            if (!inviteData.used && (!inviteData.expiresAt || inviteData.expiresAt.toDate() >= new Date())) {
+              // Valid invitation code provided - use the role from invitation
+              role = inviteData.targetRole || roleService.roles.EDITOR;
+              
+              // Ensure only one owner exists
+              if (role === roleService.roles.OWNER) {
+                const existingOwners = await db.collection('users').where('role', '==', roleService.roles.OWNER).get();
+                if (!existingOwners.empty) {
+                  console.log('[警告] オーナーが既に存在するため、新規ユーザーを編集者として作成します');
+                  role = roleService.roles.EDITOR;
+                }
+              }
+            }
+          }
+        }
+        // If no invitation code or invalid code, use default EDITOR role
       }
     }
     
