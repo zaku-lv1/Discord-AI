@@ -27,17 +27,30 @@ function replaceNamesWithMentions(message, nameToIdMappings, guild) {
     const discordId = nameToIdMappings[name];
     if (!discordId) continue;
     
-    // 名前を様々なパターンでマッチ（完全一致を優先、より厳密に）
+    // 名前を様々なパターンでマッチ（@記号が前にない場合のみ、メールアドレスを除外）
+    const escapedName = escapeRegExp(name);
+    
+    // より精密なパターンマッチング
     const patterns = [
-      new RegExp(`\\b${escapeRegExp(name)}\\b`, 'gi'), // 完全単語マッチ（英数字）
-      new RegExp(`(?<![a-zA-Z0-9_-])${escapeRegExp(name)}(?![a-zA-Z0-9_-])`, 'gi'), // 英数字・アンダースコア・ハイフン以外の境界
-      new RegExp(`(?<=[\\s、。！？,!?]|^)${escapeRegExp(name)}(?=[\\s、。！？,!?]|$)`, 'gi'), // 句読点・空白・文頭文末
+      // 完全単語マッチ（@記号が前になく、メールアドレスではない場合）
+      new RegExp(`(?<![@\\w])\\b${escapedName}\\b(?![@\\w])`, 'gi'),
+      // 空白や句読点に囲まれた場合（@記号が前になく、メールアドレスではない場合）
+      new RegExp(`(?<!@)(?<=[\\s、。！？,!?]|^)${escapedName}(?=[\\s、。！？,!?]|$)(?![@\\w])`, 'gi'),
     ];
     
     for (const pattern of patterns) {
       const currentProcessedMessage = processedMessage;
-      processedMessage = processedMessage.replace(pattern, (match) => {
+      processedMessage = processedMessage.replace(pattern, (match, offset, string) => {
         try {
+          // メールアドレスの一部でないかチェック
+          const beforeMatch = string.slice(Math.max(0, offset - 10), offset);
+          const afterMatch = string.slice(offset + match.length, offset + match.length + 10);
+          
+          // メールアドレスパターンを検出した場合はスキップ
+          if (beforeMatch.includes('@') || afterMatch.includes('@')) {
+            return match;
+          }
+          
           // Discordメンションの形式で置換
           const member = guild.members.cache.get(discordId);
           if (member) {
@@ -377,8 +390,14 @@ module.exports = {
             }
             await historyDocRef.set({ history: newHistory });
 
-            // AI の応答では名前をメンションに変換しない（不要な通知を避けるため）
-            const messageChunks = splitMessage(responseText);
+            // AI の応答で名前をメンションに変換して通知を送る
+            const responseWithMentions = replaceNamesWithMentions(
+              responseText,
+              nameToIdMappings,
+              message.guild
+            );
+            
+            const messageChunks = splitMessage(responseWithMentions);
 
             for (const chunk of messageChunks) {
               if (aiSettings.replyDelayMs > 0) {
