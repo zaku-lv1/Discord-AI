@@ -288,11 +288,12 @@ document.addEventListener("DOMContentLoaded", () => {
       
       if (result.success && result.data.authenticated && result.data.user) {
         state.user = result.data.user;
-        console.log('[DEBUG] User authenticated, showing main content...');
+        console.log('[DEBUG] User authenticated successfully:', result.data.user.username || result.data.user.email);
         showMainContent();
         await fetchSettings();
       } else {
         console.log('[DEBUG] User not authenticated, showing auth container...');
+        console.log('[DEBUG] Auth check response:', result);
         if (!result.success && result.error) {
           console.error('[ERROR] Auth check failed:', result.error);
         }
@@ -1450,28 +1451,31 @@ document.addEventListener("DOMContentLoaded", () => {
           showSuccessToast("ログインしました。ダッシュボードに移動しています...");
           
           // Store login state for debugging
-          console.log('[DEBUG] Login successful, checking auth status...');
+          console.log('[DEBUG] Login successful, waiting for session establishment...');
           
           // Clear any existing error parameters from URL
           const currentUrl = new URL(window.location);
           currentUrl.search = '';
           window.history.replaceState({}, '', currentUrl);
           
-          // Immediately check auth status without delay for faster redirect
-          try {
-            await checkAuthStatus();
-            
-            // If we're still showing auth container after first check, try again
-            if (authContainer.style.display !== 'none') {
-              console.log('[DEBUG] First auth check failed, retrying...');
-              setTimeout(async () => {
-                await checkAuthStatus();
-              }, 1000);
+          // Add a small delay to ensure session is established on server side
+          setTimeout(async () => {
+            try {
+              console.log('[DEBUG] Checking auth status after login...');
+              await checkAuthStatus();
+              
+              // If we're still showing auth container after first check, try again
+              if (authContainer.style.display !== 'none') {
+                console.log('[DEBUG] First auth check failed, retrying...');
+                setTimeout(async () => {
+                  await checkAuthStatus();
+                }, 1000);
+              }
+            } catch (authError) {
+              console.error('[ERROR] Auth status check failed:', authError);
+              showErrorToast('ログイン後の認証確認に失敗しました。ページを再読み込みしてください。');
             }
-          } catch (authError) {
-            console.error('[ERROR] Auth status check failed:', authError);
-            showErrorToast('ログイン後の認証確認に失敗しました。ページを再読み込みしてください。');
-          }
+          }, 500); // Wait 500ms for session to be established
         } else {
           const errorMessage = result.data ? result.data.message : result.error;
           showErrorToast(errorMessage || 'ログインに失敗しました。');
