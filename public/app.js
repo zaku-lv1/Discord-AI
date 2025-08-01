@@ -159,6 +159,9 @@ document.addEventListener("DOMContentLoaded", () => {
   window.showErrorToast = showErrorToast;
   window.showWarningToast = showWarningToast;
   window.showInfoToast = showInfoToast;
+  
+  // ================ グローバルシステム設定関数 ================
+  window.checkSystemSettings = checkSystemSettings;
 
   // ================ システム設定チェック ================
   async function checkSystemSettings() {
@@ -168,9 +171,9 @@ document.addEventListener("DOMContentLoaded", () => {
       });
       const data = await response.json();
       
-      if (data.success) {
-        // Always require invitation codes (they are automatically handled on the backend)
-        updateInvitationCodeField(true);
+      if (data.success && data.status) {
+        // Use the actual system setting for invitation code requirement
+        updateInvitationCodeField(data.status.requireInvitationCodes);
       }
     } catch (error) {
       console.error('システム設定の取得に失敗:', error);
@@ -184,11 +187,19 @@ document.addEventListener("DOMContentLoaded", () => {
     const invitationCodeInput = document.getElementById('register-invitation-code');
     const smallText = invitationCodeGroup.querySelector('small');
     
-    // Invitation codes are always required (except for the first user, which is handled on the backend)
-    invitationCodeInput.required = true;
-    invitationCodeInput.placeholder = '招待コードを入力してください（必須）';
-    smallText.textContent = '新規登録には招待コードが必要です。登録後は編集者権限が付与されます。';
-    smallText.style.color = '#dc3545'; // 赤色で必須であることを強調
+    if (required) {
+      // Show invitation code field as required
+      invitationCodeGroup.style.display = 'block';
+      invitationCodeInput.required = true;
+      invitationCodeInput.placeholder = '招待コードを入力してください（必須）';
+      smallText.textContent = '新規登録には招待コードが必要です。登録後は編集者権限が付与されます。';
+      smallText.style.color = '#dc3545'; // 赤色で必須であることを強調
+    } else {
+      // Hide invitation code field when not required
+      invitationCodeGroup.style.display = 'none';
+      invitationCodeInput.required = false;
+      invitationCodeInput.value = ''; // Clear any existing value
+    }
   }
 
   // ================ 認証状態チェック ================
@@ -1830,6 +1841,9 @@ function showRegisterForm() {
   registerSection.style.display = "block";
   passwordResetSection.style.display = "none";
   verificationSection.style.display = "none";
+  
+  // Check system settings to update invitation code field visibility
+  checkSystemSettings();
 }
 
 function showPasswordResetForm() {

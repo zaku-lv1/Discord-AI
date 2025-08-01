@@ -9,12 +9,12 @@ class SystemSettingsService {
   constructor() {
     this.settingsDocId = "main";
     this.defaultSettings = {
-      requireInvitationCodes: true, // Always require invitation codes for new registrations
+      requireInvitationCodes: false, // Allow registration without invitation codes by default (owner can enable if needed)
       maintenanceMode: false,
       ownerSetupCompleted: false,
       ownerSetupKey: null,
       maintenanceMessage: "システムメンテナンス中です。しばらくお待ちください。",
-      allowOpenRegistration: false, // Disable open registration - invitation codes are mandatory
+      allowOpenRegistration: true, // Enable open registration by default
       systemVersion: "1.0.0",
       lastModified: null,
       modifiedBy: null
@@ -172,11 +172,10 @@ class SystemSettingsService {
 
   /**
    * Check if invitation codes are required for registration
-   * Always returns true except for the first user (owner setup)
+   * Respects the system setting for requireInvitationCodes
    */
   async requiresInvitationCode() {
     try {
-      // Check if owner setup is completed
       const settings = await this.getSettings();
       
       // If owner setup is not completed, invitation codes are not required for the first user
@@ -192,8 +191,8 @@ class SystemSettingsService {
         }
       }
       
-      // For all other cases, invitation codes are required
-      return true;
+      // After owner setup is completed, respect the system setting
+      return settings.requireInvitationCodes || false;
     } catch (error) {
       console.error("[エラー] 招待コード要件の確認に失敗:", error);
       return true; // Default to requiring invitation codes for security
