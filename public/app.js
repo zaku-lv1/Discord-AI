@@ -1393,8 +1393,8 @@ document.addEventListener("DOMContentLoaded", () => {
   const passwordResetForm = document.getElementById("password-reset-form-element");
   const resendVerificationBtn = document.getElementById("resend-verification-btn");
 
-  if (loginForm) {
-    loginForm.addEventListener("submit", async (e) => {
+  // Login form handler function (to be used by both submit and click events)
+  async function handleLogin(e) {
       e.preventDefault();
       
       const username = document.getElementById("login-username").value.trim();
@@ -1506,7 +1506,20 @@ document.addEventListener("DOMContentLoaded", () => {
         submitBtn.disabled = false;
         submitBtn.innerHTML = originalText;
       }
-    });
+  }
+
+  // Attach both form submit and button click event listeners for better compatibility
+  if (loginForm) {
+    loginForm.addEventListener("submit", handleLogin);
+    
+    // Also attach to the submit button directly to ensure login works
+    const loginButton = loginForm.querySelector('button[type="submit"]');
+    if (loginButton) {
+      loginButton.addEventListener("click", (e) => {
+        e.preventDefault(); // Prevent normal form submission
+        handleLogin(e); // Call login handler directly
+      });
+    }
   }
 
   if (registerForm) {
