@@ -313,13 +313,27 @@ router.get('/logout', async (req, res) => {
   }
 });
 
-router.get('/user', (req, res) => {
+router.get('/user', async (req, res) => {
   console.log('[DEBUG] Auth check - sessionID:', req.sessionID);
   console.log('[DEBUG] Auth check - isAuthenticated:', req.isAuthenticated());
   console.log('[DEBUG] Auth check - session user:', req.user ? req.user.username || req.user.email : 'none');
   
   if (req.isAuthenticated()) {
     const user = req.user;
+    
+    // Get user's current role and role display (same as verifyAuthentication middleware)
+    try {
+      const roleService = require("../services/roles");
+      if (user.verified) {
+        const userRole = await roleService.getUserRole(user.email);
+        user.role = userRole;
+        user.roleDisplay = roleService.displayNames[userRole];
+      }
+    } catch (error) {
+      console.error('Error getting user role for auth check:', error);
+      // Continue with existing role data if available
+    }
+    
     res.json({ 
       user: {
         id: user.id,
