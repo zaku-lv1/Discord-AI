@@ -1452,30 +1452,41 @@ document.addEventListener("DOMContentLoaded", () => {
           
           // Store login state for debugging
           console.log('[DEBUG] Login successful, waiting for session establishment...');
+          console.log('[DEBUG] Login response:', result.data);
           
           // Clear any existing error parameters from URL
           const currentUrl = new URL(window.location);
           currentUrl.search = '';
           window.history.replaceState({}, '', currentUrl);
           
-          // Add a small delay to ensure session is established on server side
-          setTimeout(async () => {
+          // Add a progressive delay strategy for session establishment
+          const checkWithRetry = async (attempt = 1, maxAttempts = 5) => {
             try {
-              console.log('[DEBUG] Checking auth status after login...');
+              console.log(`[DEBUG] Auth check attempt ${attempt}/${maxAttempts}...`);
               await checkAuthStatus();
               
-              // If we're still showing auth container after first check, try again
-              if (authContainer.style.display !== 'none') {
-                console.log('[DEBUG] First auth check failed, retrying...');
-                setTimeout(async () => {
-                  await checkAuthStatus();
-                }, 1000);
+              // If we're still showing auth container, retry with exponential backoff
+              if (authContainer && authContainer.style.display !== 'none' && attempt < maxAttempts) {
+                const delay = Math.min(1000 * Math.pow(1.5, attempt - 1), 5000); // Max 5 second delay
+                console.log(`[DEBUG] Auth check ${attempt} failed, retrying in ${delay}ms...`);
+                setTimeout(() => checkWithRetry(attempt + 1, maxAttempts), delay);
+              } else if (authContainer && authContainer.style.display !== 'none' && attempt >= maxAttempts) {
+                console.error('[ERROR] Login succeeded but authentication check failed after all retries');
+                showErrorToast('ログインは成功しましたが、セッションの確立に時間がかかっています。ページを再読み込みしてください。');
               }
             } catch (authError) {
-              console.error('[ERROR] Auth status check failed:', authError);
-              showErrorToast('ログイン後の認証確認に失敗しました。ページを再読み込みしてください。');
+              console.error(`[ERROR] Auth status check attempt ${attempt} failed:`, authError);
+              if (attempt < maxAttempts) {
+                const delay = Math.min(1000 * Math.pow(1.5, attempt - 1), 5000);
+                setTimeout(() => checkWithRetry(attempt + 1, maxAttempts), delay);
+              } else {
+                showErrorToast('ログイン後の認証確認に失敗しました。ページを再読み込みしてください。');
+              }
             }
-          }, 500); // Wait 500ms for session to be established
+          };
+          
+          // Start auth check with a small initial delay
+          setTimeout(() => checkWithRetry(), 500);
         } else {
           const errorMessage = result.data ? result.data.message : result.error;
           showErrorToast(errorMessage || 'ログインに失敗しました。');

@@ -38,13 +38,27 @@ router.post('/login', (req, res, next) => {
       req.session.save((saveErr) => {
         if (saveErr) {
           console.error('[ERROR] セッション保存エラー:', saveErr);
+          console.error('[ERROR] セッションID:', req.sessionID);
+          console.error('[ERROR] セッション内容:', req.session);
           return res.status(500).json({ 
             success: false, 
-            message: 'ログインに失敗しました' 
+            message: 'ログインに失敗しました。しばらく待ってから再試行してください。' 
           });
         }
         
         console.log('[DEBUG] セッションが正常に保存されました:', req.sessionID);
+        console.log('[DEBUG] ユーザー情報:', { 
+          id: user.id, 
+          username: user.username, 
+          email: user.email,
+          role: user.role,
+          verified: user.verified 
+        });
+        
+        // Set additional session metadata for debugging
+        req.session.loginTime = new Date().toISOString();
+        req.session.userAgent = req.get('user-agent');
+        
         res.json({ 
           success: true, 
           message: 'ログインしました',
@@ -53,7 +67,13 @@ router.post('/login', (req, res, next) => {
             username: user.username,
             email: user.email,
             type: user.type,
-            verified: user.verified
+            role: user.role,
+            verified: user.verified,
+            handle: user.handle
+          },
+          sessionInfo: {
+            sessionId: req.sessionID,
+            loginTime: req.session.loginTime
           }
         });
       });
