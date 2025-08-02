@@ -280,7 +280,9 @@ document.addEventListener("DOMContentLoaded", () => {
       const response = await fetch('/auth/user', {
         credentials: 'include',
         headers: {
-          'Cache-Control': 'no-cache, no-store, must-revalidate'
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0'
         }
       });
       
@@ -289,6 +291,12 @@ document.addEventListener("DOMContentLoaded", () => {
       if (result.success && result.data.authenticated && result.data.user) {
         state.user = result.data.user;
         console.log('[DEBUG] User authenticated successfully:', result.data.user.username || result.data.user.email);
+        
+        // Check if this was authenticated via remember token
+        if (result.data.authType === 'email' && result.data.user) {
+          console.log('[INFO] Authentication successful - redirecting to dashboard');
+        }
+        
         showMainContent();
         await fetchSettings();
       } else {
@@ -303,6 +311,58 @@ document.addEventListener("DOMContentLoaded", () => {
       console.error('認証状態の確認に失敗:', error);
       showAuthContainer();
     }
+  }
+
+  // Enhanced auth check with retry and better error handling
+  async function checkAuthStatusWithRetry(maxRetries = 3, initialDelay = 500) {
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        console.log(`[DEBUG] Auth check attempt ${attempt}/${maxRetries}...`);
+        
+        const response = await fetch('/auth/user', {
+          credentials: 'include',
+          headers: {
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
+            'Pragma': 'no-cache',
+            'Expires': '0'
+          }
+        });
+        
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        
+        const result = await safeParseJSON(response);
+        
+        if (result.success && result.data.authenticated && result.data.user) {
+          state.user = result.data.user;
+          console.log('[SUCCESS] User authenticated:', result.data.user.username || result.data.user.email);
+          showMainContent();
+          await fetchSettings();
+          return true; // Success
+        } else {
+          if (attempt === maxRetries) {
+            console.log('[INFO] User not authenticated after all retries');
+            showAuthContainer();
+          }
+          return false; // Not authenticated
+        }
+      } catch (error) {
+        console.error(`[ERROR] Auth check attempt ${attempt} failed:`, error);
+        
+        if (attempt === maxRetries) {
+          console.error('[ERROR] All auth check attempts failed');
+          showAuthContainer();
+          return false;
+        }
+        
+        // Wait before retry with exponential backoff
+        const delay = initialDelay * Math.pow(1.5, attempt - 1);
+        console.log(`[DEBUG] Waiting ${delay}ms before retry...`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
+    }
+    return false;
   }
 
   function showAuthContainer() {
@@ -957,7 +1017,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // --- 認証関連 ---
   // 初期化時に認証状態とシステム設定をチェック
-  checkAuthStatus();
+  checkAuthStatusWithRetry();
   checkSystemSettings();
 
   // ログアウトボタン
@@ -1399,6 +1459,7 @@ document.addEventListener("DOMContentLoaded", () => {
       
       const username = document.getElementById("login-username").value.trim();
       const password = document.getElementById("login-password").value;
+      const rememberMe = document.getElementById("remember-me").checked;
       
       if (!username || !password) {
         showErrorToast("ハンドル名またはメールアドレス、パスワードを入力してください。");
@@ -1442,13 +1503,16 @@ document.addEventListener("DOMContentLoaded", () => {
             'Content-Type': 'application/json'
           },
           credentials: 'include',
-          body: JSON.stringify({ username: loginUsername, password })
+          body: JSON.stringify({ username: loginUsername, password, rememberMe })
         });
         
         const result = await safeParseJSON(response);
         
         if (result.success && result.data.success) {
-          showSuccessToast("ログインしました。ダッシュボードに移動しています...");
+          const loginMessage = result.data.sessionInfo?.rememberMe ? 
+            'ログインしました。次回から自動ログインされます。' : 
+            'ログインしました。ダッシュボードに移動しています...';
+          showSuccessToast(loginMessage);
           
           // Store login state for debugging
           console.log('[DEBUG] Login successful, waiting for session establishment...');
@@ -1459,34 +1523,12 @@ document.addEventListener("DOMContentLoaded", () => {
           currentUrl.search = '';
           window.history.replaceState({}, '', currentUrl);
           
-          // Add a progressive delay strategy for session establishment
-          const checkWithRetry = async (attempt = 1, maxAttempts = 5) => {
-            try {
-              console.log(`[DEBUG] Auth check attempt ${attempt}/${maxAttempts}...`);
-              await checkAuthStatus();
-              
-              // If we're still showing auth container, retry with exponential backoff
-              if (authContainer && authContainer.style.display !== 'none' && attempt < maxAttempts) {
-                const delay = Math.min(1000 * Math.pow(1.5, attempt - 1), 5000); // Max 5 second delay
-                console.log(`[DEBUG] Auth check ${attempt} failed, retrying in ${delay}ms...`);
-                setTimeout(() => checkWithRetry(attempt + 1, maxAttempts), delay);
-              } else if (authContainer && authContainer.style.display !== 'none' && attempt >= maxAttempts) {
-                console.error('[ERROR] Login succeeded but authentication check failed after all retries');
-                showErrorToast('ログインは成功しましたが、セッションの確立に時間がかかっています。ページを再読み込みしてください。');
-              }
-            } catch (authError) {
-              console.error(`[ERROR] Auth status check attempt ${attempt} failed:`, authError);
-              if (attempt < maxAttempts) {
-                const delay = Math.min(1000 * Math.pow(1.5, attempt - 1), 5000);
-                setTimeout(() => checkWithRetry(attempt + 1, maxAttempts), delay);
-              } else {
-                showErrorToast('ログイン後の認証確認に失敗しました。ページを再読み込みしてください。');
-              }
-            }
-          };
-          
-          // Start auth check with a small initial delay
-          setTimeout(() => checkWithRetry(), 500);
+          // Use improved auth check with retry
+          const authSuccess = await checkAuthStatusWithRetry(5, 500);
+          if (!authSuccess) {
+            console.error('[ERROR] Login succeeded but authentication check failed after all retries');
+            showErrorToast('ログインは成功しましたが、セッションの確立に時間がかかっています。ページを再読み込みしてください。');
+          }
         } else {
           const errorMessage = result.data ? result.data.message : result.error;
           showErrorToast(errorMessage || 'ログインに失敗しました。');

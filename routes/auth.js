@@ -6,7 +6,7 @@ const router = express.Router();
 
 // Local Authentication routes
 router.post('/login', (req, res, next) => {
-  passport.authenticate('local', (err, user, info) => {
+  passport.authenticate('local', async (err, user, info) => {
     if (err) {
       console.error('[ERROR] ローカル認証エラー:', err);
       return res.status(500).json({ 
@@ -23,7 +23,7 @@ router.post('/login', (req, res, next) => {
       });
     }
     
-    req.logIn(user, (err) => {
+    req.logIn(user, async (err) => {
       if (err) {
         console.error('[ERROR] ログインセッション作成エラー:', err);
         return res.status(500).json({ 
@@ -33,6 +33,27 @@ router.post('/login', (req, res, next) => {
       }
       
       console.log('[SUCCESS] ローカル認証成功:', user.username);
+      
+      // Handle remember me functionality
+      const rememberMe = req.body.rememberMe;
+      if (rememberMe) {
+        try {
+          const userAgent = req.get('user-agent') || 'Unknown';
+          const deviceInfo = {
+            userAgent: userAgent,
+            ip: req.ip || req.connection.remoteAddress
+          };
+          
+          const rememberToken = await authService.createRememberToken(user.id, deviceInfo);
+          const cookieConfig = authService.createRememberTokenCookieConfig();
+          
+          res.cookie('remember_token', rememberToken, cookieConfig);
+          console.log('[INFO] Remember token created for user:', user.username);
+        } catch (rememberError) {
+          console.error('[ERROR] Failed to create remember token:', rememberError);
+          // Don't fail login if remember token creation fails
+        }
+      }
       
       // Ensure session is saved before responding
       req.session.save((saveErr) => {
@@ -73,7 +94,8 @@ router.post('/login', (req, res, next) => {
           },
           sessionInfo: {
             sessionId: req.sessionID,
-            loginTime: req.session.loginTime
+            loginTime: req.session.loginTime,
+            rememberMe: !!rememberMe
           }
         });
       });
@@ -265,13 +287,30 @@ router.post('/reset-password', async (req, res) => {
   }
 });
 
-router.get('/logout', (req, res) => {
-  req.logout((err) => {
-    if (err) {
-      console.error('ログアウトエラー:', err);
+router.get('/logout', async (req, res) => {
+  try {
+    // Clear remember token if it exists
+    const rememberToken = req.signedCookies['remember_token'];
+    if (rememberToken) {
+      await authService.deleteRememberToken(rememberToken);
+      res.clearCookie('remember_token');
     }
-    res.redirect('/');
-  });
+    
+    req.logout((err) => {
+      if (err) {
+        console.error('ログアウトエラー:', err);
+      }
+      res.redirect('/');
+    });
+  } catch (error) {
+    console.error('[ERROR] Logout error:', error);
+    req.logout((err) => {
+      if (err) {
+        console.error('ログアウトエラー:', err);
+      }
+      res.redirect('/');
+    });
+  }
 });
 
 router.get('/user', (req, res) => {

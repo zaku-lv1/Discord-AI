@@ -4,6 +4,7 @@
 const dotenv = require("dotenv");
 const express = require("express");
 const session = require("express-session");
+const cookieParser = require("cookie-parser");
 const passport = require("passport");
 const path = require("path");
 
@@ -55,6 +56,11 @@ class Server {
         await this.bot.start();
       }
 
+      // Setup periodic cleanup of expired remember tokens (every 24 hours)
+      setInterval(async () => {
+        await authService.cleanupExpiredRememberTokens();
+      }, 24 * 60 * 60 * 1000);
+
       console.log("[情報] 初期化が完了しました。");
     } catch (error) {
       console.error("[致命的エラー] サーバーの初期化に失敗しました:", error);
@@ -66,12 +72,18 @@ class Server {
     // System middleware (maintenance mode, etc.)
     this.app.use(checkMaintenanceMode);
 
+    // Cookie parser (must be before session middleware)
+    this.app.use(cookieParser(process.env.SESSION_SECRET || 'default-secret-key'));
+
     // Session configuration
     this.app.use(session(authService.createSessionConfig()));
 
     // Passport initialization
     this.app.use(passport.initialize());
     this.app.use(passport.session());
+
+    // Remember token middleware (check after passport session)
+    this.app.use(authService.checkRememberToken.bind(authService));
 
     // Body parsing middleware
     this.app.use(express.json({ limit: "5mb" }));
