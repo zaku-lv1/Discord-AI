@@ -334,18 +334,28 @@ document.addEventListener("DOMContentLoaded", () => {
         
         const result = await safeParseJSON(response);
         
-        if (result.success && result.data.authenticated && result.data.user) {
-          state.user = result.data.user;
-          console.log('[SUCCESS] User authenticated:', result.data.user.username || result.data.user.email);
-          showMainContent();
-          await fetchSettings();
-          return true; // Success
-        } else {
-          if (attempt === maxRetries) {
-            console.log('[INFO] User not authenticated after all retries');
+        if (result.success && result.data) {
+          if (result.data.authenticated && result.data.user) {
+            // User is authenticated - show main content
+            state.user = result.data.user;
+            console.log('[SUCCESS] User authenticated:', result.data.user.username || result.data.user.email);
+            showMainContent();
+            await fetchSettings();
+            return true;
+          } else if (result.data.authenticated === false) {
+            // Server clearly responded that user is not authenticated - show auth form immediately
+            console.log('[INFO] User not authenticated - showing login form');
             showAuthContainer();
+            return false;
           }
-          return false; // Not authenticated
+        }
+        
+        // If we get here, the response format was unexpected - treat as error and retry
+        console.warn(`[WARNING] Unexpected auth response format on attempt ${attempt}:`, result);
+        if (attempt === maxRetries) {
+          console.log('[INFO] User not authenticated after all retries due to unexpected response format');
+          showAuthContainer();
+          return false;
         }
       } catch (error) {
         console.error(`[ERROR] Auth check attempt ${attempt} failed:`, error);
