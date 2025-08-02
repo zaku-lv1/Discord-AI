@@ -1,6 +1,7 @@
 const passport = require("passport");
 const LocalStrategy = require("passport-local").Strategy;
 const bcrypt = require("bcrypt");
+const crypto = require("crypto");
 const firebaseService = require("./firebase");
 const emailService = require("./email");
 const roleService = require("./roles");
@@ -17,6 +18,117 @@ class AuthService {
 
   async comparePassword(password, hashedPassword) {
     return await bcrypt.compare(password, hashedPassword);
+  }
+
+  // Generate secure remember token
+  generateRememberToken() {
+    return crypto.randomBytes(32).toString('hex');
+  }
+
+  // Create remember token for user
+  async createRememberToken(userId, deviceInfo = null) {
+    const db = firebaseService.getDB();
+    const token = this.generateRememberToken();
+    const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // 30 days
+
+    const tokenDoc = {
+      token: token,
+      userId: userId,
+      createdAt: firebaseService.getServerTimestamp(),
+      expiresAt: expiresAt,
+      deviceInfo: deviceInfo,
+      lastUsed: firebaseService.getServerTimestamp()
+    };
+
+    await db.collection('remember_tokens').doc(token).set(tokenDoc);
+    
+    // Also store in user document for easier cleanup
+    const userRef = db.collection('users').doc(userId);
+    await userRef.update({
+      lastRememberToken: token,
+      lastRememberTokenCreated: firebaseService.getServerTimestamp()
+    });
+
+    return token;
+  }
+
+  // Validate and use remember token
+  async validateRememberToken(token) {
+    const db = firebaseService.getDB();
+    
+    try {
+      const tokenDoc = await db.collection('remember_tokens').doc(token).get();
+      
+      if (!tokenDoc.exists) {
+        return null;
+      }
+
+      const tokenData = tokenDoc.data();
+      
+      // Check if token is expired
+      if (tokenData.expiresAt && tokenData.expiresAt.toDate() < new Date()) {
+        // Delete expired token
+        await this.deleteRememberToken(token);
+        return null;
+      }
+
+      // Update last used timestamp
+      await tokenDoc.ref.update({
+        lastUsed: firebaseService.getServerTimestamp()
+      });
+
+      // Get user data
+      const userDoc = await db.collection('users').doc(tokenData.userId).get();
+      if (!userDoc.exists) {
+        // User doesn't exist, delete token
+        await this.deleteRememberToken(token);
+        return null;
+      }
+
+      const userData = userDoc.data();
+      
+      // Return user without password
+      const { password: _, verificationToken: __, ...userWithoutPassword } = userData;
+      return userWithoutPassword;
+      
+    } catch (error) {
+      console.error('[ERROR] Remember token validation failed:', error);
+      return null;
+    }
+  }
+
+  // Delete remember token
+  async deleteRememberToken(token) {
+    const db = firebaseService.getDB();
+    
+    try {
+      await db.collection('remember_tokens').doc(token).delete();
+    } catch (error) {
+      console.error('[ERROR] Failed to delete remember token:', error);
+    }
+  }
+
+  // Clean up expired remember tokens
+  async cleanupExpiredRememberTokens() {
+    const db = firebaseService.getDB();
+    
+    try {
+      const expiredTokens = await db.collection('remember_tokens')
+        .where('expiresAt', '<', new Date())
+        .get();
+
+      const batch = db.batch();
+      expiredTokens.docs.forEach(doc => {
+        batch.delete(doc.ref);
+      });
+
+      if (!expiredTokens.empty) {
+        await batch.commit();
+        console.log(`[情報] ${expiredTokens.size}個の期限切れ記憶トークンを削除しました`);
+      }
+    } catch (error) {
+      console.error('[ERROR] Failed to cleanup expired remember tokens:', error);
+    }
   }
 
   async createLocalUser(username, password, email, skipEmailVerification = false, invitationCode = null) {
@@ -529,10 +641,65 @@ class AuthService {
       cookie: { 
         secure: requireSecure, // Only require secure cookies in actual production
         httpOnly: true, // Prevent XSS attacks
-        maxAge: 24 * 60 * 60 * 1000, // 24時間
+        maxAge: 24 * 60 * 60 * 1000, // 24時間 (session cookie)
         sameSite: requireSecure ? 'none' : 'lax' // Cross-site compatibility for production/Codespace
       }
     };
+  }
+
+  // Create remember token cookie configuration
+  createRememberTokenCookieConfig() {
+    const { isProduction, isCodespace } = this.getEnvironmentConfig();
+    const requireSecure = (isProduction || isCodespace) && process.env.NODE_ENV === 'production';
+    
+    return {
+      maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
+      httpOnly: true,
+      secure: requireSecure,
+      sameSite: requireSecure ? 'none' : 'lax',
+      signed: true // Use signed cookies for remember tokens
+    };
+  }
+
+  // Middleware to check remember token if session is not authenticated
+  async checkRememberToken(req, res, next) {
+    try {
+      // If user is already authenticated via session, continue
+      if (req.isAuthenticated && req.isAuthenticated()) {
+        return next();
+      }
+
+      // Check for remember token in signed cookies
+      const rememberToken = req.signedCookies['remember_token'];
+      if (!rememberToken) {
+        return next();
+      }
+
+      // Validate remember token
+      const user = await this.validateRememberToken(rememberToken);
+      if (!user) {
+        // Invalid token, clear the cookie
+        res.clearCookie('remember_token');
+        return next();
+      }
+
+      // Log the user in via the session
+      req.logIn(user, (err) => {
+        if (err) {
+          console.error('[ERROR] Failed to login user via remember token:', err);
+          res.clearCookie('remember_token');
+          return next();
+        }
+        
+        console.log(`[INFO] User logged in via remember token: ${user.username}`);
+        next();
+      });
+
+    } catch (error) {
+      console.error('[ERROR] Remember token check failed:', error);
+      res.clearCookie('remember_token');
+      next();
+    }
   }
 }
 
