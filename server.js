@@ -56,6 +56,11 @@ class Server {
         await this.bot.start();
       }
 
+      // Setup periodic cleanup of expired remember tokens (every 24 hours)
+      setInterval(async () => {
+        await authService.cleanupExpiredRememberTokens();
+      }, 24 * 60 * 60 * 1000);
+
       console.log("[情報] 初期化が完了しました。");
     } catch (error) {
       console.error("[致命的エラー] サーバーの初期化に失敗しました:", error);
