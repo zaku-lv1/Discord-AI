@@ -1872,11 +1872,23 @@ select:focus,
 
 /* レスポンシブ対応 */
 @media (max-width: 768px) {
+  .container {
+    margin: 0.5rem;
+    padding: 1rem; /* Reduced container padding on mobile */
+  }
+  
+  #auth-container {
+    max-width: none; /* Remove width restriction on mobile */
+    margin: 0;
+    padding: 1.5rem; /* Reduced auth container padding */
+    border-radius: 12px;
+  }
+  
   .login-form {
-    margin: 1rem;
-    padding: 2.5rem 2rem; /* Increased padding for mobile */
-    border-radius: 20px;
-    max-width: calc(100% - 2rem); /* Ensure full width usage on mobile */
+    margin: 0;
+    padding: 2rem 1.5rem; /* Reduced horizontal padding to maximize width */
+    border-radius: 16px;
+    max-width: none; /* Remove width restriction to use full available space */
   }
   
   .login-form h2 {
@@ -1892,11 +1904,24 @@ select:focus,
   .form-group input[type="email"] {
     font-size: 18px; /* iOS zoom防止 and better readability */
     min-height: 60px; /* Ensure good touch targets */
+    padding: 1.2rem 1rem; /* Optimized padding for mobile */
   }
   
   .save-btn {
     min-height: 64px; /* Larger touch target on mobile */
     font-size: 18px;
+    padding: 1.2rem 2rem; /* Better padding for mobile */
+  }
+  
+  /* Improve button group spacing on mobile */
+  .button-group {
+    gap: 1rem;
+  }
+  
+  /* Better text spacing on mobile */
+  .login-switch p {
+    font-size: 1rem;
+    margin: 0.75rem 0;
   }
 }
 
@@ -1918,6 +1943,40 @@ select:focus,
   .form-group input[type="email"] {
     padding: 1.2rem 1.5rem; /* More spacious input fields */
     font-size: 1.1rem;
+  }
+}
+
+/* Extra small screens optimization (phones in portrait) */
+@media (max-width: 480px) {
+  .container {
+    margin: 0.25rem;
+    padding: 0.75rem; /* Minimal container padding on small phones */
+  }
+  
+  #auth-container {
+    padding: 1rem; /* Minimal auth container padding */
+    border-radius: 8px;
+  }
+  
+  .login-form {
+    padding: 1.5rem 1rem; /* Minimal form padding to maximize width */
+    border-radius: 12px;
+  }
+  
+  .login-form h2 {
+    font-size: 2rem; /* Slightly smaller on very small screens */
+  }
+  
+  .login-form h3 {
+    font-size: 1.3rem; /* Slightly smaller on very small screens */
+  }
+  
+  .form-group input[type="text"],
+  .form-group input[type="password"],
+  .form-group input[type="email"] {
+    padding: 1rem 0.8rem; /* Compact padding for small screens */
+  }
+}
   }
 }
 
