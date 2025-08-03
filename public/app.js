@@ -620,7 +620,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
       const result = await safeParseJSON(response);
       
-      if (result.success && result.data.success) {
+      if (result.success && result.data.message) {
+        // Success response from API
         showSuccessToast(result.data.message);
         await fetchAiList();
         switchToPanel('panel-ai-list');
@@ -628,6 +629,7 @@ document.addEventListener("DOMContentLoaded", () => {
         // Clear status message on success
         statusMessage.textContent = "";
       } else {
+        // Handle error response
         const errorMessage = result.data ? result.data.message : result.error;
         throw new Error(errorMessage);
       }
@@ -654,13 +656,15 @@ document.addEventListener("DOMContentLoaded", () => {
 
       const result = await safeParseJSON(response);
       
-      if (result.success && result.data.success) {
+      if (result.success && result.data.message) {
+        // Success response from API
         showSuccessToast(result.data.message);
         await fetchAiList();
         editAiModal.style.display = "none";
         // Clear status message on success
         statusMessage.textContent = "";
       } else {
+        // Handle error response
         const errorMessage = result.data ? result.data.message : result.error;
         throw new Error(errorMessage);
       }
