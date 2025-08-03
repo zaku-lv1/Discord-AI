@@ -52,8 +52,6 @@ document.addEventListener("DOMContentLoaded", () => {
   const roleInviteDisplay = document.getElementById("role-invite-display");
   const newRoleInviteCode = document.getElementById("new-role-invite-code");
   const copyRoleInviteBtn = document.getElementById("copy-role-invite-btn");
-  const useInviteBtn = document.getElementById("use-invite-btn");
-  const useInvitationCodeInput = document.getElementById("use-invitation-code");
   const usersListContainer = document.getElementById("users-list-container");
 
   // --- システム設定要素 ---
@@ -803,7 +801,6 @@ document.addEventListener("DOMContentLoaded", () => {
       userCard.className = 'user-card';
       
       const isCurrentUser = user.email === state.user?.email;
-      const canChangeRole = state.user?.role === 'owner' && !isCurrentUser;
       
       userCard.innerHTML = `
         <div class="user-info">
@@ -817,68 +814,12 @@ document.addEventListener("DOMContentLoaded", () => {
             ${isCurrentUser ? '<span class="current-user-badge">（あなた）</span>' : ''}
           </div>
         </div>
-        ${canChangeRole ? `
-          <div class="user-actions">
-            <select class="role-selector" data-user-email="${escapeHtml(user.email)}">
-              <option value="editor" ${user.role === 'editor' ? 'selected' : ''}>編集者</option>
-              <option value="owner" ${user.role === 'owner' ? 'selected' : ''}>オーナー</option>
-            </select>
-            <button class="change-role-btn" data-user-email="${escapeHtml(user.email)}">変更</button>
-          </div>
-        ` : ''}
       `;
       
       usersListContainer.appendChild(userCard);
     });
-    
-    // Add event listeners for role changes
-    const changeRoleBtns = usersListContainer.querySelectorAll('.change-role-btn');
-    changeRoleBtns.forEach(btn => {
-      btn.addEventListener('click', handleRoleChange);
-    });
   }
-
-  async function handleRoleChange(event) {
-    const userEmail = event.target.dataset.userEmail;
-    const selector = usersListContainer.querySelector(`select[data-user-email="${userEmail}"]`);
-    const newRole = selector.value;
-    
-    if (!confirm(`このユーザーのロールを「${getRoleDisplayName(newRole)}」に変更しますか？`)) {
-      return;
-    }
-    
-    try {
-      const response = await fetch(`/api/roles/users/${encodeURIComponent(userEmail)}/role`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        credentials: 'include',
-        body: JSON.stringify({ role: newRole })
-      });
-      
-      const result = await safeParseJSON(response);
-      
-      if (result.success && result.data.success) {
-        showSuccessToast(result.data.message);
-        await fetchUsers(); // Refresh the list
-      } else {
-        const errorMessage = result.data ? result.data.message : result.error;
-        showErrorToast(errorMessage || 'ロールの変更に失敗しました');
-      }
-    } catch (error) {
-      console.error('Role change error:', error);
-      showErrorToast('ロールの変更に失敗しました');
-    }
-  }
-
-  function getRoleDisplayName(role) {
-    const roleNames = {
-      'editor': '編集者', 
-      'owner': 'オーナー'
-    };
-    return roleNames[role] || role;
-  }
+  
   // ================ データ取得関数 ================
   async function fetchSettings() {
     if (!state.user) return;
@@ -1701,50 +1642,6 @@ document.addEventListener("DOMContentLoaded", () => {
       newRoleInviteCode.select();
       document.execCommand("copy");
       showSuccessToast("招待コードをコピーしました！");
-    });
-  }
-
-  if (useInviteBtn) {
-    useInviteBtn.addEventListener("click", async () => {
-      const code = useInvitationCodeInput.value.trim();
-      
-      if (!code) {
-        showErrorToast("招待コードを入力してください。");
-        return;
-      }
-
-      useInviteBtn.disabled = true;
-      showInfoToast("招待コードを確認中...");
-
-      try {
-        const response = await fetch("/api/roles/use-invitation-code", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json"
-          },
-          credentials: 'include',
-          body: JSON.stringify({ code: code })
-        });
-
-        const result = await safeParseJSON(response);
-        
-        if (result.success && result.data.success) {
-          showSuccessToast(result.data.message);
-          useInvitationCodeInput.value = '';
-          // Refresh user data
-          setTimeout(() => {
-            checkAuthStatus();
-          }, 1000);
-        } else {
-          const errorMessage = result.data ? result.data.message : result.error;
-          showErrorToast(errorMessage || '招待コードの使用に失敗しました');
-        }
-      } catch (error) {
-        console.error('招待コード使用エラー:', error);
-        showErrorToast('招待コードの使用に失敗しました。');
-      } finally {
-        useInviteBtn.disabled = false;
-      }
     });
   }
 

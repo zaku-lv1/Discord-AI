@@ -22,49 +22,6 @@ router.get("/users", verifyAuthentication, requireOwner, async (req, res) => {
   }
 });
 
-// Update user role (Owner only)
-router.put("/users/:identifier/role", verifyAuthentication, requireOwner, async (req, res) => {
-  try {
-    const { identifier } = req.params; // Can be email or handle
-    const { role } = req.body;
-
-    if (!role) {
-      return res.status(400).json({
-        success: false,
-        message: "ロールが指定されていません"
-      });
-    }
-
-    // Validate role
-    if (!Object.values(roleService.roles).includes(role)) {
-      return res.status(400).json({
-        success: false,
-        message: "無効なロールです"
-      });
-    }
-
-    // Prevent changing own role to non-owner
-    if ((req.user.email === identifier || req.user.handle === identifier) && role !== roleService.roles.OWNER) {
-      return res.status(400).json({
-        success: false,
-        message: "自分のオーナー権限を削除することはできません"
-      });
-    }
-
-    await roleService.updateUserRole(identifier, role);
-
-    res.json({
-      success: true,
-      message: "ユーザーのロールを更新しました"
-    });
-  } catch (error) {
-    console.error("ロール更新エラー:", error);
-    res.status(500).json({
-      success: false,
-      message: error.message || "ロールの更新に失敗しました"
-    });
-  }
-});
 
 // Create invitation code for specific role (Owner only - can only create editor codes)
 router.post("/invitation-codes", verifyAuthentication, requireOwner, async (req, res) => {
@@ -104,34 +61,7 @@ router.post("/invitation-codes", verifyAuthentication, requireOwner, async (req,
   }
 });
 
-// Use invitation code to upgrade role
-router.post("/use-invitation-code", verifyAuthentication, async (req, res) => {
-  try {
-    const { code } = req.body;
 
-    if (!code) {
-      return res.status(400).json({
-        success: false,
-        message: "招待コードが指定されていません"
-      });
-    }
-
-    const result = await roleService.useInvitationCode(code, req.user.email);
-
-    res.json({
-      success: true,
-      newRole: result.newRole,
-      newRoleDisplay: result.roleDisplay,
-      message: `ロールが${result.roleDisplay}に更新されました`
-    });
-  } catch (error) {
-    console.error("招待コード使用エラー:", error);
-    res.status(400).json({
-      success: false,
-      message: error.message || "招待コードの使用に失敗しました"
-    });
-  }
-});
 
 // Get available roles
 router.get("/roles", verifyAuthentication, (req, res) => {
