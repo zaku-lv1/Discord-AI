@@ -460,6 +460,29 @@ button:disabled {
   font-size: 0.9rem;
 }
 
+/* ========== Form Section Styling ========== */
+.form-section {
+  margin: 2rem 0;
+  padding: 1.5rem;
+  background: var(--secondary-bg);
+  border-radius: 12px;
+  border: 1px solid var(--border-color);
+}
+
+.form-section h3 {
+  margin: 0 0 0.5rem 0;
+  font-size: 1.2rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.form-section .section-description {
+  margin: 0 0 1.5rem 0;
+  color: var(--text-secondary);
+  font-size: 0.95rem;
+  line-height: 1.5;
+}
+
 /* ========== トグルスイッチ ========== */
 .toggle-container {
   display: flex;
