@@ -97,10 +97,10 @@ function splitMessage(text, { maxLength = 2000 } = {}) {
   return chunks;
 }
 
-const defaultSystemPrompt = `
-あなたは親しみやすく優しいAIアシスタントです。ユーザーとフレンドリーに会話し、質問に丁寧に答えてください。
-自然で人間らしい会話を心がけてください。
-`;
+// Import character presets
+const characterPresets = require("../data/character-presets");
+
+const defaultSystemPrompt = characterPresets.default.prompt;
 
 const forcedInstructions = `
 

@@ -315,6 +315,14 @@
                 </div>
 
                 <div class="form-group">
+                  <label for="ai-preset-select">キャラクタープリセット</label>
+                  <select id="ai-preset-select">
+                    <option value="">カスタムプロンプト（手動入力）</option>
+                  </select>
+                  <small>プリセットを選択すると、下のテキストエリアに自動で入力されます。</small>
+                </div>
+
+                <div class="form-group">
                   <label for="ai-system-prompt">システムプロンプト (キャラクター設定)</label>
                   <textarea
                     id="ai-system-prompt"
@@ -724,6 +732,14 @@
           <div class="form-group">
             <label for="edit-ai-error-message">AIエラー時のメッセージ</label>
             <input type="text" id="edit-ai-error-message" maxlength="200" />
+          </div>
+
+          <div class="form-group">
+            <label for="edit-ai-preset-select">キャラクタープリセット</label>
+            <select id="edit-ai-preset-select">
+              <option value="">カスタムプロンプト（手動入力）</option>
+            </select>
+            <small>プリセットを選択すると、下のテキストエリアに自動で入力されます。</small>
           </div>
 
           <div class="form-group">
