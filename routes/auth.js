@@ -55,50 +55,64 @@ router.post('/login', (req, res, next) => {
         }
       }
       
-      // Ensure session is saved before responding
-      req.session.save((saveErr) => {
-        if (saveErr) {
-          console.error('[ERROR] セッション保存エラー:', saveErr);
-          console.error('[ERROR] セッションID:', req.sessionID);
-          console.error('[ERROR] セッション内容:', req.session);
-          return res.status(500).json({ 
-            success: false, 
-            message: 'ログインに失敗しました。しばらく待ってから再試行してください。' 
-          });
-        }
-        
-        console.log('[DEBUG] セッションが正常に保存されました:', req.sessionID);
-        console.log('[DEBUG] ユーザー情報:', { 
-          id: user.id, 
-          username: user.username, 
-          email: user.email,
-          role: user.role,
-          verified: user.verified 
-        });
-        
-        // Set additional session metadata for debugging
-        req.session.loginTime = new Date().toISOString();
-        req.session.userAgent = req.get('user-agent');
-        
-        res.json({ 
-          success: true, 
-          message: 'ログインしました',
-          user: {
-            id: user.id,
-            username: user.username,
-            email: user.email,
-            type: user.type,
-            role: user.role,
-            verified: user.verified,
-            handle: user.handle
-          },
-          sessionInfo: {
-            sessionId: req.sessionID,
-            loginTime: req.session.loginTime,
-            rememberMe: !!rememberMe
+      // Set additional session metadata before saving
+      req.session.loginTime = new Date().toISOString();
+      req.session.userAgent = req.get('user-agent');
+      
+      // Ensure session is saved before responding with retry logic
+      const saveSessionWithRetry = (attempt = 1, maxAttempts = 3) => {
+        req.session.save((saveErr) => {
+          if (saveErr) {
+            console.error(`[ERROR] セッション保存エラー (試行 ${attempt}/${maxAttempts}):`, saveErr);
+            console.error('[ERROR] セッションID:', req.sessionID);
+            console.error('[ERROR] セッション内容:', req.session);
+            
+            if (attempt < maxAttempts) {
+              console.log(`[INFO] セッション保存を再試行します (${attempt + 1}/${maxAttempts})`);
+              setTimeout(() => saveSessionWithRetry(attempt + 1, maxAttempts), 100);
+              return;
+            }
+            
+            return res.status(500).json({ 
+              success: false, 
+              message: 'ログインに失敗しました。しばらく待ってから再試行してください。' 
+            });
           }
+          
+          console.log('[DEBUG] セッションが正常に保存されました:', req.sessionID);
+          console.log('[DEBUG] ユーザー情報:', { 
+            id: user.id, 
+            username: user.username, 
+            email: user.email,
+            role: user.role,
+            verified: user.verified 
+          });
+          
+          // Verify session is immediately readable
+          console.log('[DEBUG] セッション認証状態確認:', req.isAuthenticated());
+          
+          res.json({ 
+            success: true, 
+            message: 'ログインしました',
+            user: {
+              id: user.id,
+              username: user.username,
+              email: user.email,
+              type: user.type,
+              role: user.role,
+              verified: user.verified,
+              handle: user.handle
+            },
+            sessionInfo: {
+              sessionId: req.sessionID,
+              loginTime: req.session.loginTime,
+              rememberMe: !!rememberMe
+            }
+          });
         });
-      });
+      };
+      
+      saveSessionWithRetry();
     });
   })(req, res, next);
 });
@@ -317,9 +331,17 @@ router.get('/user', async (req, res) => {
   console.log('[DEBUG] Auth check - sessionID:', req.sessionID);
   console.log('[DEBUG] Auth check - isAuthenticated:', req.isAuthenticated());
   console.log('[DEBUG] Auth check - session user:', req.user ? req.user.username || req.user.email : 'none');
+  console.log('[DEBUG] Auth check - session passport:', req.session.passport);
   
   if (req.isAuthenticated()) {
     const user = req.user;
+    
+    // Validate that user object is complete
+    if (!user || !user.id) {
+      console.warn('[WARNING] Auth check - user object incomplete:', user);
+      console.log('[DEBUG] Auth check failed - incomplete user object');
+      return res.json({ authenticated: false });
+    }
     
     // Get user's current role and role display (same as verifyAuthentication middleware)
     try {
