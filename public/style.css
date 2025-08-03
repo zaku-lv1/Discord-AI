@@ -61,6 +61,8 @@ body {
   min-height: 100vh;
   overflow-x: hidden;
   font-size: 18px; /* Increased base font size for better readability */
+  /* Prevent horizontal overflow on all screen sizes */
+  max-width: 100vw;
 }
 
 body::before {
@@ -350,6 +352,9 @@ button:disabled {
   grid-template-columns: 280px 1fr;
   gap: 2rem;
   margin-top: 2rem;
+  /* Prevent overflow on smaller screens */
+  min-width: 0;
+  overflow: hidden;
 }
 
 #dashboard-nav {
@@ -420,6 +425,9 @@ button:disabled {
   border: 1px solid var(--border-color);
   min-height: 500px;
   box-shadow: 0 8px 24px var(--shadow-light);
+  /* Prevent overflow on smaller screens */
+  min-width: 0;
+  overflow-x: auto;
 }
 
 .dashboard-panel {
@@ -1204,12 +1212,17 @@ input:checked + .slider:before {
   #dashboard-nav ul {
     gap: 0.5rem;
     padding-bottom: 1rem;
+    /* Improved scrolling behavior on mobile */
+    -webkit-overflow-scrolling: touch;
+    scroll-behavior: smooth;
   }
   
   #dashboard-nav a {
     padding: 1rem 1.25rem;
     font-size: 0.9rem;
     min-height: 52px;
+    /* Better touch feedback */
+    -webkit-tap-highlight-color: rgba(79, 70, 229, 0.1);
   }
   
   /* Better dashboard content padding */
@@ -2172,7 +2185,63 @@ select:focus,
   .form-group input[type="email"] {
     padding: 1rem 0.8rem; /* Compact padding for small screens */
   }
-}
+  
+  /* Enhanced dashboard mobile optimization for very small screens */
+  #dashboard-nav {
+    padding: 0.75rem; /* More compact navigation padding */
+    margin-bottom: 0.75rem;
+  }
+  
+  #dashboard-nav ul {
+    gap: 0.4rem; /* Tighter gap for small screens */
+    padding-bottom: 0.75rem;
+  }
+  
+  #dashboard-nav a {
+    padding: 0.875rem 1rem; /* More compact navigation items */
+    font-size: 0.85rem; /* Slightly smaller text for better fit */
+    min-height: 48px; /* Maintain adequate touch target */
+  }
+  
+  #dashboard-content {
+    padding: 1rem; /* More compact content padding */
+  }
+  
+  /* Better form element spacing for very small screens */
+  .form-group {
+    margin-bottom: 1.25rem; /* Slightly tighter form spacing */
+  }
+  
+  /* Ensure navigation items don't get too crowded on tiny screens */
+  .nav-header h3 {
+    font-size: 1rem; /* Smaller header for compact nav */
+    margin-bottom: 0.75rem;
+  }
+  
+  /* Optimize modal for very small screens */
+  .modal-content {
+    margin: 1% auto;
+    width: 98%; /* Use almost full width on tiny screens */
+    max-height: 95vh;
+    padding: 1rem;
+  }
+  
+  /* Better h1 sizing for very small screens */
+  h1 {
+    font-size: 2.2rem; /* More conservative size for tiny screens */
+  }
+  
+  h2 {
+    font-size: 1.8rem; /* Better proportions for small screens */
+  }
+  
+  /* Ensure user info doesn't overflow */
+  .user-info {
+    padding: 1rem;
+  }
+  
+  .user-welcome {
+    font-size: 1rem; /* Slightly smaller on tiny screens */
   }
 }
 
