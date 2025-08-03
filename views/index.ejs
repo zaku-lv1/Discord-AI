@@ -314,6 +314,69 @@
                   <small>Geminiが使えないときの返答。空白ならデフォルト文。</small>
                 </div>
 
+                <!-- ベースユーザー設定セクション -->
+                <div class="form-section">
+                  <h3>ベースユーザー設定</h3>
+                  <p class="section-description">特定のDiscordユーザーを参考にして、AIの名前やアイコンを設定できます。</p>
+
+                  <div class="form-group">
+                    <label for="ai-base-user-id">ベースユーザーID（Discord User ID）</label>
+                    <input
+                      type="text"
+                      id="ai-base-user-id"
+                      pattern="[0-9]{17,19}"
+                      placeholder="例: 1234567890123456789"
+                    />
+                    <small>参考にするDiscordユーザーのID（17-19桁の数字）。空白で未設定。</small>
+                  </div>
+
+                  <div class="form-group">
+                    <div class="toggle-container">
+                      <label for="ai-use-base-user-name" class="toggle-label">
+                        ベースユーザーの名前を使用する
+                      </label>
+                      <label class="toggle-switch">
+                        <input type="checkbox" id="ai-use-base-user-name" />
+                        <span class="slider"></span>
+                      </label>
+                    </div>
+                    <small>ONにするとベースユーザーの表示名をAIの名前として使用します。</small>
+                  </div>
+
+                  <div class="form-group">
+                    <div class="toggle-container">
+                      <label for="ai-use-base-user-avatar" class="toggle-label">
+                        ベースユーザーのアイコンを使用する
+                      </label>
+                      <label class="toggle-switch">
+                        <input type="checkbox" id="ai-use-base-user-avatar" />
+                        <span class="slider"></span>
+                      </label>
+                    </div>
+                    <small>ONにするとベースユーザーのアバターをAIのアイコンとして使用します。</small>
+                  </div>
+
+                  <div class="form-group">
+                    <label for="ai-fallback-avatar-url">代替アイコンURL</label>
+                    <input
+                      type="url"
+                      id="ai-fallback-avatar-url"
+                      placeholder="https://example.com/avatar.png"
+                    />
+                    <small>ベースユーザーのアイコンを使わない場合の画像URL。</small>
+                  </div>
+
+                  <div class="form-group">
+                    <label for="ai-fallback-display-name">代替表示名</label>
+                    <input
+                      type="text"
+                      id="ai-fallback-display-name"
+                      placeholder="例: アシスタント"
+                    />
+                    <small>ベースユーザーの名前を使わない場合の表示名。空白でAI名を使用。</small>
+                  </div>
+                </div>
+
                 <div class="form-group">
                   <label for="ai-preset-select">キャラクタープリセット</label>
                   <select id="ai-preset-select">
@@ -727,6 +790,69 @@
           <div class="form-group">
             <label for="edit-ai-system-prompt">システムプロンプト</label>
             <textarea id="edit-ai-system-prompt" rows="8"></textarea>
+          </div>
+
+          <!-- ベースユーザー設定セクション -->
+          <div class="form-section">
+            <h3>ベースユーザー設定</h3>
+            <p class="section-description">特定のDiscordユーザーを参考にして、AIの名前やアイコンを設定できます。</p>
+
+            <div class="form-group">
+              <label for="edit-ai-base-user-id">ベースユーザーID（Discord User ID）</label>
+              <input
+                type="text"
+                id="edit-ai-base-user-id"
+                pattern="[0-9]{17,19}"
+                placeholder="例: 1234567890123456789"
+              />
+              <small>参考にするDiscordユーザーのID（17-19桁の数字）。空白で未設定。</small>
+            </div>
+
+            <div class="form-group">
+              <div class="toggle-container">
+                <label for="edit-ai-use-base-user-name" class="toggle-label">
+                  ベースユーザーの名前を使用する
+                </label>
+                <label class="toggle-switch">
+                  <input type="checkbox" id="edit-ai-use-base-user-name" />
+                  <span class="slider"></span>
+                </label>
+              </div>
+              <small>ONにするとベースユーザーの表示名をAIの名前として使用します。</small>
+            </div>
+
+            <div class="form-group">
+              <div class="toggle-container">
+                <label for="edit-ai-use-base-user-avatar" class="toggle-label">
+                  ベースユーザーのアイコンを使用する
+                </label>
+                <label class="toggle-switch">
+                  <input type="checkbox" id="edit-ai-use-base-user-avatar" />
+                  <span class="slider"></span>
+                </label>
+              </div>
+              <small>ONにするとベースユーザーのアバターをAIのアイコンとして使用します。</small>
+            </div>
+
+            <div class="form-group">
+              <label for="edit-ai-fallback-avatar-url">代替アイコンURL</label>
+              <input
+                type="url"
+                id="edit-ai-fallback-avatar-url"
+                placeholder="https://example.com/avatar.png"
+              />
+              <small>ベースユーザーのアイコンを使わない場合の画像URL。</small>
+            </div>
+
+            <div class="form-group">
+              <label for="edit-ai-fallback-display-name">代替表示名</label>
+              <input
+                type="text"
+                id="edit-ai-fallback-display-name"
+                placeholder="例: アシスタント"
+              />
+              <small>ベースユーザーの名前を使わない場合の表示名。空白でAI名を使用。</small>
+            </div>
           </div>
 
           <!-- AI固有ニックネーム管理セクション -->

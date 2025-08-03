@@ -225,7 +225,11 @@ module.exports = {
       // AI設定の取得
       const aiSettings = {
         systemPrompt: selectedAI.systemPrompt || defaultSystemPrompt,
-        baseUserId: selectedAI.baseUserId || "1155356934292127844",
+        baseUserId: selectedAI.baseUserId,
+        useBaseUserName: selectedAI.useBaseUserName ?? false,
+        useBaseUserAvatar: selectedAI.useBaseUserAvatar ?? false,
+        fallbackAvatarUrl: selectedAI.fallbackAvatarUrl || "",
+        fallbackDisplayName: selectedAI.fallbackDisplayName || selectedAI.name,
         enableNameRecognition: selectedAI.enableNameRecognition ?? true,
         userNicknames: selectedAI.userNicknames || {},
         enableBotMessageResponse: selectedAI.enableBotMessageResponse ?? false,
@@ -273,10 +277,40 @@ module.exports = {
 
       const finalSystemPrompt = aiSettings.systemPrompt + forcedInstructions;
 
+      // Determine webhook name and avatar based on base user settings
+      let webhookName = selectedAI.name;
+      let webhookAvatarUrl = null;
+
+      // Handle base user settings for name and avatar
+      if (aiSettings.baseUserId && aiSettings.useBaseUserName) {
+        try {
+          const baseUser = await interaction.client.users.fetch(aiSettings.baseUserId);
+          if (aiSettings.useBaseUserName) {
+            webhookName = baseUser.displayName || baseUser.username;
+          }
+        } catch (error) {
+          console.warn(`Base user ${aiSettings.baseUserId} not found, using fallback name: ${aiSettings.fallbackDisplayName}`);
+          webhookName = aiSettings.fallbackDisplayName || selectedAI.name;
+        }
+      } else {
+        webhookName = aiSettings.fallbackDisplayName || selectedAI.name;
+      }
+
+      // Handle avatar URL
+      if (aiSettings.baseUserId && aiSettings.useBaseUserAvatar) {
+        try {
+          const baseUser = await interaction.client.users.fetch(aiSettings.baseUserId);
+          webhookAvatarUrl = baseUser.displayAvatarURL();
+        } catch (error) {
+          console.warn(`Base user ${aiSettings.baseUserId} not found, using fallback avatar URL: ${aiSettings.fallbackAvatarUrl}`);
+          webhookAvatarUrl = aiSettings.fallbackAvatarUrl || null;
+        }
+      } else {
+        webhookAvatarUrl = aiSettings.fallbackAvatarUrl || null;
+      }
+
       try {
-        const baseUser = await interaction.client.users.fetch(aiSettings.baseUserId);
         const webhooks = await channel.fetchWebhooks();
-        const webhookName = selectedAI.name;
         const existingWebhook = webhooks.find(
           (wh) =>
             wh.name === webhookName && wh.owner?.id === interaction.client.user.id
@@ -304,10 +338,12 @@ module.exports = {
         }
 
         // 新しいAIを召喚
-        const webhook = await channel.createWebhook({
-          name: webhookName,
-          avatar: baseUser.displayAvatarURL(),
-        });
+        const webhookOptions = { name: webhookName };
+        if (webhookAvatarUrl) {
+          webhookOptions.avatar = webhookAvatarUrl;
+        }
+        
+        const webhook = await channel.createWebhook(webhookOptions);
 
         const filter = (message) => {
           if (!aiSettings.enableBotMessageResponse && message.author.bot) {

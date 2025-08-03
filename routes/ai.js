@@ -53,7 +53,13 @@ router.post("/", verifyAuthentication, requireEditor, async (req, res) => {
       replyDelayMs,
       errorOopsMessage,
       userNicknames,
-      presetId // New field for preset selection
+      presetId, // New field for preset selection
+      // Base user settings
+      baseUserId,
+      useBaseUserName,
+      useBaseUserAvatar,
+      fallbackAvatarUrl,
+      fallbackDisplayName
     } = req.body;
 
     if (!id || !name) {
@@ -86,6 +92,12 @@ router.post("/", verifyAuthentication, requireEditor, async (req, res) => {
       errorOopsMessage: errorOopsMessage || "",
       userNicknames: userNicknames || {},
       presetId: presetId || null, // Store selected preset for reference
+      // Base user settings for avatar and name reference
+      baseUserId: baseUserId || null, // Discord user ID to reference
+      useBaseUserName: useBaseUserName ?? false, // Toggle to use base user's display name
+      useBaseUserAvatar: useBaseUserAvatar ?? false, // Toggle to use base user's avatar
+      fallbackAvatarUrl: fallbackAvatarUrl || "", // URL for avatar when not using base user
+      fallbackDisplayName: fallbackDisplayName || name, // Display name when not using base user
       createdAt: firebaseService.getArraySafeTimestamp(),
       updatedAt: firebaseService.getArraySafeTimestamp()
     };
@@ -117,7 +129,13 @@ router.put("/:id", verifyAuthentication, requireEditor, async (req, res) => {
       replyDelayMs,
       errorOopsMessage,
       userNicknames,
-      presetId // New field for preset selection
+      presetId, // New field for preset selection
+      // Base user settings
+      baseUserId,
+      useBaseUserName,
+      useBaseUserAvatar,
+      fallbackAvatarUrl,
+      fallbackDisplayName
     } = req.body;
 
     const db = firebaseService.getDB();
@@ -155,6 +173,12 @@ router.put("/:id", verifyAuthentication, requireEditor, async (req, res) => {
       errorOopsMessage: errorOopsMessage !== undefined ? errorOopsMessage : existingProfiles[profileIndex].errorOopsMessage,
       userNicknames: userNicknames !== undefined ? userNicknames : existingProfiles[profileIndex].userNicknames,
       presetId: presetId !== undefined ? presetId : existingProfiles[profileIndex].presetId,
+      // Base user settings
+      baseUserId: baseUserId !== undefined ? baseUserId : existingProfiles[profileIndex].baseUserId,
+      useBaseUserName: useBaseUserName !== undefined ? useBaseUserName : existingProfiles[profileIndex].useBaseUserName,
+      useBaseUserAvatar: useBaseUserAvatar !== undefined ? useBaseUserAvatar : existingProfiles[profileIndex].useBaseUserAvatar,
+      fallbackAvatarUrl: fallbackAvatarUrl !== undefined ? fallbackAvatarUrl : existingProfiles[profileIndex].fallbackAvatarUrl,
+      fallbackDisplayName: fallbackDisplayName !== undefined ? fallbackDisplayName : existingProfiles[profileIndex].fallbackDisplayName,
       updatedAt: firebaseService.getArraySafeTimestamp()
     };
 

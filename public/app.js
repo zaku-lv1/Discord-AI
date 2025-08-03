@@ -724,6 +724,13 @@ document.addEventListener("DOMContentLoaded", () => {
     document.getElementById("edit-ai-error-message").value = ai.errorOopsMessage || '';
     document.getElementById("edit-ai-system-prompt").value = ai.systemPrompt || '';
     
+    // Base user settings
+    document.getElementById("edit-ai-base-user-id").value = ai.baseUserId || '';
+    document.getElementById("edit-ai-use-base-user-name").checked = ai.useBaseUserName ?? false;
+    document.getElementById("edit-ai-use-base-user-avatar").checked = ai.useBaseUserAvatar ?? false;
+    document.getElementById("edit-ai-fallback-avatar-url").value = ai.fallbackAvatarUrl || '';
+    document.getElementById("edit-ai-fallback-display-name").value = ai.fallbackDisplayName || '';
+    
     // プリセット選択器を設定
     const editPresetSelect = document.getElementById("edit-ai-preset-select");
     if (editPresetSelect && ai.presetId) {
@@ -968,6 +975,14 @@ document.addEventListener("DOMContentLoaded", () => {
     e.preventDefault();
     
     const presetSelect = document.getElementById("ai-preset-select");
+    const baseUserId = document.getElementById("ai-base-user-id").value.trim();
+    
+    // Validate Discord User ID if provided
+    if (baseUserId && !/^[0-9]{17,19}$/.test(baseUserId)) {
+      showErrorToast("Discord User IDは17-19桁の数字である必要があります。");
+      return;
+    }
+    
     const aiData = {
       id: document.getElementById("ai-id").value.trim(),
       name: document.getElementById("ai-name").value.trim(),
@@ -978,7 +993,13 @@ document.addEventListener("DOMContentLoaded", () => {
       errorOopsMessage: document.getElementById("ai-error-message").value.trim(),
       systemPrompt: document.getElementById("ai-system-prompt").value.trim(),
       presetId: presetSelect.value || null,
-      userNicknames: {}
+      userNicknames: {},
+      // Base user settings
+      baseUserId: baseUserId || null,
+      useBaseUserName: document.getElementById("ai-use-base-user-name").checked,
+      useBaseUserAvatar: document.getElementById("ai-use-base-user-avatar").checked,
+      fallbackAvatarUrl: document.getElementById("ai-fallback-avatar-url").value.trim(),
+      fallbackDisplayName: document.getElementById("ai-fallback-display-name").value.trim()
     };
 
     // ID検証
@@ -1001,6 +1022,14 @@ document.addEventListener("DOMContentLoaded", () => {
     
     const aiId = document.getElementById("edit-ai-id").value;
     const editPresetSelect = document.getElementById("edit-ai-preset-select");
+    const baseUserId = document.getElementById("edit-ai-base-user-id").value.trim();
+    
+    // Validate Discord User ID if provided
+    if (baseUserId && !/^[0-9]{17,19}$/.test(baseUserId)) {
+      showErrorToast("Discord User IDは17-19桁の数字である必要があります。");
+      return;
+    }
+    
     const aiData = {
       name: document.getElementById("edit-ai-name").value.trim(),
       modelMode: document.getElementById("edit-ai-model-mode").value,
@@ -1010,7 +1039,13 @@ document.addEventListener("DOMContentLoaded", () => {
       errorOopsMessage: document.getElementById("edit-ai-error-message").value.trim(),
       systemPrompt: document.getElementById("edit-ai-system-prompt").value.trim(),
       presetId: editPresetSelect.value || null,
-      userNicknames: state.currentEditingAi?.userNicknames || {}
+      userNicknames: state.currentEditingAi?.userNicknames || {},
+      // Base user settings
+      baseUserId: baseUserId || null,
+      useBaseUserName: document.getElementById("edit-ai-use-base-user-name").checked,
+      useBaseUserAvatar: document.getElementById("edit-ai-use-base-user-avatar").checked,
+      fallbackAvatarUrl: document.getElementById("edit-ai-fallback-avatar-url").value.trim(),
+      fallbackDisplayName: document.getElementById("edit-ai-fallback-display-name").value.trim()
     };
 
     editAiForm.querySelector('button[type="submit"]').disabled = true;
