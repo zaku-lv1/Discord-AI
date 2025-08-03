@@ -1,8 +1,8 @@
 const firebaseService = require("./firebase");
 
-// Define user roles with hierarchy (simplified to OWNER and EDITOR only)
+// Define user roles - simplified to OWNER and EDITOR only
 const USER_ROLES = {
-  OWNER: 'owner',        // オーナー - full system control including invitation codes and maintenance mode
+  OWNER: 'owner',        // オーナー - full system control
   EDITOR: 'editor'       // 編集者 - edit content, limited permissions
 };
 
@@ -26,22 +26,6 @@ class RoleService {
   }
 
   /**
-   * Convert username to handle format (@username)
-   */
-  formatHandle(username) {
-    if (!username) return null;
-    return username.startsWith('@') ? username : `@${username}`;
-  }
-
-  /**
-   * Extract username from handle format (remove @)
-   */
-  extractUsername(handle) {
-    if (!handle) return null;
-    return handle.startsWith('@') ? handle.substring(1) : handle;
-  }
-
-  /**
    * Check if user has required role or higher
    */
   hasRole(userRole, requiredRole) {
@@ -51,85 +35,29 @@ class RoleService {
   }
 
   /**
-   * Get user role by email or handle
+   * Get user role by email - simplified, no migration logic
    */
-  async getUserRole(emailOrHandle) {
+  async getUserRole(email) {
     try {
       const db = firebaseService.getDB();
       
-      console.log(`[DEBUG] Getting user role for: ${emailOrHandle}`);
+      console.log(`[DEBUG] Getting user role for: ${email}`);
       
-      // First check in users collection
-      let userQuery;
-      if (emailOrHandle.includes('@') && emailOrHandle.includes('.')) {
-        // Email format
-        userQuery = await db.collection('users').where('email', '==', emailOrHandle).get();
-      } else {
-        // Handle format
-        const handle = this.formatHandle(emailOrHandle);
-        userQuery = await db.collection('users').where('handle', '==', handle).get();
-      }
+      // Check in users collection only
+      const userQuery = await db.collection('users').where('email', '==', email).get();
       
       if (!userQuery.empty) {
         const userData = userQuery.docs[0].data();
         const userRole = userData.role || USER_ROLES.EDITOR;
-        console.log(`[DEBUG] Found user in users collection with role: ${userRole}`);
+        console.log(`[DEBUG] Found user with role: ${userRole}`);
         
-        // Ensure role is valid in simplified system
+        // Ensure role is valid
         if (Object.values(USER_ROLES).includes(userRole)) {
-          console.log(`[DEBUG] Returning valid role: ${userRole}`);
           return userRole;
         }
-        // Map old roles to new simplified system
-        if (userRole === 'admin' || userRole === 'viewer') {
-          console.log(`[DEBUG] Mapping legacy role ${userRole} to editor`);
-          return USER_ROLES.EDITOR;
-        }
-        console.log(`[DEBUG] Unknown role ${userRole}, defaulting to editor`);
-        return USER_ROLES.EDITOR;
       }
 
-      console.log(`[DEBUG] User not found in users collection, checking legacy admin system`);
-      
-      // Fallback: check legacy admin system and migrate to new system
-      const settingsDoc = await db.collection("bot_settings").doc("ai_profile").get();
-      if (settingsDoc.exists) {
-        const admins = settingsDoc.data().admins || [];
-        console.log(`[DEBUG] Found ${admins.length} admins in legacy system`);
-        
-        const admin = admins.find(a => a.email === emailOrHandle);
-        if (admin) {
-          // First admin in the list is considered the owner in legacy system
-          const isOwner = admins[0].email === emailOrHandle;
-          const assignedRole = isOwner ? USER_ROLES.OWNER : USER_ROLES.EDITOR;
-          
-          console.log(`[DEBUG] Found user in legacy admin system, assigning role: ${assignedRole} (isOwner: ${isOwner})`);
-          
-          // Try to migrate this user to the new system if they have a handle
-          if (admin.handle || admin.username) {
-            try {
-              const handle = this.formatHandle(admin.handle || admin.username);
-              await db.collection('users').add({
-                handle: handle,
-                username: admin.username || admin.handle,
-                email: emailOrHandle,
-                role: assignedRole,
-                displayName: admin.name || admin.username,
-                verified: true,
-                createdAt: firebaseService.getServerTimestamp(),
-                migratedFromLegacy: true
-              });
-              console.log(`[DEBUG] Migrated user ${emailOrHandle} to new system with role ${assignedRole}`);
-            } catch (migrationError) {
-              console.error(`[WARNING] Failed to migrate user ${emailOrHandle}:`, migrationError);
-            }
-          }
-          
-          return assignedRole;
-        }
-      }
-
-      console.log(`[DEBUG] User not found in any system, defaulting to editor`);
+      console.log(`[DEBUG] User not found, defaulting to editor`);
       return USER_ROLES.EDITOR;
     } catch (error) {
       console.error('Error getting user role:', error);
@@ -138,9 +66,9 @@ class RoleService {
   }
 
   /**
-   * Update user role (with owner uniqueness constraint)
+   * Update user role - simplified
    */
-  async updateUserRole(emailOrHandle, newRole) {
+  async updateUserRole(email, newRole) {
     try {
       const db = firebaseService.getDB();
       
@@ -149,34 +77,22 @@ class RoleService {
         throw new Error('Invalid role specified');
       }
 
-      // If trying to assign OWNER role, ensure only one owner exists
-      if (newRole === USER_ROLES.OWNER) {
-        const existingOwners = await db.collection('users').where('role', '==', USER_ROLES.OWNER).get();
-        if (!existingOwners.empty) {
-          throw new Error('システムには既にオーナーが存在します。オーナーは1人だけです。');
-        }
-      }
-
-      // Find user
-      let userQuery;
-      if (emailOrHandle.includes('@') && emailOrHandle.includes('.')) {
-        userQuery = await db.collection('users').where('email', '==', emailOrHandle).get();
-      } else {
-        const handle = this.formatHandle(emailOrHandle);
-        userQuery = await db.collection('users').where('handle', '==', handle).get();
-      }
-
+      // Find user by email
+      const userQuery = await db.collection('users').where('email', '==', email).get();
+      
       if (userQuery.empty) {
         throw new Error('User not found');
       }
 
+      // Update role
       const userDoc = userQuery.docs[0];
       await userDoc.ref.update({
         role: newRole,
         updatedAt: firebaseService.getServerTimestamp()
       });
 
-      return true;
+      console.log(`[INFO] Updated user ${email} role to ${newRole}`);
+      
     } catch (error) {
       console.error('Error updating user role:', error);
       throw error;
@@ -184,7 +100,7 @@ class RoleService {
   }
 
   /**
-   * List all users with their roles
+   * List all users with their roles - simplified
    */
   async listUsersWithRoles() {
     try {
@@ -196,19 +112,14 @@ class RoleService {
         const userData = doc.data();
         let userRole = userData.role || USER_ROLES.EDITOR;
         
-        // Map old roles to simplified system
-        if (userRole === 'admin' || userRole === 'viewer') {
-          userRole = USER_ROLES.EDITOR;
-        }
-        
-        // Ensure role is valid in simplified system
+        // Ensure role is valid
         if (!Object.values(USER_ROLES).includes(userRole)) {
           userRole = USER_ROLES.EDITOR;
         }
         
         users.push({
           id: doc.id,
-          handle: userData.handle || this.formatHandle(userData.username),
+          username: userData.username,
           email: userData.email,
           displayName: userData.displayName || userData.username,
           role: userRole,
@@ -267,7 +178,7 @@ class RoleService {
   /**
    * Use invitation code to upgrade role
    */
-  async useInvitationCode(code, userEmailOrHandle) {
+  async useInvitationCode(code, userEmail) {
     try {
       const db = firebaseService.getDB();
       
@@ -287,12 +198,12 @@ class RoleService {
       }
 
       // Update user role
-      await this.updateUserRole(userEmailOrHandle, inviteData.targetRole);
+      await this.updateUserRole(userEmail, inviteData.targetRole);
 
       // Mark invitation as used
       await inviteDoc.ref.update({
         used: true,
-        usedBy: userEmailOrHandle,
+        usedBy: userEmail,
         usedAt: firebaseService.getServerTimestamp()
       });
 

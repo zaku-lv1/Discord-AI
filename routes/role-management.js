@@ -23,9 +23,9 @@ router.get("/users", verifyAuthentication, requireOwner, async (req, res) => {
 });
 
 // Update user role (Owner only)
-router.put("/users/:identifier/role", verifyAuthentication, requireOwner, async (req, res) => {
+router.put("/users/:email/role", verifyAuthentication, requireOwner, async (req, res) => {
   try {
-    const { identifier } = req.params; // Can be email or handle
+    const { email } = req.params;
     const { role } = req.body;
 
     if (!role) {
@@ -44,14 +44,14 @@ router.put("/users/:identifier/role", verifyAuthentication, requireOwner, async 
     }
 
     // Prevent changing own role to non-owner
-    if ((req.user.email === identifier || req.user.handle === identifier) && role !== roleService.roles.OWNER) {
+    if (req.user.email === email && role !== roleService.roles.OWNER) {
       return res.status(400).json({
         success: false,
         message: "自分のオーナー権限を削除することはできません"
       });
     }
 
-    await roleService.updateUserRole(identifier, role);
+    await roleService.updateUserRole(email, role);
 
     res.json({
       success: true,
@@ -161,18 +161,12 @@ router.get("/roles", verifyAuthentication, (req, res) => {
 // Debug endpoint to troubleshoot role detection issues
 router.get("/debug/user-role", verifyAuthentication, async (req, res) => {
   try {
-    const { email, handle } = req.user;
+    const { email } = req.user;
     const db = firebaseService.getDB();
     
     // Check users collection
     const usersQuery = await db.collection('users').where('email', '==', email).get();
     const userData = usersQuery.empty ? null : usersQuery.docs[0].data();
-    
-    // Check legacy admin system
-    const settingsDoc = await db.collection("bot_settings").doc("ai_profile").get();
-    const legacyData = settingsDoc.exists ? settingsDoc.data() : null;
-    const admins = legacyData?.admins || [];
-    const adminEntry = admins.find(a => a.email === email);
     
     // Get current role determination
     const determinedRole = await roleService.getUserRole(email);
@@ -181,7 +175,6 @@ router.get("/debug/user-role", verifyAuthentication, async (req, res) => {
       success: true,
       debug: {
         userEmail: email,
-        userHandle: handle,
         currentSessionRole: req.user.role,
         currentSessionRoleDisplay: req.user.roleDisplay,
         determinedRole: determinedRole,
@@ -189,13 +182,6 @@ router.get("/debug/user-role", verifyAuthentication, async (req, res) => {
         usersCollection: {
           found: !usersQuery.empty,
           data: userData
-        },
-        legacyAdminSystem: {
-          totalAdmins: admins.length,
-          userInAdmins: !!adminEntry,
-          isFirstAdmin: adminEntry && admins[0].email === email,
-          adminEntry: adminEntry,
-          allAdmins: admins.map(a => ({ email: a.email, name: a.name }))
         }
       }
     });

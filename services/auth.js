@@ -144,17 +144,13 @@ class AuthService {
       throw new Error('有効なメールアドレスを入力してください');
     }
 
-    // Format handle (@username)
-    const handle = roleService.formatHandle(username);
-    const plainUsername = roleService.extractUsername(handle);
-    
-    // Check if handle already exists
-    const existingHandleUser = await db.collection('users').where('handle', '==', handle).get();
-    if (!existingHandleUser.empty) {
-      throw new Error('このハンドルは既に使用されています');
+    // Simple username validation (no @ symbols needed)
+    const plainUsername = username.trim();
+    if (!plainUsername || plainUsername.length < 3) {
+      throw new Error('ユーザー名は3文字以上で入力してください');
     }
-
-    // Check if username already exists (legacy compatibility)
+    
+    // Check if username already exists
     const existingUser = await db.collection('users').where('username', '==', plainUsername).get();
     if (!existingUser.empty) {
       throw new Error('ユーザー名が既に使用されています');
@@ -249,7 +245,6 @@ class AuthService {
     const userDoc = {
       id: userId,
       username: plainUsername,
-      handle: handle,
       email: email,
       password: hashedPassword,
       type: 'email',
@@ -296,39 +291,20 @@ class AuthService {
     return userWithoutPassword;
   }
 
-  async findLocalUser(emailOrHandle) {
+  async findLocalUser(emailOrUsername) {
     const db = firebaseService.getDB();
     
-    // ハンドル形式で検索（@username）
-    if (emailOrHandle.startsWith('@')) {
-      const userQuery = await db.collection('users').where('handle', '==', emailOrHandle).get();
+    // Try email search first (contains @ and .)
+    if (emailOrUsername.includes('@') && emailOrUsername.includes('.')) {
+      const userQuery = await db.collection('users').where('email', '==', emailOrUsername).get();
       if (!userQuery.empty) {
         return userQuery.docs[0].data();
       }
-    }
-    
-    // メールアドレスで検索 (must contain @ and .)
-    if (emailOrHandle.includes('@') && emailOrHandle.includes('.')) {
-      const userQuery = await db.collection('users').where('email', '==', emailOrHandle).get();
+    } else {
+      // Try username search
+      const userQuery = await db.collection('users').where('username', '==', emailOrUsername).get();
       if (!userQuery.empty) {
         return userQuery.docs[0].data();
-      }
-    }
-    
-    // プレーンユーザー名での検索 - ハンドル形式に変換して検索
-    // Plain username search - convert to handle format and search
-    if (!emailOrHandle.includes('@') || !emailOrHandle.includes('.')) {
-      const handle = emailOrHandle.startsWith('@') ? emailOrHandle : '@' + emailOrHandle;
-      const userQuery = await db.collection('users').where('handle', '==', handle).get();
-      if (!userQuery.empty) {
-        return userQuery.docs[0].data();
-      }
-      
-      // レガシー互換性: プレーンユーザー名での直接検索も試行
-      // Legacy compatibility: also try direct plain username search
-      const legacyQuery = await db.collection('users').where('username', '==', emailOrHandle).get();
-      if (!legacyQuery.empty) {
-        return legacyQuery.docs[0].data();
       }
     }
     

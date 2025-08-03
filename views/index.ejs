@@ -360,14 +360,26 @@
                   アカウント設定
                 </h3>
                 <div class="form-group">
-                  <label for="profile-handle">ハンドル名</label>
+                  <label for="profile-username">ユーザー名</label>
                   <input
                     type="text"
-                    id="profile-handle"
+                    id="profile-username"
                     readonly
                     style="background: var(--accent-bg); opacity: 0.8;"
                   />
-                  <small>@username形式のハンドル名です。</small>
+                  <small>ログイン時に使用するユーザー名です。</small>
+                </div>
+
+                <div class="form-group">
+                  <label for="profile-email">メールアドレス</label>
+                  <input
+                    type="email"
+                    id="profile-email"
+                    placeholder="通知用メールアドレス"
+                    readonly
+                    style="background: var(--accent-bg); opacity: 0.8;"
+                  />
+                  <small>登録時のメールアドレスです。変更はサポートまでお問い合わせください。</small>
                 </div>
 
                 <div class="form-group">
@@ -389,29 +401,6 @@
                     placeholder="管理者パネルでの表示名"
                   />
                   <small>プロファイルでの表示名を設定できます。</small>
-                </div>
-
-                <div class="form-group">
-                  <label for="profile-email">メールアドレス</label>
-                  <input
-                    type="email"
-                    id="profile-email"
-                    placeholder="通知用メールアドレス"
-                    readonly
-                    style="background: var(--accent-bg); opacity: 0.8;"
-                  />
-                  <small>登録時のメールアドレスです。変更はサポートまでお問い合わせください。</small>
-                </div>
-
-                <div class="form-group">
-                  <label for="profile-username">ユーザー名</label>
-                  <input
-                    type="text"
-                    id="profile-username"
-                    readonly
-                    style="background: var(--accent-bg); opacity: 0.8;"
-                  />
-                  <small>ログイン時に使用するユーザー名です。</small>
                 </div>
               </div>
 

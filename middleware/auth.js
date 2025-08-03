@@ -2,7 +2,7 @@ const firebaseService = require("../services/firebase");
 const roleService = require("../services/roles");
 
 const verifyAuthentication = async (req, res, next) => {
-  // Email認証をチェック
+  // メール認証をチェック
   if (!req.isAuthenticated()) {
     return res.status(401).json({ message: '認証が必要です' });
   }
@@ -13,13 +13,13 @@ const verifyAuthentication = async (req, res, next) => {
   }
 
   try {
-    // Get user's current role
+    // Get user's current role using simplified role service
     const userRole = await roleService.getUserRole(req.user.email);
     req.user.role = userRole;
     req.user.roleDisplay = roleService.displayNames[userRole];
     
     // Set legacy flags for backward compatibility
-    req.user.isAdmin = roleService.hasRole(userRole, roleService.roles.OWNER); // Only owners have admin privileges now
+    req.user.isAdmin = roleService.hasRole(userRole, roleService.roles.OWNER);
     req.user.isSuperAdmin = roleService.hasRole(userRole, roleService.roles.OWNER);
     
     next();

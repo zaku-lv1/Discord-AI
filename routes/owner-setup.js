@@ -101,7 +101,7 @@ router.post("/", async (req, res) => {
       success: true,
       message: "オーナーアカウントが正常に作成されました。ログインしてください。",
       user: {
-        handle: user.handle,
+        username: user.username,
         email: user.email,
         role: roleService.roles.OWNER
       }

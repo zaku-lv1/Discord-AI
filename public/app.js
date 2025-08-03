@@ -23,7 +23,7 @@ document.addEventListener("DOMContentLoaded", () => {
   // --- プロファイル要素 ---
   const profileDisplayNameInput = document.getElementById("profile-display-name");
   const profileEmailInput = document.getElementById("profile-email");
-  const profileHandleInput = document.getElementById("profile-handle");
+  const profileUsernameInput = document.getElementById("profile-username");
   const profileRoleInput = document.getElementById("profile-role");
   const saveProfileBtn = document.getElementById("save-profile-btn");
   const refreshRoleBtn = document.getElementById("refresh-role-btn");
@@ -404,11 +404,11 @@ document.addEventListener("DOMContentLoaded", () => {
     
     // ユーザー情報を表示
     if (state.user) {
-      // ユーザー名の表示（ハンドル形式を優先）
-      const displayName = state.user.handle || `@${state.user.username}`;
+      // ユーザー名の表示（username を優先）
+      const displayName = state.user.displayName || state.user.username;
       userDisplayNameEl.textContent = displayName;
       
-      // アバターはローカルユーザーには表示しない
+      // アバターは非表示
       userAvatarEl.style.display = 'none';
       const profileAvatar = document.getElementById('profile-avatar-display');
       if (profileAvatar) {
@@ -426,11 +426,8 @@ document.addEventListener("DOMContentLoaded", () => {
       if (profileEmailInput) {
         profileEmailInput.value = state.user.email || '';
       }
-      if (profileHandleInput) {
-        profileHandleInput.value = state.user.handle || `@${state.user.username}`;
-      }
       if (profileRoleInput) {
-        profileRoleInput.value = state.user.roleDisplay || state.user.role || '閲覧者';
+        profileRoleInput.value = state.user.roleDisplay || state.user.role || '編集者';
       }
       
       // プロファイル概要を更新
@@ -441,7 +438,7 @@ document.addEventListener("DOMContentLoaded", () => {
       
       const profileRoleDisplay = document.getElementById('profile-role-display');
       if (profileRoleDisplay) {
-        profileRoleDisplay.textContent = state.user.roleDisplay || state.user.role || '閲覧者';
+        profileRoleDisplay.textContent = state.user.roleDisplay || state.user.role || '編集者';
       }
 
       // ナビゲーション表示制御
@@ -471,12 +468,12 @@ document.addEventListener("DOMContentLoaded", () => {
         
         // Update profile displays
         if (profileRoleInput) {
-          profileRoleInput.value = state.user.roleDisplay || state.user.role || '閲覧者';
+          profileRoleInput.value = state.user.roleDisplay || state.user.role || '編集者';
         }
         
         const profileRoleDisplay = document.getElementById('profile-role-display');
         if (profileRoleDisplay) {
-          profileRoleDisplay.textContent = state.user.roleDisplay || state.user.role || '閲覧者';
+          profileRoleDisplay.textContent = state.user.roleDisplay || state.user.role || '編集者';
         }
         
         // Update navigation visibility
