@@ -212,4 +212,45 @@ router.get("/users-for-transfer", verifyAuthentication, requireOwner, async (req
   }
 });
 
+/**
+ * Reset database (Development/Test environment only)
+ */
+router.post("/reset-database", async (req, res) => {
+  try {
+    // Only allow in development or test environment
+    const isDevelopment = process.env.NODE_ENV === 'development' || !process.env.NODE_ENV;
+    const isTest = process.env.NODE_ENV === 'test';
+    
+    if (!isDevelopment && !isTest) {
+      return res.status(403).json({
+        success: false,
+        message: "Database reset is only allowed in development/test environments"
+      });
+    }
+
+    const firebaseService = require("../services/firebase");
+    
+    if (firebaseService.isUsingMockDB()) {
+      firebaseService.resetMockDB();
+      
+      res.json({
+        success: true,
+        message: "Mock database reset successfully",
+        environment: process.env.NODE_ENV || 'development'
+      });
+    } else {
+      res.status(400).json({
+        success: false,
+        message: "Database reset is only available when using mock database"
+      });
+    }
+  } catch (error) {
+    console.error("[エラー] データベースリセットに失敗:", error);
+    res.status(500).json({
+      success: false,
+      message: "データベースリセットに失敗しました"
+    });
+  }
+});
+
 module.exports = router;

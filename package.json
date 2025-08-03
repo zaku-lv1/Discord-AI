@@ -4,8 +4,11 @@
   "description": "A Discord bot with image sharing capabilities.",
   "main": "server.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "node final_comprehensive_test.js",
     "test:gmail": "node test_gmail.js",
+    "test:requirements": "node test_new_requirements.js",
+    "test:roles": "node test_role_restrictions.js",
+    "test:all": "npm run test:requirements && npm run test:roles && npm test",
     "start": "node server.js",
     "start:old": "node index.js",
     "dev": "node server.js"

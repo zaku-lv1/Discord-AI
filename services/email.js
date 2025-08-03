@@ -16,9 +16,16 @@ class EmailService {
         throw new Error('Gmail設定が不完全です。GMAIL_USERとGMAIL_APP_PASSWORDが必要です。');
       }
 
-      // テスト環境では初期化をスキップ
-      if (gmailUser.includes('test') || gmailAppPassword.includes('test')) {
-        console.log('[警告] テスト環境でのGmail設定が検出されました。メール機能を無効にします。');
+      // 開発/テスト環境では初期化をスキップ
+      const isDevelopment = process.env.NODE_ENV === 'development' || !process.env.NODE_ENV;
+      const isTest = process.env.NODE_ENV === 'test';
+      const isExampleConfig = gmailUser.includes('your-gmail-address') || 
+                              gmailUser.includes('test') || 
+                              gmailAppPassword.includes('your-gmail-app-password') ||
+                              gmailAppPassword.includes('test');
+      
+      if ((isDevelopment || isTest) && isExampleConfig) {
+        console.log('[警告] 開発/テスト環境でのGmail設定が検出されました。メール機能を無効にします。');
         this.initialized = false;
         return;
       }

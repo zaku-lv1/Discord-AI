@@ -9,12 +9,12 @@ class SystemSettingsService {
   constructor() {
     this.settingsDocId = "main";
     this.defaultSettings = {
-      requireInvitationCodes: false, // Allow registration without invitation codes by default (owner can enable if needed)
+      requireInvitationCodes: true, // Require invitation codes by default (except for first owner)
       maintenanceMode: false,
       ownerSetupCompleted: false,
       ownerSetupKey: null,
       maintenanceMessage: "システムメンテナンス中です。しばらくお待ちください。",
-      allowOpenRegistration: true, // Enable open registration by default
+      allowOpenRegistration: false, // Disable open registration by default - use invitation codes
       systemVersion: "1.0.0",
       lastModified: null,
       modifiedBy: null
@@ -176,23 +176,18 @@ class SystemSettingsService {
    */
   async requiresInvitationCode() {
     try {
-      const settings = await this.getSettings();
+      // Check if there are any users in the system
+      const firebaseService = require("./firebase");
+      const db = firebaseService.getDB();
+      const usersSnapshot = await db.collection('users').get();
       
-      // If owner setup is not completed, invitation codes are not required for the first user
-      if (!settings.ownerSetupCompleted) {
-        // Check if there are any users in the system
-        const firebaseService = require("./firebase");
-        const db = firebaseService.getDB();
-        const usersSnapshot = await db.collection('users').get();
-        
-        // If no users exist, this is the first user (owner) - no invitation required
-        if (usersSnapshot.empty) {
-          return false;
-        }
+      // If no users exist, this is the first user (owner) - no invitation required
+      if (usersSnapshot.empty) {
+        return false;
       }
       
-      // After owner setup is completed, respect the system setting
-      return settings.requireInvitationCodes || false;
+      // After the first user exists, invitation codes are always required
+      return true;
     } catch (error) {
       console.error("[エラー] 招待コード要件の確認に失敗:", error);
       return true; // Default to requiring invitation codes for security
