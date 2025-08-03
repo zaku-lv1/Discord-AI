@@ -60,9 +60,6 @@ document.addEventListener("DOMContentLoaded", () => {
   const inviteCodeDisplay = document.getElementById("invite-code-display");
   const newInviteCodeInput = document.getElementById("new-invite-code");
   const copyInviteCodeBtn = document.getElementById("copy-invite-code-btn");
-  const adminsListContainer = document.getElementById("admins-list-container");
-  const addAdminBtn = document.getElementById("add-admin-btn");
-  const saveAdminsBtn = document.getElementById("save-admins-btn");
 
   // --- システム設定要素 ---
   const systemSettingsForm = document.getElementById("system-settings-form");
@@ -888,99 +885,6 @@ document.addEventListener("DOMContentLoaded", () => {
     };
     return roleNames[role] || role;
   }
-  function renderAdminList() {
-    adminsListContainer.innerHTML = "";
-    
-    // Add help text at the top
-    const helpDiv = document.createElement("div");
-    helpDiv.className = "admin-help-text";
-    helpDiv.innerHTML = `
-      <div>
-        <i class="fas fa-info-circle"></i>
-        <strong>管理者リストについて:</strong>
-        <ul style="margin: 0.5rem 0 0 1.5rem; padding-left: 1rem;">
-          <li>リストの一番上の管理者がシステムの最上位権限者です</li>
-          <li>オーナーは他の管理者の追加・削除・招待コード生成ができます</li>
-          <li>管理者はAIの設定やプロファイルを編集できます</li>
-          <li>表示名は管理者パネルでの識別用です</li>
-        </ul>
-      </div>
-    `;
-    adminsListContainer.appendChild(helpDiv);
-    
-    (state.admins || []).forEach((admin, index) => {
-      const entryDiv = document.createElement("div");
-      entryDiv.className = "admin-entry";
-      entryDiv.setAttribute("draggable", state.isSuperAdmin);
-      entryDiv.dataset.index = index;
-
-      let html = `
-        <div class="admin-field-group">
-          <label for="admin-name-${index}">表示名</label>
-          <input type="text" id="admin-name-${index}" class="admin-name" data-field="name" 
-                 placeholder="表示名を入力してください" value="${admin.name || ""}"
-                 ${!state.isSuperAdmin ? 'disabled' : ''}>
-        </div>
-        <div class="admin-field-group">
-          <label for="admin-email-${index}">メールアドレス</label>
-          <input type="email" id="admin-email-${index}" class="admin-email" data-field="email" 
-                 placeholder="admin@example.com" value="${admin.email || ""}"
-                 ${!state.isSuperAdmin ? 'disabled' : ''}>
-        </div>
-      `;
-
-      if (index === 0) {
-        entryDiv.classList.add("super-admin");
-        // Show actual role for the first admin (owner/editor) instead of hardcoded "最高管理者"
-        const adminRole = admin.role || 'editor';
-        const roleDisplayName = getRoleDisplayName(adminRole);
-        html += `
-          <div class="super-admin-label">
-            <i class="fas fa-crown"></i>
-            ${roleDisplayName}
-          </div>
-        `;
-      } else {
-        html += `
-          <div class="admin-role-badge admin">
-            <i class="fas fa-user-shield"></i>
-            管理者
-          </div>
-        `;
-      }
-
-      html += `
-        <div class="admin-actions-buttons">
-          ${state.isSuperAdmin && index > 0 ? '<button type="button" class="delete-btn">削除</button>' : ''}
-        </div>
-      `;
-
-      // Add admin info display if available
-      if (admin.username || admin.discordId) {
-        html += `
-          <div class="admin-info-display" style="grid-column: 1 / -1;">
-            <div class="admin-info-label">追加情報:</div>
-            ${admin.username ? `<div class="admin-info-item">
-              <span class="admin-info-label">ユーザー名:</span>
-              <span class="admin-info-value">@${admin.username}</span>
-            </div>` : ''}
-            ${admin.discordId ? `<div class="admin-info-item">
-              <span class="admin-info-label">Discord ID:</span>
-              <span class="admin-info-value">${admin.discordId}</span>
-            </div>` : ''}
-            ${admin.updatedAt ? `<div class="admin-info-item">
-              <span class="admin-info-label">最終更新:</span>
-              <span class="admin-info-value">${new Date(admin.updatedAt).toLocaleString('ja-JP')}</span>
-            </div>` : ''}
-          </div>
-        `;
-      }
-
-      entryDiv.innerHTML = html;
-      adminsListContainer.appendChild(entryDiv);
-    });
-  }
-
   // ================ データ取得関数 ================
   async function fetchSettings() {
     if (!state.user) return;
@@ -1013,10 +917,8 @@ document.addEventListener("DOMContentLoaded", () => {
           profileEmailInput.value = state.user.email || "";
         }
 
-        state.admins = data.admins || [];
         state.isSuperAdmin = data.currentUser && data.currentUser.isSuperAdmin;
         adminNavItem.style.display = "block";
-        renderAdminList();
 
         if (!state.isSuperAdmin) {
           document.querySelectorAll("#panel-admins input, #panel-admins button")
@@ -1274,7 +1176,6 @@ document.addEventListener("DOMContentLoaded", () => {
             <div style="margin-bottom: 1rem;">
               <strong>レガシー管理者システム:</strong><br>
               総管理者数: ${debug.legacyAdminSystem.totalAdmins}<br>
-              管理者リストに存在: ${debug.legacyAdminSystem.userInAdmins ? 'はい' : 'いいえ'}<br>
               最初の管理者: ${debug.legacyAdminSystem.isFirstAdmin ? 'はい (オーナー)' : 'いいえ'}<br>
               ${debug.legacyAdminSystem.totalAdmins > 0 ? 
                 `管理者一覧: ${debug.legacyAdminSystem.allAdmins.map(a => `${a.name || a.email} (${a.email})`).join(', ')}` : 
@@ -1501,33 +1402,6 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  // --- 管理者パネル ---
-  addAdminBtn.addEventListener("click", () => {
-    if (!state.isSuperAdmin) return;
-    state.admins.push({ name: "", email: "" });
-    renderAdminList();
-  });
-
-  adminsListContainer.addEventListener("click", (e) => {
-    if (e.target.classList.contains("delete-btn")) {
-      if (!state.isSuperAdmin) return;
-      const entry = e.target.closest(".admin-entry");
-      const index = parseInt(entry.dataset.index, 10);
-      state.admins.splice(index, 1);
-      renderAdminList();
-    }
-  });
-
-  adminsListContainer.addEventListener("input", (e) => {
-    const input = e.target;
-    if (input.classList.contains("admin-name") || input.classList.contains("admin-email")) {
-      const entry = input.closest(".admin-entry");
-      const index = parseInt(entry.dataset.index, 10);
-      const field = input.dataset.field;
-      if (state.admins[index]) state.admins[index][field] = input.value;
-    }
-  });
-
   generateInviteCodeBtn.addEventListener("click", async () => {
     if (!state.user || !state.isSuperAdmin) return;
 
@@ -1555,36 +1429,6 @@ document.addEventListener("DOMContentLoaded", () => {
     newInviteCodeInput.select();
     document.execCommand("copy");
     showSuccessToast("招待コードをコピーしました！");
-  });
-
-  saveAdminsBtn.addEventListener("click", async () => {
-    if (!state.user || saveAdminsBtn.disabled) return;
-
-    saveAdminsBtn.disabled = true;
-    showInfoToast("管理者リストを保存中...");
-
-    try {
-      const adminsArray = state.admins.filter((admin) => admin.email && admin.name);
-
-      const res = await fetch("/api/settings/admins", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        credentials: 'include',
-        body: JSON.stringify({ admins: adminsArray }),
-      });
-
-      const result = await res.json();
-      if (!res.ok) throw new Error(result.message);
-
-      showSuccessToast(result.message);
-      await fetchSettings();
-    } catch (err) {
-      showErrorToast(`管理者リスト保存エラー: ${err.message}`);
-    } finally {
-      saveAdminsBtn.disabled = false;
-    }
   });
 
   // --- 新しい認証システム用のイベントリスナー ---
