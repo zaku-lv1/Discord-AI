@@ -461,12 +461,13 @@ document.addEventListener("DOMContentLoaded", () => {
       
       const result = await safeParseJSON(response);
       
-      if (result.authenticated && result.user) {
-        console.log('[DEBUG] Updated user role from server:', result.user.role, 'display:', result.user.roleDisplay);
+      // Use wrapped response format consistently
+      if (result.success && result.data && result.data.authenticated && result.data.user) {
+        console.log('[DEBUG] Updated user role from server:', result.data.user.role, 'display:', result.data.user.roleDisplay);
         console.log('[DEBUG] Previous role:', state.user.role, 'display:', state.user.roleDisplay);
         
         // Update user state
-        state.user = result.user;
+        state.user = result.data.user;
         
         // Update profile displays
         if (profileRoleInput) {
@@ -482,6 +483,9 @@ document.addEventListener("DOMContentLoaded", () => {
         updateNavigationVisibility();
         
         showSuccessToast('ロール情報を更新しました。');
+      } else {
+        console.warn('[WARNING] Failed to refresh user role:', result.error || 'User not authenticated');
+        showErrorToast('ロール情報の更新に失敗しました。');
       }
     } catch (error) {
       console.error('[ERROR] Failed to refresh user role:', error);
