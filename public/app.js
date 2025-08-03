@@ -77,6 +77,7 @@ document.addEventListener("DOMContentLoaded", () => {
     isOwner: false,
     systemSettings: null,
     aiList: [],
+    characterPresets: [], // Add character presets
     currentEditingAi: null,
     currentAiNicknames: {} // AI固有のニックネーム（編集中のAI用）
   };
@@ -562,6 +563,49 @@ document.addEventListener("DOMContentLoaded", () => {
     aiListContainer.appendChild(aiGrid);
   }
 
+  // キャラクタープリセット一覧を取得
+  async function fetchCharacterPresets() {
+    try {
+      const response = await fetch("/api/ais/presets", {
+        credentials: 'include'
+      });
+
+      const result = await safeParseJSON(response);
+      
+      if (result.success) {
+        state.characterPresets = result.data;
+        populatePresetSelectors();
+      } else {
+        console.error("キャラクタープリセットの取得に失敗:", result.error);
+      }
+    } catch (error) {
+      console.error("キャラクタープリセットの取得エラー:", error);
+    }
+  }
+
+  // プリセット選択ドロップダウンを更新
+  function populatePresetSelectors() {
+    const createPresetSelect = document.getElementById("ai-preset-select");
+    const editPresetSelect = document.getElementById("edit-ai-preset-select");
+    
+    [createPresetSelect, editPresetSelect].forEach(select => {
+      if (select) {
+        // Clear existing options (keep the first custom option)
+        while (select.children.length > 1) {
+          select.removeChild(select.lastChild);
+        }
+        
+        // Add preset options
+        state.characterPresets.forEach(preset => {
+          const option = document.createElement("option");
+          option.value = preset.id;
+          option.textContent = `${preset.name} - ${preset.description}`;
+          select.appendChild(option);
+        });
+      }
+    });
+  }
+
   async function createAi(aiData) {
     if (!state.user) return;
 
@@ -680,6 +724,14 @@ document.addEventListener("DOMContentLoaded", () => {
     document.getElementById("edit-ai-reply-delay").value = ai.replyDelayMs || 0;
     document.getElementById("edit-ai-error-message").value = ai.errorOopsMessage || '';
     document.getElementById("edit-ai-system-prompt").value = ai.systemPrompt || '';
+    
+    // プリセット選択器を設定
+    const editPresetSelect = document.getElementById("edit-ai-preset-select");
+    if (editPresetSelect && ai.presetId) {
+      editPresetSelect.value = ai.presetId;
+    } else if (editPresetSelect) {
+      editPresetSelect.value = ''; // カスタムプロンプト
+    }
 
     // AI固有のニックネームを読み込み
     loadAiNicknames(aiId);
@@ -873,6 +925,9 @@ document.addEventListener("DOMContentLoaded", () => {
     // AI一覧を取得
     await fetchAiList();
     
+    // キャラクタープリセットを取得
+    await fetchCharacterPresets();
+    
     // ユーザー一覧を取得（オーナーのみ）
     if (state.user?.role === 'owner') {
       await fetchUsers();
@@ -913,6 +968,7 @@ document.addEventListener("DOMContentLoaded", () => {
   createAiForm.addEventListener("submit", async (e) => {
     e.preventDefault();
     
+    const presetSelect = document.getElementById("ai-preset-select");
     const aiData = {
       id: document.getElementById("ai-id").value.trim(),
       name: document.getElementById("ai-name").value.trim(),
@@ -922,6 +978,7 @@ document.addEventListener("DOMContentLoaded", () => {
       replyDelayMs: parseInt(document.getElementById("ai-reply-delay").value) || 0,
       errorOopsMessage: document.getElementById("ai-error-message").value.trim(),
       systemPrompt: document.getElementById("ai-system-prompt").value.trim(),
+      presetId: presetSelect.value || null,
       userNicknames: {}
     };
 
@@ -944,6 +1001,7 @@ document.addEventListener("DOMContentLoaded", () => {
     e.preventDefault();
     
     const aiId = document.getElementById("edit-ai-id").value;
+    const editPresetSelect = document.getElementById("edit-ai-preset-select");
     const aiData = {
       name: document.getElementById("edit-ai-name").value.trim(),
       modelMode: document.getElementById("edit-ai-model-mode").value,
@@ -952,6 +1010,7 @@ document.addEventListener("DOMContentLoaded", () => {
       replyDelayMs: parseInt(document.getElementById("edit-ai-reply-delay").value) || 0,
       errorOopsMessage: document.getElementById("edit-ai-error-message").value.trim(),
       systemPrompt: document.getElementById("edit-ai-system-prompt").value.trim(),
+      presetId: editPresetSelect.value || null,
       userNicknames: state.currentEditingAi?.userNicknames || {}
     };
 
@@ -971,6 +1030,38 @@ document.addEventListener("DOMContentLoaded", () => {
   cancelEditBtn.addEventListener("click", () => {
     editAiModal.style.display = "none";
   });
+
+  // --- プリセット選択イベントリスナー ---
+  const createPresetSelect = document.getElementById("ai-preset-select");
+  const editPresetSelect = document.getElementById("edit-ai-preset-select");
+  
+  if (createPresetSelect) {
+    createPresetSelect.addEventListener("change", (e) => {
+      const presetId = e.target.value;
+      const systemPromptField = document.getElementById("ai-system-prompt");
+      
+      if (presetId && state.characterPresets) {
+        const preset = state.characterPresets.find(p => p.id === presetId);
+        if (preset) {
+          systemPromptField.value = preset.prompt;
+        }
+      }
+    });
+  }
+  
+  if (editPresetSelect) {
+    editPresetSelect.addEventListener("change", (e) => {
+      const presetId = e.target.value;
+      const systemPromptField = document.getElementById("edit-ai-system-prompt");
+      
+      if (presetId && state.characterPresets) {
+        const preset = state.characterPresets.find(p => p.id === presetId);
+        if (preset) {
+          systemPromptField.value = preset.prompt;
+        }
+      }
+    });
+  }
 
   window.addEventListener("click", (e) => {
     if (e.target === editAiModal) {

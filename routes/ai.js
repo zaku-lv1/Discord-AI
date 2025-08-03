@@ -1,8 +1,25 @@
 const express = require("express");
 const { verifyAuthentication, requireEditor } = require("../middleware/auth");
 const firebaseService = require("../services/firebase");
+const characterPresets = require("../data/character-presets");
 
 const router = express.Router();
+
+// キャラクタープリセット一覧取得
+router.get("/presets", verifyAuthentication, async (req, res) => {
+  try {
+    // Convert presets object to array with id field
+    const presetsArray = Object.entries(characterPresets).map(([id, preset]) => ({
+      id,
+      ...preset
+    }));
+    
+    res.status(200).json(presetsArray);
+  } catch (error) {
+    console.error("プリセット取得エラー:", error);
+    res.status(500).json({ message: "サーバーエラー" });
+  }
+});
 
 // AI一覧取得
 router.get("/", verifyAuthentication, async (req, res) => {
@@ -35,7 +52,8 @@ router.post("/", verifyAuthentication, requireEditor, async (req, res) => {
       enableBotMessageResponse,
       replyDelayMs,
       errorOopsMessage,
-      userNicknames
+      userNicknames,
+      presetId // New field for preset selection
     } = req.body;
 
     if (!id || !name) {
@@ -51,16 +69,23 @@ router.post("/", verifyAuthentication, requireEditor, async (req, res) => {
       return res.status(400).json({ message: "このIDは既に使用されています。" });
     }
 
+    // Determine system prompt - use preset if specified, otherwise use provided prompt
+    let finalSystemPrompt = systemPrompt || "";
+    if (presetId && characterPresets[presetId]) {
+      finalSystemPrompt = characterPresets[presetId].prompt;
+    }
+
     const newProfile = {
       id,
       name,
-      systemPrompt: systemPrompt || "",
+      systemPrompt: finalSystemPrompt,
       modelMode: modelMode || "hybrid",
       enableNameRecognition: enableNameRecognition ?? true,
       enableBotMessageResponse: enableBotMessageResponse ?? false,
       replyDelayMs: replyDelayMs ?? 0,
       errorOopsMessage: errorOopsMessage || "",
       userNicknames: userNicknames || {},
+      presetId: presetId || null, // Store selected preset for reference
       createdAt: firebaseService.getArraySafeTimestamp(),
       updatedAt: firebaseService.getArraySafeTimestamp()
     };
@@ -91,7 +116,8 @@ router.put("/:id", verifyAuthentication, requireEditor, async (req, res) => {
       enableBotMessageResponse,
       replyDelayMs,
       errorOopsMessage,
-      userNicknames
+      userNicknames,
+      presetId // New field for preset selection
     } = req.body;
 
     const db = firebaseService.getDB();
@@ -107,16 +133,28 @@ router.put("/:id", verifyAuthentication, requireEditor, async (req, res) => {
       return res.status(404).json({ message: "AIが見つかりません。" });
     }
 
+    // Determine system prompt - use preset if specified, otherwise use provided prompt
+    let finalSystemPrompt = systemPrompt;
+    if (presetId !== undefined) {
+      if (presetId && characterPresets[presetId]) {
+        finalSystemPrompt = characterPresets[presetId].prompt;
+      } else if (!presetId) {
+        // If presetId is null/empty, keep the current systemPrompt
+        finalSystemPrompt = systemPrompt !== undefined ? systemPrompt : existingProfiles[profileIndex].systemPrompt;
+      }
+    }
+
     existingProfiles[profileIndex] = {
       ...existingProfiles[profileIndex],
       name: name || existingProfiles[profileIndex].name,
-      systemPrompt: systemPrompt !== undefined ? systemPrompt : existingProfiles[profileIndex].systemPrompt,
+      systemPrompt: finalSystemPrompt !== undefined ? finalSystemPrompt : existingProfiles[profileIndex].systemPrompt,
       modelMode: modelMode || existingProfiles[profileIndex].modelMode,
       enableNameRecognition: enableNameRecognition !== undefined ? enableNameRecognition : existingProfiles[profileIndex].enableNameRecognition,
       enableBotMessageResponse: enableBotMessageResponse !== undefined ? enableBotMessageResponse : existingProfiles[profileIndex].enableBotMessageResponse,
       replyDelayMs: replyDelayMs !== undefined ? replyDelayMs : existingProfiles[profileIndex].replyDelayMs,
       errorOopsMessage: errorOopsMessage !== undefined ? errorOopsMessage : existingProfiles[profileIndex].errorOopsMessage,
       userNicknames: userNicknames !== undefined ? userNicknames : existingProfiles[profileIndex].userNicknames,
+      presetId: presetId !== undefined ? presetId : existingProfiles[profileIndex].presetId,
       updatedAt: firebaseService.getArraySafeTimestamp()
     };
 
