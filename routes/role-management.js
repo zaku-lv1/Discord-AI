@@ -1,6 +1,7 @@
 const express = require("express");
 const { verifyAuthentication, requireOwner, requireEditor } = require("../middleware/auth");
 const roleService = require("../services/roles");
+const firebaseService = require("../services/firebase");
 
 const router = express.Router();
 
@@ -155,6 +156,57 @@ router.get("/roles", verifyAuthentication, (req, res) => {
     currentRole: req.user.role,
     currentRoleDisplay: req.user.roleDisplay
   });
+});
+
+// Debug endpoint to troubleshoot role detection issues
+router.get("/debug/user-role", verifyAuthentication, async (req, res) => {
+  try {
+    const { email, handle } = req.user;
+    const db = firebaseService.getDB();
+    
+    // Check users collection
+    const usersQuery = await db.collection('users').where('email', '==', email).get();
+    const userData = usersQuery.empty ? null : usersQuery.docs[0].data();
+    
+    // Check legacy admin system
+    const settingsDoc = await db.collection("bot_settings").doc("ai_profile").get();
+    const legacyData = settingsDoc.exists ? settingsDoc.data() : null;
+    const admins = legacyData?.admins || [];
+    const adminEntry = admins.find(a => a.email === email);
+    
+    // Get current role determination
+    const determinedRole = await roleService.getUserRole(email);
+    
+    res.json({
+      success: true,
+      debug: {
+        userEmail: email,
+        userHandle: handle,
+        currentSessionRole: req.user.role,
+        currentSessionRoleDisplay: req.user.roleDisplay,
+        determinedRole: determinedRole,
+        determinedRoleDisplay: roleService.displayNames[determinedRole],
+        usersCollection: {
+          found: !usersQuery.empty,
+          data: userData
+        },
+        legacyAdminSystem: {
+          totalAdmins: admins.length,
+          userInAdmins: !!adminEntry,
+          isFirstAdmin: adminEntry && admins[0].email === email,
+          adminEntry: adminEntry,
+          allAdmins: admins.map(a => ({ email: a.email, name: a.name }))
+        }
+      }
+    });
+  } catch (error) {
+    console.error("Role debug error:", error);
+    res.status(500).json({
+      success: false,
+      message: "デバッグ情報の取得に失敗しました",
+      error: error.message
+    });
+  }
 });
 
 module.exports = router;

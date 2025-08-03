@@ -78,7 +78,7 @@ body::before {
 }
 
 .container {
-  max-width: 1400px;
+  max-width: 1000px; /* Reduced from 1400px for better readability */
   margin: 0 auto;
   padding: 2rem;
   background: rgba(255, 255, 255, 0.9);
@@ -643,7 +643,7 @@ input:checked + .slider:before {
 
 /* ========== 認証フォーム ========== */
 #auth-container {
-  max-width: 1000px; /* Increased from 450px to make login box much wider */
+  max-width: 700px; /* Reduced from 1000px to make login box more manageable */
   margin: 0 auto;
   background: var(--primary-bg);
   padding: 3rem;
@@ -1769,10 +1769,10 @@ select:focus,
 }
 
 .login-form {
-  max-width: 1200px; /* Increased from 800px to utilize wider auth container */
+  max-width: 800px; /* Reduced from 1200px to be more reasonable */
   margin: 0 auto;
   background: linear-gradient(135deg, var(--primary-bg) 0%, rgba(248, 250, 252, 0.95) 100%);
-  padding: 3.5rem 5rem; /* Increased horizontal padding for wider form */
+  padding: 3rem 4rem; /* Reduced horizontal padding from 5rem */
   border-radius: 24px;
   box-shadow: 0 20px 40px var(--shadow-medium), 0 0 0 1px rgba(255, 255, 255, 0.8);
   border: 1px solid var(--border-color);
@@ -1822,7 +1822,7 @@ select:focus,
 
 .login-form h2 {
   margin-bottom: 0.5rem;
-  font-size: 2.5rem; /* Increased from 2.2rem */
+  font-size: 2.2rem; /* Reduced from 2.5rem for better proportion */
   font-weight: 700;
   text-align: center;
   background: linear-gradient(135deg, var(--text-primary), var(--accent-color));
@@ -1838,14 +1838,14 @@ select:focus,
   text-align: center;
   color: var(--text-primary);
   font-weight: 600;
-  font-size: 1.7rem; /* Increased from 1.5rem */
+  font-size: 1.5rem; /* Reduced from 1.7rem for better proportion */
 }
 
 .login-form p {
   text-align: center;
   color: var(--text-secondary);
   margin-bottom: 2.5rem;
-  font-size: 1.1rem; /* Increased from 1rem */
+  font-size: 1rem; /* Reduced from 1.1rem for better proportion */
   line-height: 1.6;
 }
 
@@ -1904,7 +1904,7 @@ select:focus,
   margin-bottom: 0.75rem;
   font-weight: 600;
   color: var(--text-primary);
-  font-size: 16px; /* Increased from 15px */
+  font-size: 15px; /* Reduced from 16px for better proportion */
   letter-spacing: 0.025em;
 }
 
@@ -1912,16 +1912,16 @@ select:focus,
 .form-group input[type="password"],
 .form-group input[type="email"] {
   width: 100%;
-  padding: 1.25rem 1.5rem; /* Increased padding */
+  padding: 1rem 1.25rem; /* Reduced padding for more compact look */
   border: 2px solid var(--border-color);
   border-radius: 12px;
-  font-size: 17px; /* Increased from 16px for better mobile readability */
+  font-size: 16px; /* Reduced from 17px for better proportion */
   background: var(--primary-bg);
   color: var(--text-primary);
   transition: all 0.3s ease;
   font-family: inherit;
   box-shadow: 0 2px 4px var(--shadow-light);
-  min-height: 56px; /* Ensure minimum touch target size */
+  min-height: 52px; /* Reduced from 56px for more compact feel */
 }
 
 .form-group input[type="text"]:focus,
@@ -1941,7 +1941,7 @@ select:focus,
 .form-group small {
   display: block;
   margin-top: 0.75rem;
-  font-size: 14px; /* Increased from 13px */
+  font-size: 13px; /* Reduced from 14px for better proportion */
   color: var(--text-secondary);
   line-height: 1.4;
 }
@@ -2124,8 +2124,8 @@ select:focus,
 /* Wider screens optimization */
 @media (min-width: 1200px) {
   .login-form {
-    max-width: 1400px; /* Even wider on large screens - significantly increased */
-    padding: 4rem 6rem; /* More spacious padding for wider form */
+    max-width: 900px; /* Reduced from 1400px - still wider but more reasonable */
+    padding: 4rem 5rem; /* More spacious padding for wider form but not excessive */
   }
   
   .form-group {
@@ -2137,8 +2137,8 @@ select:focus,
   .form-group input[type="text"],
   .form-group input[type="password"], 
   .form-group input[type="email"] {
-    padding: 1.2rem 1.5rem; /* More spacious input fields */
-    font-size: 1.1rem;
+    padding: 1.1rem 1.4rem; /* Slightly more spacious but not excessive */
+    font-size: 1rem; /* Reduced from 1.1rem */
   }
 }
 
