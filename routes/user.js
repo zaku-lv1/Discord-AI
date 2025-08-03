@@ -56,7 +56,7 @@ router.post("/update-email", verifyAuthentication, async (req, res) => {
 // プロファイル更新
 router.post("/update-profile", verifyAuthentication, async (req, res) => {
   try {
-    const { displayName, discordId } = req.body;
+    const { displayName } = req.body;
     const userDiscordId = req.user.id;
     const userEmail = req.user.email;
 
@@ -64,7 +64,6 @@ router.post("/update-profile", verifyAuthentication, async (req, res) => {
       userDiscordId,
       userEmail,
       displayName,
-      discordId,
       timestamp: new Date().toISOString(),
     });
 
@@ -72,13 +71,6 @@ router.post("/update-profile", verifyAuthentication, async (req, res) => {
     if (!displayName || typeof displayName !== "string") {
       return res.status(400).json({
         message: "表示名が正しく指定されていません。",
-      });
-    }
-
-    // Discord IDの検証（オプション）
-    if (discordId && !/^\d{17,19}$/.test(discordId)) {
-      return res.status(400).json({
-        message: "Discord IDは17-19桁の数字である必要があります。",
       });
     }
 
@@ -109,7 +101,6 @@ router.post("/update-profile", verifyAuthentication, async (req, res) => {
         email: userEmail,
         discordId: userDiscordId,
         name: displayName,
-        profileDiscordId: discordId || '',
         updatedAt: new Date().toISOString(),
       };
       
@@ -127,7 +118,6 @@ router.post("/update-profile", verifyAuthentication, async (req, res) => {
             ...admin,
             name: displayName,
             discordId: userDiscordId,
-            profileDiscordId: discordId || '',
             updatedAt: new Date().toISOString(),
           };
           
@@ -162,7 +152,6 @@ router.post("/update-profile", verifyAuthentication, async (req, res) => {
       username: req.user.username,
       avatar: req.user.avatar,
       discordId: userDiscordId,
-      profileDiscordId: discordId || '',
       email: userEmail,
       timestamp: new Date().toISOString(),
     };
