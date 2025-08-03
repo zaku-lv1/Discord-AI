@@ -420,6 +420,23 @@
                   <i class="fas fa-save" style="margin-right: 8px;"></i>
                   プロファイルを保存
                 </button>
+                <button id="refresh-role-btn" class="secondary-btn" style="margin-left: 1rem;">
+                  <i class="fas fa-sync-alt" style="margin-right: 8px;"></i>
+                  ロール更新
+                </button>
+                <button id="debug-role-btn" class="secondary-btn" style="margin-left: 1rem;">
+                  <i class="fas fa-bug" style="margin-right: 8px;"></i>
+                  ロール確認（デバッグ）
+                </button>
+              </div>
+              
+              <!-- Debug information display -->
+              <div id="role-debug-info" style="display: none; margin-top: 2rem; padding: 1.5rem; background: var(--secondary-bg); border-radius: 12px; border: 1px solid var(--border-color);">
+                <h4 style="margin: 0 0 1rem 0; color: var(--text-primary);">
+                  <i class="fas fa-info-circle" style="margin-right: 8px;"></i>
+                  ロール診断情報
+                </h4>
+                <div id="debug-content" style="font-family: monospace; font-size: 0.9rem; line-height: 1.6; color: var(--text-secondary);"></div>
               </div>
             </div>
 
