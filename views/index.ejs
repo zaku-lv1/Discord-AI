@@ -203,12 +203,7 @@
                   プロファイル
                 </a>
               </li>
-              <li id="nav-item-admin" style="display: none;">
-                <a href="#" class="nav-link" data-target="panel-admins">
-                  <i class="fas fa-users-cog" style="margin-right: 12px;"></i>
-                  管理者設定
-                </a>
-              </li>
+
               <li id="nav-item-user-management" style="display: none;">
                 <a href="#" class="nav-link" data-target="panel-user-management">
                   <i class="fas fa-users" style="margin-right: 12px;"></i>
@@ -460,7 +455,6 @@
                     <label for="invitation-target-role">招待するロール</label>
                     <select id="invitation-target-role">
                       <option value="editor">編集者 - コンテンツの編集が可能</option>
-                      <option value="owner">オーナー - 全ての権限</option>
                     </select>
                   </div>
 
@@ -518,48 +512,7 @@
               </div>
             </div>
 
-            <!-- 管理者設定パネル -->
-            <div id="panel-admins" class="dashboard-panel">
-              <div class="admin-header">
-                <h2>管理者設定</h2>
-                <p class="admin-description">システム管理者の追加・編集・削除を行えます。管理者はAIの設定、プロファイル、システム設定を変更できます。</p>
-              </div>
 
-              <div id="invite-code-generator-section" class="invite-section">
-                <div class="invite-card">
-                  <h3>
-                    <i class="fas fa-user-plus" style="margin-right: 8px;"></i>
-                    新しい管理者を招待
-                  </h3>
-                  <p>招待コードを生成して、新しい管理者をシステムに追加できます。コードは一度のみ使用可能で、24時間で有効期限が切れます。</p>
-                  <div class="admin-help-text">
-                    <i class="fas fa-lightbulb"></i>
-                    <strong>招待の流れ:</strong> コードを生成 → 新しい管理者に共有 → その人がアカウント登録時にコードを入力 → 自動的に管理者権限が付与
-                  </div>
-                  <button
-                    type="button"
-                    id="generate-invite-code-btn"
-                    class="save-btn"
-                  >
-                    <i class="fas fa-ticket-alt" style="margin-right: 8px;"></i>
-                    招待コードを生成
-                  </button>
-                  <div id="invite-code-display" class="invite-code-result" style="display:none;">
-                    <div class="invite-code-box">
-                      <label>生成された招待コード:</label>
-                      <div class="code-input-group">
-                        <input type="text" id="new-invite-code" readonly />
-                        <button type="button" id="copy-invite-code-btn" class="secondary-btn">
-                          <i class="fas fa-copy"></i>
-                          コピー
-                        </button>
-                      </div>
-                      <small>このコードを新しい管理者に伝えてください。コードは一度のみ使用可能で、24時間で有効期限が切れます。</small>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
 
             <!-- システム設定パネル -->
             <div id="panel-system-settings" class="dashboard-panel">
