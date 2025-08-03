@@ -328,6 +328,10 @@ router.get('/user', async (req, res) => {
         const userRole = await roleService.getUserRole(user.email);
         user.role = userRole;
         user.roleDisplay = roleService.displayNames[userRole];
+        
+        // Set legacy flags for backward compatibility (same as middleware/auth.js)
+        user.isAdmin = roleService.hasRole(userRole, roleService.roles.OWNER);
+        user.isSuperAdmin = roleService.hasRole(userRole, roleService.roles.OWNER);
       }
     } catch (error) {
       console.error('Error getting user role for auth check:', error);
@@ -344,7 +348,9 @@ router.get('/user', async (req, res) => {
         role: user.role,
         roleDisplay: user.roleDisplay,
         displayName: user.displayName || user.username,
-        verified: user.verified
+        verified: user.verified,
+        isAdmin: user.isAdmin,
+        isSuperAdmin: user.isSuperAdmin
       },
       authenticated: true,
       authType: 'email'
