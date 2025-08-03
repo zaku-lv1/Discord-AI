@@ -57,6 +57,8 @@ class RoleService {
     try {
       const db = firebaseService.getDB();
       
+      console.log(`[DEBUG] Getting user role for: ${emailOrHandle}`);
+      
       // First check in users collection
       let userQuery;
       if (emailOrHandle.includes('@') && emailOrHandle.includes('.')) {
@@ -71,27 +73,63 @@ class RoleService {
       if (!userQuery.empty) {
         const userData = userQuery.docs[0].data();
         const userRole = userData.role || USER_ROLES.EDITOR;
+        console.log(`[DEBUG] Found user in users collection with role: ${userRole}`);
+        
         // Ensure role is valid in simplified system
         if (Object.values(USER_ROLES).includes(userRole)) {
+          console.log(`[DEBUG] Returning valid role: ${userRole}`);
           return userRole;
         }
         // Map old roles to new simplified system
         if (userRole === 'admin' || userRole === 'viewer') {
+          console.log(`[DEBUG] Mapping legacy role ${userRole} to editor`);
           return USER_ROLES.EDITOR;
         }
+        console.log(`[DEBUG] Unknown role ${userRole}, defaulting to editor`);
         return USER_ROLES.EDITOR;
       }
 
-      // Fallback: check legacy admin system
+      console.log(`[DEBUG] User not found in users collection, checking legacy admin system`);
+      
+      // Fallback: check legacy admin system and migrate to new system
       const settingsDoc = await db.collection("bot_settings").doc("ai_profile").get();
       if (settingsDoc.exists) {
         const admins = settingsDoc.data().admins || [];
+        console.log(`[DEBUG] Found ${admins.length} admins in legacy system`);
+        
         const admin = admins.find(a => a.email === emailOrHandle);
         if (admin) {
-          return admins[0].email === emailOrHandle ? USER_ROLES.OWNER : USER_ROLES.EDITOR;
+          // First admin in the list is considered the owner in legacy system
+          const isOwner = admins[0].email === emailOrHandle;
+          const assignedRole = isOwner ? USER_ROLES.OWNER : USER_ROLES.EDITOR;
+          
+          console.log(`[DEBUG] Found user in legacy admin system, assigning role: ${assignedRole} (isOwner: ${isOwner})`);
+          
+          // Try to migrate this user to the new system if they have a handle
+          if (admin.handle || admin.username) {
+            try {
+              const handle = this.formatHandle(admin.handle || admin.username);
+              await db.collection('users').add({
+                handle: handle,
+                username: admin.username || admin.handle,
+                email: emailOrHandle,
+                role: assignedRole,
+                displayName: admin.name || admin.username,
+                verified: true,
+                createdAt: firebaseService.getServerTimestamp(),
+                migratedFromLegacy: true
+              });
+              console.log(`[DEBUG] Migrated user ${emailOrHandle} to new system with role ${assignedRole}`);
+            } catch (migrationError) {
+              console.error(`[WARNING] Failed to migrate user ${emailOrHandle}:`, migrationError);
+            }
+          }
+          
+          return assignedRole;
         }
       }
 
+      console.log(`[DEBUG] User not found in any system, defaulting to editor`);
       return USER_ROLES.EDITOR;
     } catch (error) {
       console.error('Error getting user role:', error);
