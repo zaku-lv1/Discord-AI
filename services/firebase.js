@@ -15,10 +15,15 @@ class FirebaseService {
         throw new Error("環境変数 `FIREBASE_SERVICE_ACCOUNT_JSON` が設定されていません。");
       }
       
-      // テスト環境での簡易設定
-      if (serviceAccountString.includes('test-project') && 
-          process.env.NODE_ENV === 'test') {
-        console.log("[警告] テスト環境でのFirebase設定を使用しています。");
+      // 開発環境またはテスト環境での簡易設定
+      const isDevelopment = process.env.NODE_ENV === 'development' || !process.env.NODE_ENV;
+      const isTest = process.env.NODE_ENV === 'test';
+      const isExampleConfig = serviceAccountString.includes('your-project') || 
+                              serviceAccountString.includes('your-firebase-project') ||
+                              serviceAccountString.includes('test-project');
+      
+      if ((isDevelopment || isTest) && isExampleConfig) {
+        console.log("[警告] 開発/テスト環境でのFirebase設定を使用しています。モックDBに切り替えます。");
         this.useMockDB = true;
         this.mockDB = this.createMockDB();
         this.db = this.createProxyDB();
@@ -433,8 +438,18 @@ class FirebaseService {
   switchToMockDB() {
     console.log('[INFO] 手動でモックDBに切り替えました');
     this.useMockDB = true;
-    if (!this.mockDB) {
+    this.mockDB = this.createMockDB();
+    this.db = this.createProxyDB();
+  }
+
+  // Add method to reset mock database (useful for testing)
+  resetMockDB() {
+    if (this.useMockDB && this.mockDB) {
+      console.log('[INFO] モックDBをリセットしました');
       this.mockDB = this.createMockDB();
+      this.db = this.createProxyDB();
+    } else {
+      console.log('[警告] モックDBが使用されていないため、リセットできません');
     }
   }
 }

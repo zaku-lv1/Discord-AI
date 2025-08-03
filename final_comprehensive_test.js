@@ -13,6 +13,7 @@
 
 const assert = require('assert');
 const fetch = require('node-fetch');
+const { resetTestEnvironment } = require('./test-utils');
 
 // Test configuration
 const config = {
@@ -221,6 +222,25 @@ async function runComprehensiveTests() {
   console.log('='.repeat(60));
   
   try {
+    // Reset test environment to ensure clean state
+    console.log('\n🧹 テスト環境をリセット中...');
+    try {
+      const resetResponse = await makeRequest('/api/system-settings/reset-database', {
+        method: 'POST'
+      });
+      
+      if (resetResponse.status === 200) {
+        console.log('✅ Database reset successful');
+      } else {
+        console.log('⚠️ Database reset not available or failed:', resetResponse.data?.message);
+      }
+    } catch (resetError) {
+      console.log('⚠️ Database reset failed:', resetError.message);
+    }
+    
+    // Wait a moment for the reset to take effect
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    
     // Run all tests
     await testSingleOwnerConstraint();
     await testInvitationCodeRequirement();
