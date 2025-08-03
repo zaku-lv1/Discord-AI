@@ -25,10 +25,6 @@ document.addEventListener("DOMContentLoaded", () => {
   const profileHandleInput = document.getElementById("profile-handle");
   const profileRoleInput = document.getElementById("profile-role");
   const saveProfileBtn = document.getElementById("save-profile-btn");
-  const refreshRoleBtn = document.getElementById("refresh-role-btn");
-  const debugRoleBtn = document.getElementById("debug-role-btn");
-  const roleDebugInfo = document.getElementById("role-debug-info");
-  const debugContent = document.getElementById("debug-content");
 
   // --- Discord ID管理要素 --- (Removed global Discord mapping, now AI-specific)
 
@@ -1136,94 +1132,6 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  // --- ロール更新機能 ---
-  if (refreshRoleBtn) {
-    refreshRoleBtn.addEventListener("click", async () => {
-      if (!state.user || refreshRoleBtn.disabled) return;
-
-      refreshRoleBtn.disabled = true;
-      showInfoToast("ロール情報を更新中...");
-
-      try {
-        await refreshUserRole();
-      } finally {
-        refreshRoleBtn.disabled = false;
-      }
-    });
-  }
-
-  // --- ロールデバッグ機能 ---
-  if (debugRoleBtn) {
-    debugRoleBtn.addEventListener("click", async () => {
-      if (!state.user || debugRoleBtn.disabled) return;
-
-      debugRoleBtn.disabled = true;
-      showInfoToast("ロール情報を取得中...");
-
-      try {
-        const response = await fetch("/api/roles/debug/user-role", {
-          method: "GET",
-          headers: { "Content-Type": "application/json" },
-          credentials: "include"
-        });
-
-        const result = await safeParseJSON(response);
-        
-        if (result.success && result.debug) {
-          const debug = result.debug;
-          
-          let debugHtml = `
-            <div style="margin-bottom: 1rem;">
-              <strong>基本情報:</strong><br>
-              メールアドレス: ${debug.userEmail}<br>
-              ハンドル: ${debug.userHandle || 'なし'}<br>
-              セッション内ロール: ${debug.currentSessionRole || 'なし'}<br>
-              セッション内ロール表示: ${debug.currentSessionRoleDisplay || 'なし'}<br>
-              判定されたロール: ${debug.determinedRole}<br>
-              判定されたロール表示: ${debug.determinedRoleDisplay}
-            </div>
-            
-            <div style="margin-bottom: 1rem;">
-              <strong>ユーザーコレクション:</strong><br>
-              存在: ${debug.usersCollection.found ? 'はい' : 'いいえ'}<br>
-              ${debug.usersCollection.found ? 
-                `ロール: ${debug.usersCollection.data.role || 'なし'}<br>認証済み: ${debug.usersCollection.data.verified ? 'はい' : 'いいえ'}` : 
-                'ユーザーデータなし'}
-            </div>
-            
-            <div style="margin-bottom: 1rem;">
-              <strong>レガシー管理者システム:</strong><br>
-              総管理者数: ${debug.legacyAdminSystem.totalAdmins}<br>
-              最初の管理者: ${debug.legacyAdminSystem.isFirstAdmin ? 'はい (オーナー)' : 'いいえ'}<br>
-              ${debug.legacyAdminSystem.totalAdmins > 0 ? 
-                `管理者一覧: ${debug.legacyAdminSystem.allAdmins.map(a => `${a.name || a.email} (${a.email})`).join(', ')}` : 
-                '管理者なし'}
-            </div>
-            
-            ${debug.currentSessionRole !== debug.determinedRole ? 
-              `<div style="color: var(--warning-color); font-weight: bold; margin-top: 1rem;">
-                ⚠️ 不一致検出: セッションロール (${debug.currentSessionRole}) と判定ロール (${debug.determinedRole}) が異なります
-              </div>` : 
-              `<div style="color: var(--success-color); font-weight: bold; margin-top: 1rem;">
-                ✅ ロールは正常に設定されています
-              </div>`}
-          `;
-          
-          debugContent.innerHTML = debugHtml;
-          roleDebugInfo.style.display = 'block';
-          showSuccessToast("ロール診断情報を表示しました。");
-        } else {
-          showErrorToast(`ロール情報の取得に失敗: ${result.message || result.error}`);
-        }
-      } catch (error) {
-        console.error("ロールデバッグエラー:", error);
-        showErrorToast(`ロール診断中にエラーが発生: ${error.message}`);
-      } finally {
-        debugRoleBtn.disabled = false;
-      }
-    });
-  }
-
   // ================ AI固有ニックネーム管理機能 ================
   
   // AI固有ニックネーム読み込み
@@ -1464,11 +1372,6 @@ document.addEventListener("DOMContentLoaded", () => {
       submitBtn.disabled = true;
       submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin" style="margin-right: 8px;"></i>ログイン中...';
       
-      // Show loader container for better visual feedback
-      if (loaderContainer) {
-        loaderContainer.style.display = "flex";
-      }
-      
       try {
         const response = await fetch('/auth/login', {
           method: 'POST',
@@ -1514,10 +1417,7 @@ document.addEventListener("DOMContentLoaded", () => {
           showErrorToast('ログインに失敗しました。ネットワーク接続を確認してください。');
         }
       } finally {
-        // Always hide loader and restore button
-        if (loaderContainer) {
-          loaderContainer.style.display = "none";
-        }
+        // Restore button state
         submitBtn.disabled = false;
         submitBtn.innerHTML = originalText;
       }
