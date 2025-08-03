@@ -25,7 +25,6 @@ document.addEventListener("DOMContentLoaded", () => {
   const profileEmailInput = document.getElementById("profile-email");
   const profileHandleInput = document.getElementById("profile-handle");
   const profileRoleInput = document.getElementById("profile-role");
-  const profileDiscordIdInput = document.getElementById("profile-discord-id");
   const saveProfileBtn = document.getElementById("save-profile-btn");
 
   // --- Discord ID管理要素 --- (Removed global Discord mapping, now AI-specific)
@@ -431,9 +430,6 @@ document.addEventListener("DOMContentLoaded", () => {
       }
       if (profileRoleInput) {
         profileRoleInput.value = state.user.roleDisplay || state.user.role || '閲覧者';
-      }
-      if (profileDiscordIdInput) {
-        profileDiscordIdInput.value = state.user.discordId || '';
       }
       
       // プロファイル概要を更新
@@ -859,8 +855,8 @@ document.addEventListener("DOMContentLoaded", () => {
         <i class="fas fa-info-circle"></i>
         <strong>管理者リストについて:</strong>
         <ul style="margin: 0.5rem 0 0 1.5rem; padding-left: 1rem;">
-          <li>リストの一番上の管理者が「最高管理者」として設定されます</li>
-          <li>最高管理者は他の管理者の追加・削除・招待コード生成ができます</li>
+          <li>リストの一番上の管理者がシステムの最上位権限者です</li>
+          <li>オーナーは他の管理者の追加・削除・招待コード生成ができます</li>
           <li>管理者はAIの設定やプロファイルを編集できます</li>
           <li>表示名は管理者パネルでの識別用です</li>
         </ul>
@@ -891,10 +887,13 @@ document.addEventListener("DOMContentLoaded", () => {
 
       if (index === 0) {
         entryDiv.classList.add("super-admin");
+        // Show actual role for the first admin (owner/editor) instead of hardcoded "最高管理者"
+        const adminRole = admin.role || 'editor';
+        const roleDisplayName = getRoleDisplayName(adminRole);
         html += `
           <div class="super-admin-label">
             <i class="fas fa-crown"></i>
-            最高管理者
+            ${roleDisplayName}
           </div>
         `;
       } else {
@@ -1117,7 +1116,6 @@ document.addEventListener("DOMContentLoaded", () => {
       try {
         const newDisplayName = profileDisplayNameInput.value.trim();
         const newEmail = profileEmailInput.value.trim();
-        const newDiscordId = profileDiscordIdInput.value.trim();
 
         const res = await fetch("/api/update-profile", {
           method: "POST",
@@ -1126,8 +1124,7 @@ document.addEventListener("DOMContentLoaded", () => {
           },
           credentials: 'include',
           body: JSON.stringify({ 
-            displayName: newDisplayName,
-            discordId: newDiscordId 
+            displayName: newDisplayName
           }),
         });
 
