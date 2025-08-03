@@ -66,7 +66,7 @@ router.put("/users/:identifier/role", verifyAuthentication, requireOwner, async 
   }
 });
 
-// Create invitation code for specific role (Owner only)
+// Create invitation code for specific role (Owner only - can only create editor codes)
 router.post("/invitation-codes", verifyAuthentication, requireOwner, async (req, res) => {
   try {
     const { targetRole } = req.body;
@@ -78,20 +78,11 @@ router.post("/invitation-codes", verifyAuthentication, requireOwner, async (req,
       });
     }
 
-    // Validate role
-    if (!Object.values(roleService.roles).includes(targetRole)) {
+    // Only allow creating editor invitation codes
+    if (targetRole !== roleService.roles.EDITOR) {
       return res.status(400).json({
         success: false,
-        message: "無効なロールです"
-      });
-    }
-
-    // Only owners can create owner codes, editors can only create editor codes
-    if (targetRole === roleService.roles.OWNER && 
-        !roleService.hasRole(req.user.role, roleService.roles.OWNER)) {
-      return res.status(403).json({
-        success: false,
-        message: "オーナーの招待コードはオーナーのみ作成できます"
+        message: "編集者の招待コードのみ作成できます。オーナーは1人だけです。"
       });
     }
 

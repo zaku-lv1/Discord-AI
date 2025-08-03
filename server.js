@@ -172,37 +172,6 @@ class Server {
     this.app.use("/api/system-settings", systemSettingsRoutes);
     this.app.use("/owner-setup", ownerSetupRoutes);
 
-    // Invite code generation route (directly under /api for frontend compatibility)
-    this.app.post("/api/generate-invite-code", require("./middleware/auth").verifyAuthentication, async (req, res) => {
-      try {
-        if (!req.user.isSuperAdmin) {
-          return res.status(403).json({
-            message: "招待コードの発行は最高管理者のみ許可されています。",
-          });
-        }
-        
-        const { v4: uuidv4 } = require("uuid");
-        const newCode = uuidv4().split("-")[0].toUpperCase();
-        const db = firebaseService.getDB();
-        
-        await db.collection("invitation_codes").doc(newCode).set({
-          code: newCode,
-          createdAt: firebaseService.getServerTimestamp(),
-          createdBy: req.user.email || req.user.username,
-          createdByDiscordId: req.user.id,
-          used: false,
-          usedBy: null,
-          usedByDiscordId: null,
-          usedAt: null,
-        });
-
-        res.status(201).json({ code: newCode });
-      } catch (error) {
-        console.error("招待コード生成エラー:", error);
-        res.status(500).json({ message: "招待コードの生成に失敗しました。" });
-      }
-    });
-
     // Debug endpoint for Gmail status (development only)
     this.app.get("/api/debug/gmail", (req, res) => {
       if (process.env.NODE_ENV === 'production') {
@@ -274,8 +243,7 @@ class Server {
             "GET /auth/reset-password",
             "POST /auth/reset-password",
             "GET /auth/logout",
-            "GET /auth/user",
-            "POST /api/generate-invite-code"
+            "GET /auth/user"
           ]
         });
       } else {

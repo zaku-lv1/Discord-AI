@@ -16,7 +16,6 @@ document.addEventListener("DOMContentLoaded", () => {
   // --- ナビゲーション要素 ---
   const navLinks = document.querySelectorAll(".nav-link");
   const panels = document.querySelectorAll(".dashboard-panel");
-  const adminNavItem = document.getElementById("nav-item-admin");
   const userMgmtNavItem = document.getElementById("nav-item-user-management");
   const systemSettingsNavItem = document.getElementById("nav-item-system-settings");
 
@@ -56,10 +55,6 @@ document.addEventListener("DOMContentLoaded", () => {
   const useInviteBtn = document.getElementById("use-invite-btn");
   const useInvitationCodeInput = document.getElementById("use-invitation-code");
   const usersListContainer = document.getElementById("users-list-container");
-  const generateInviteCodeBtn = document.getElementById("generate-invite-code-btn");
-  const inviteCodeDisplay = document.getElementById("invite-code-display");
-  const newInviteCodeInput = document.getElementById("new-invite-code");
-  const copyInviteCodeBtn = document.getElementById("copy-invite-code-btn");
 
   // --- システム設定要素 ---
   const systemSettingsForm = document.getElementById("system-settings-form");
@@ -738,11 +733,6 @@ document.addEventListener("DOMContentLoaded", () => {
       createAiNavItem.style.display = canEdit ? "block" : "none";
     }
     
-    // Admin panel (legacy compatibility)
-    if (adminNavItem) {
-      adminNavItem.style.display = isAdmin ? "block" : "none";
-    }
-    
     // User management panel (admin or owner only)
     if (userMgmtNavItem) {
       userMgmtNavItem.style.display = isAdmin ? "block" : "none";
@@ -922,19 +912,11 @@ document.addEventListener("DOMContentLoaded", () => {
         }
 
         state.isSuperAdmin = data.currentUser && data.currentUser.isSuperAdmin;
-        adminNavItem.style.display = "block";
-
-        if (!state.isSuperAdmin) {
-          document.querySelectorAll("#panel-admins input, #panel-admins button")
-            .forEach((el) => (el.disabled = true));
-          document.getElementById("invite-code-generator-section").style.display = "none";
-        }
         
         settingsLoaded = true;
       } else if (aiRes.status === 404) {
         // 初回セットアップの場合
         state.isSuperAdmin = true;
-        adminNavItem.style.display = "block";
         profileDisplayNameInput.value = state.user.username || "";
         profileEmailInput.value = state.user.email || "";
         settingsLoaded = true;
@@ -1405,35 +1387,6 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     });
   }
-
-  generateInviteCodeBtn.addEventListener("click", async () => {
-    if (!state.user || !state.isSuperAdmin) return;
-
-    generateInviteCodeBtn.disabled = true;
-
-    try {
-      const res = await fetch("/api/generate-invite-code", {
-        method: "POST",
-        credentials: 'include'
-      });
-
-      const result = await res.json();
-      if (!res.ok) throw new Error(result.message);
-
-      newInviteCodeInput.value = result.code;
-      inviteCodeDisplay.style.display = "flex";
-    } catch (err) {
-      showErrorToast(`招待コード生成エラー: ${err.message}`);
-    } finally {
-      generateInviteCodeBtn.disabled = false;
-    }
-  });
-
-  copyInviteCodeBtn.addEventListener("click", () => {
-    newInviteCodeInput.select();
-    document.execCommand("copy");
-    showSuccessToast("招待コードをコピーしました！");
-  });
 
   // --- 新しい認証システム用のイベントリスナー ---
   const loginForm = document.getElementById("login-form-element");
