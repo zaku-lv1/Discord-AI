@@ -112,42 +112,103 @@ const forcedInstructions = `
 `;
 
 async function getAIResponse(userMessage, conversationHistory, systemPrompt, errorMessage, modelMode = 'hybrid') {
-  try {
-    let model;
-    
-    if (modelMode === 'flash_only') {
-      model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-    } else {
-      // ハイブリッドモード: まずgemini-1.5-proを試す
-      try {
-        model = genAI.getGenerativeModel({ model: "gemini-1.5-pro" });
-      } catch {
-        model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+  const models = ['gemini-1.5-pro', 'gemini-1.5-flash'];
+  let lastError = null;
+  
+  // Determine which models to try based on mode
+  const modelsToTry = modelMode === 'flash_only' ? ['gemini-1.5-flash'] : models;
+  
+  for (const modelName of modelsToTry) {
+    try {
+      console.log(`[AI] ${modelName}で応答を試行中...`);
+      
+      const model = genAI.getGenerativeModel({ model: modelName });
+      const chat = model.startChat({
+        history: conversationHistory,
+        generationConfig: {
+          maxOutputTokens: 1000,
+          temperature: 0.7,
+        },
+      });
+
+      const fullPrompt = systemPrompt + "\n\nユーザーからのメッセージ:\n" + userMessage;
+      const result = await chat.sendMessage(fullPrompt);
+      const response = await result.response;
+      const responseText = response.text();
+
+      if (!responseText || responseText.trim() === "") {
+        console.warn(`[AI] ${modelName}が空の応答を返しました`);
+        continue; // Try next model
+      }
+
+      console.log(`[AI] ${modelName}で応答生成成功`);
+      return responseText.trim();
+      
+    } catch (error) {
+      lastError = error;
+      console.warn(`[AI] ${modelName}での生成に失敗:`, error.message);
+      
+      // Don't retry for certain types of errors on the same model
+      if (isNonRetryableError(error)) {
+        console.log(`[AI] ${modelName}で再試行不可能なエラーが発生、次のモデルを試行`);
+        continue;
+      }
+      
+      // If this is the last model, we'll handle the error below
+      if (modelName === modelsToTry[modelsToTry.length - 1]) {
+        break;
       }
     }
-
-    const chat = model.startChat({
-      history: conversationHistory,
-      generationConfig: {
-        maxOutputTokens: 1000,
-        temperature: 0.7,
-      },
-    });
-
-    const fullPrompt = systemPrompt + "\n\nユーザーからのメッセージ:\n" + userMessage;
-    const result = await chat.sendMessage(fullPrompt);
-    const response = await result.response;
-    const responseText = response.text();
-
-    if (!responseText || responseText.trim() === "") {
-      return errorMessage || "すみません、うまく返事できませんでした...";
-    }
-
-    return responseText.trim();
-  } catch (error) {
-    console.error("AI生成エラー:", error);
-    return errorMessage || "ちょっと調子が悪いみたい...ごめんね！";
   }
+  
+  // All models failed, return appropriate error message
+  return getErrorMessage(lastError, errorMessage);
+}
+
+function isNonRetryableError(error) {
+  const errorMsg = error.message?.toLowerCase() || '';
+  return (
+    errorMsg.includes('api key') ||
+    errorMsg.includes('quota') ||
+    errorMsg.includes('permission') ||
+    errorMsg.includes('billing') ||
+    errorMsg.includes('invalid') ||
+    error.status === 403 ||
+    error.status === 401
+  );
+}
+
+function getErrorMessage(error, customErrorMessage) {
+  // If custom error message is provided, use it
+  if (customErrorMessage && customErrorMessage.trim()) {
+    return customErrorMessage;
+  }
+  
+  const errorMsg = error?.message?.toLowerCase() || '';
+  
+  // Provide specific error messages based on error type
+  if (errorMsg.includes('api key') || error?.status === 401) {
+    return "🔑 AI APIキーの設定に問題があります。管理者にお問い合わせください。";
+  }
+  
+  if (errorMsg.includes('quota') || errorMsg.includes('limit') || error?.status === 429) {
+    return "⏰ AI利用制限に達しています。しばらく待ってから再度お試しください。";
+  }
+  
+  if (errorMsg.includes('billing') || errorMsg.includes('payment')) {
+    return "💳 AI サービスの支払い設定に問題があります。管理者にお問い合わせください。";
+  }
+  
+  if (errorMsg.includes('network') || errorMsg.includes('timeout') || error?.code === 'ENOTFOUND') {
+    return "🌐 ネットワークエラーが発生しました。しばらく待ってから再度お試しください。";
+  }
+  
+  if (errorMsg.includes('permission') || error?.status === 403) {
+    return "🚫 AI モデルへのアクセス権限がありません。管理者にお問い合わせください。";
+  }
+  
+  // Generic fallback message
+  return "🤖 AI が一時的に利用できません。後ほど再度お試しください。\n（エラー詳細は管理者にお問い合わせください）";
 }
 
 module.exports = {

@@ -471,4 +471,74 @@ router.get("/discord-mappings", verifyAuthentication, async (req, res) => {
   }
 });
 
+// AI設定診断エンドポイント
+router.get("/diagnose", verifyAuthentication, async (req, res) => {
+  try {
+    const { GoogleGenerativeAI } = require("@google/generative-ai");
+    
+    const diagnosis = {
+      timestamp: new Date().toISOString(),
+      apiKeyConfigured: false,
+      geminiProAvailable: false,
+      geminiFlashAvailable: false,
+      recommendations: [],
+      errors: []
+    };
+
+    // Check API key configuration
+    if (!process.env.GEMINI_API_KEY || process.env.GEMINI_API_KEY === 'test_gemini_key') {
+      diagnosis.errors.push("GEMINI_API_KEYが設定されていないか、テスト用の値です");
+      diagnosis.recommendations.push("Google AI StudioでAPIキーを取得して設定してください");
+      return res.json(diagnosis);
+    }
+    
+    diagnosis.apiKeyConfigured = true;
+    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+
+    // Test Gemini 1.5 Pro
+    try {
+      const proModel = genAI.getGenerativeModel({ model: "gemini-1.5-pro" });
+      const proResult = await proModel.generateContent("テスト：'Pro working'とだけ返答してください");
+      const proResponse = await proResult.response;
+      if (proResponse.text()) {
+        diagnosis.geminiProAvailable = true;
+      }
+    } catch (error) {
+      diagnosis.errors.push(`Gemini 1.5 Pro: ${error.message}`);
+    }
+
+    // Test Gemini 1.5 Flash
+    try {
+      const flashModel = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+      const flashResult = await flashModel.generateContent("テスト：'Flash working'とだけ返答してください");
+      const flashResponse = await flashResult.response;
+      if (flashResponse.text()) {
+        diagnosis.geminiFlashAvailable = true;
+      }
+    } catch (error) {
+      diagnosis.errors.push(`Gemini 1.5 Flash: ${error.message}`);
+    }
+
+    // Generate recommendations
+    if (!diagnosis.geminiProAvailable && !diagnosis.geminiFlashAvailable) {
+      diagnosis.recommendations.push("どちらのAIモデルも利用できません。APIキーの権限とクォータを確認してください");
+    } else if (!diagnosis.geminiProAvailable) {
+      diagnosis.recommendations.push("Gemini 1.5 Proが利用できませんが、1.5 Flashは利用可能です");
+    } else if (!diagnosis.geminiFlashAvailable) {
+      diagnosis.recommendations.push("Gemini 1.5 Flashが利用できませんが、1.5 Proは利用可能です");
+    } else {
+      diagnosis.recommendations.push("AIシステムは正常に動作しています");
+    }
+
+    res.json(diagnosis);
+  } catch (error) {
+    console.error("AI診断エラー:", error);
+    res.status(500).json({ 
+      message: "AI診断中にエラーが発生しました",
+      error: error.message,
+      timestamp: new Date().toISOString()
+    });
+  }
+});
+
 module.exports = router;
