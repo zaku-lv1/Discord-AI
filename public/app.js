@@ -150,6 +150,98 @@ document.addEventListener("DOMContentLoaded", () => {
   window.showWarningToast = showWarningToast;
   window.showInfoToast = showInfoToast;
   
+  // ================ カスタムダイアログ関数 ================
+  function showConfirmDialog(title, message, options = {}) {
+    return new Promise((resolve) => {
+      const modal = document.getElementById('confirm-modal');
+      const titleEl = document.getElementById('confirm-title');
+      const messageEl = document.getElementById('confirm-message');
+      const cancelBtn = document.getElementById('confirm-cancel-btn');
+      const okBtn = document.getElementById('confirm-ok-btn');
+
+      titleEl.textContent = title;
+      messageEl.textContent = message;
+      
+      // カスタムボタンテキスト
+      cancelBtn.textContent = options.cancelText || 'キャンセル';
+      okBtn.textContent = options.okText || '実行';
+      
+      // ボタンクラスの設定
+      okBtn.className = options.dangerous ? 'danger-btn' : 'save-btn';
+
+      modal.style.display = 'block';
+
+      const handleResponse = (result) => {
+        modal.style.display = 'none';
+        resolve(result);
+      };
+
+      // イベントリスナーをクリーンアップして再設定
+      const newCancelBtn = cancelBtn.cloneNode(true);
+      const newOkBtn = okBtn.cloneNode(true);
+      cancelBtn.parentNode.replaceChild(newCancelBtn, cancelBtn);
+      okBtn.parentNode.replaceChild(newOkBtn, okBtn);
+
+      newCancelBtn.addEventListener('click', () => handleResponse(false));
+      newOkBtn.addEventListener('click', () => handleResponse(true));
+    });
+  }
+
+  function showPromptDialog(title, message, defaultValue = '') {
+    return new Promise((resolve) => {
+      const modal = document.getElementById('prompt-modal');
+      const titleEl = document.getElementById('prompt-title');
+      const messageEl = document.getElementById('prompt-message');
+      const inputEl = document.getElementById('prompt-input');
+      const cancelBtn = document.getElementById('prompt-cancel-btn');
+      const okBtn = document.getElementById('prompt-ok-btn');
+
+      titleEl.textContent = title;
+      messageEl.textContent = message;
+      inputEl.value = defaultValue;
+
+      modal.style.display = 'block';
+      inputEl.focus();
+      inputEl.select();
+
+      const handleResponse = (result) => {
+        modal.style.display = 'none';
+        resolve(result);
+      };
+
+      // イベントリスナーをクリーンアップして再設定
+      const newCancelBtn = cancelBtn.cloneNode(true);
+      const newOkBtn = okBtn.cloneNode(true);
+      cancelBtn.parentNode.replaceChild(newCancelBtn, cancelBtn);
+      okBtn.parentNode.replaceChild(newOkBtn, okBtn);
+
+      newCancelBtn.addEventListener('click', () => handleResponse(null));
+      newOkBtn.addEventListener('click', () => {
+        const value = inputEl.value.trim();
+        handleResponse(value);
+      });
+
+      // Enterキーでも送信
+      inputEl.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          const value = inputEl.value.trim();
+          handleResponse(value);
+        } else if (e.key === 'Escape') {
+          handleResponse(null);
+        }
+      });
+    });
+  }
+
+  // グローバル関数として公開
+  window.closeConfirmModal = () => {
+    document.getElementById('confirm-modal').style.display = 'none';
+  };
+
+  window.closePromptModal = () => {
+    document.getElementById('prompt-modal').style.display = 'none';
+  };
+
   // ================ グローバルシステム設定関数 ================
   window.checkSystemSettings = checkSystemSettings;
 
@@ -749,8 +841,18 @@ document.addEventListener("DOMContentLoaded", () => {
     editAiModal.style.display = "block";
   };
 
-  window.deleteAi = function(aiId, aiName) {
-    if (confirm(`AI「${aiName}」を削除しますか？この操作は取り消せません。`)) {
+  window.deleteAi = async function(aiId, aiName) {
+    const confirmed = await showConfirmDialog(
+      'AI削除確認',
+      `AI「${aiName}」を削除しますか？この操作は取り消せません。`,
+      { 
+        okText: '削除', 
+        cancelText: 'キャンセル',
+        dangerous: true 
+      }
+    );
+    
+    if (confirmed) {
       deleteAiById(aiId);
     }
   };
@@ -943,10 +1045,7 @@ document.addEventListener("DOMContentLoaded", () => {
       await fetchUsers();
     }
     
-    // 設定が正常に読み込まれた場合のみトースト通知を表示
-    if (settingsLoaded) {
-      showSuccessToast("設定を読み込みました。", 3000);
-    }
+    // 設定読み込み完了（通知は不要）
     
     // ステータスメッセージをクリア
     statusMessage.textContent = "";
@@ -1305,7 +1404,11 @@ document.addEventListener("DOMContentLoaded", () => {
       if (e.target.classList.contains('edit-ai-nickname-btn') || e.target.closest('.edit-ai-nickname-btn')) {
         // 編集
         const currentNickname = state.currentAiNicknames[discordId]?.nickname || '';
-        const newNickname = prompt('新しいニックネームを入力してください:', currentNickname);
+        const newNickname = await showPromptDialog(
+          'ニックネーム編集', 
+          '新しいニックネームを入力してください:', 
+          currentNickname
+        );
         
         if (!newNickname || newNickname.trim() === currentNickname) {
           return;
@@ -1341,7 +1444,17 @@ document.addEventListener("DOMContentLoaded", () => {
       } else if (e.target.classList.contains('delete-ai-nickname-btn') || e.target.closest('.delete-ai-nickname-btn')) {
         // 削除確認
         const nickname = state.currentAiNicknames[discordId];
-        if (!confirm(`Discord ID "${discordId}" (${nickname.nickname}) を削除しますか？`)) {
+        const confirmed = await showConfirmDialog(
+          'ニックネーム削除確認',
+          `Discord ID "${discordId}" (${nickname.nickname}) を削除しますか？`,
+          { 
+            okText: '削除', 
+            cancelText: 'キャンセル',
+            dangerous: true 
+          }
+        );
+        
+        if (!confirmed) {
           return;
         }
         
@@ -1868,10 +1981,14 @@ document.addEventListener("DOMContentLoaded", () => {
       }
       
       // 最終確認
-      const confirmTransfer = confirm(
-        `本当にオーナー権限を ${newOwnerEmail} に移譲しますか？\n\n` +
-        'この操作は取り消すことができません。\n' +
-        'あなたは管理者に降格されます。'
+      const confirmTransfer = await showConfirmDialog(
+        'オーナー権限移譲確認',
+        `本当にオーナー権限を ${newOwnerEmail} に移譲しますか？\n\nこの操作は取り消すことができません。\nあなたは管理者に降格されます。`,
+        { 
+          okText: '移譲する', 
+          cancelText: 'キャンセル',
+          dangerous: true 
+        }
       );
       
       if (!confirmTransfer) return;

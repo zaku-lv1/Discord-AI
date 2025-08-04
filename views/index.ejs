@@ -907,5 +907,34 @@
         </form>
       </div>
     </div>
+
+    <!-- 確認ダイアログモーダル -->
+    <div id="confirm-modal" class="modal">
+      <div class="modal-content">
+        <span class="close" onclick="closeConfirmModal()">&times;</span>
+        <h3 id="confirm-title">確認</h3>
+        <p id="confirm-message">この操作を実行しますか？</p>
+        <div class="button-group">
+          <button type="button" class="secondary-btn" id="confirm-cancel-btn">キャンセル</button>
+          <button type="button" class="danger-btn" id="confirm-ok-btn">実行</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 入力ダイアログモーダル -->
+    <div id="prompt-modal" class="modal">
+      <div class="modal-content">
+        <span class="close" onclick="closePromptModal()">&times;</span>
+        <h3 id="prompt-title">入力</h3>
+        <p id="prompt-message">値を入力してください：</p>
+        <div class="form-group">
+          <input type="text" id="prompt-input" placeholder="入力してください..." />
+        </div>
+        <div class="button-group">
+          <button type="button" class="secondary-btn" id="prompt-cancel-btn">キャンセル</button>
+          <button type="button" class="save-btn" id="prompt-ok-btn">OK</button>
+        </div>
+      </div>
+    </div>
   </body>
 </html>

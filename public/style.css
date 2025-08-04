@@ -2989,3 +2989,73 @@ select:focus,
     gap: 0.5rem;
   }
 }
+
+/* ========== カスタム確認・入力ダイアログ ========== */
+#confirm-modal .modal-content,
+#prompt-modal .modal-content {
+  max-width: 500px;
+  text-align: center;
+}
+
+#confirm-modal h3,
+#prompt-modal h3 {
+  color: var(--text-primary);
+  margin-bottom: 1rem;
+  font-size: 1.5rem;
+  font-weight: 600;
+}
+
+#confirm-modal p,
+#prompt-modal p {
+  color: var(--text-secondary);
+  margin-bottom: 1.5rem;
+  line-height: 1.6;
+  white-space: pre-line;
+}
+
+#prompt-input {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  border: 2px solid var(--border-color);
+  border-radius: 8px;
+  font-size: 1rem;
+  background: var(--primary-bg);
+  color: var(--text-primary);
+  transition: border-color 0.3s ease;
+  margin-bottom: 1.5rem;
+}
+
+#prompt-input:focus {
+  outline: none;
+  border-color: var(--accent-color);
+  box-shadow: 0 0 0 3px var(--glow-color);
+}
+
+#confirm-modal .button-group,
+#prompt-modal .button-group {
+  display: flex;
+  gap: 1rem;
+  justify-content: center;
+  margin-top: 1.5rem;
+}
+
+#confirm-modal .button-group button,
+#prompt-modal .button-group button {
+  min-width: 120px;
+  padding: 0.75rem 1.5rem;
+  font-size: 1rem;
+}
+
+/* モバイル対応 */
+@media (max-width: 480px) {
+  #confirm-modal .button-group,
+  #prompt-modal .button-group {
+    flex-direction: column;
+  }
+  
+  #confirm-modal .button-group button,
+  #prompt-modal .button-group button {
+    min-width: auto;
+    width: 100%;
+  }
+}
