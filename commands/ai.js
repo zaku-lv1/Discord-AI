@@ -1,7 +1,10 @@
 const { EmbedBuilder, SlashCommandBuilder } = require("discord.js");
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+// Create a new GoogleGenerativeAI instance for each request to avoid conflicts
+function createGeminiInstance() {
+  return new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+}
 
 function replaceMentionsWithNames(message, guild) {
   if (!message || typeof message.replace !== "function" || !guild) {
@@ -112,20 +115,12 @@ const forcedInstructions = `
 `;
 
 async function getAIResponse(userMessage, conversationHistory, systemPrompt, errorMessage, modelMode = 'hybrid') {
-  try {
-    let model;
-    
-    if (modelMode === 'flash_only') {
-      model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-    } else {
-      // ハイブリッドモード: まずgemini-1.5-proを試す
-      try {
-        model = genAI.getGenerativeModel({ model: "gemini-1.5-pro" });
-      } catch {
-        model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-      }
-    }
-
+  // Create a new Gemini instance for each request to avoid conflicts
+  const genAI = createGeminiInstance();
+  
+  // Helper function to try API call with fallback
+  async function tryWithModel(modelName) {
+    const model = genAI.getGenerativeModel({ model: modelName });
     const chat = model.startChat({
       history: conversationHistory,
       generationConfig: {
@@ -137,15 +132,49 @@ async function getAIResponse(userMessage, conversationHistory, systemPrompt, err
     const fullPrompt = systemPrompt + "\n\nユーザーからのメッセージ:\n" + userMessage;
     const result = await chat.sendMessage(fullPrompt);
     const response = await result.response;
-    const responseText = response.text();
+    return response.text();
+  }
+  
+  try {
+    let responseText;
+    
+    if (modelMode === 'flash_only') {
+      // Flash onlyモード
+      responseText = await tryWithModel("gemini-1.5-flash");
+      console.log(`[AI] Response from gemini-1.5-flash`);
+    } else {
+      // ハイブリッドモード: proを試してからflashにフォールバック
+      try {
+        responseText = await tryWithModel("gemini-1.5-pro");
+        console.log(`[AI] Response from gemini-1.5-pro`);
+      } catch (proError) {
+        console.warn(`[AI] gemini-1.5-pro failed (${proError.message}), falling back to gemini-1.5-flash`);
+        responseText = await tryWithModel("gemini-1.5-flash");
+        console.log(`[AI] Response from gemini-1.5-flash (fallback)`);
+      }
+    }
 
     if (!responseText || responseText.trim() === "") {
+      console.warn(`[AI] Empty response received`);
       return errorMessage || "すみません、うまく返事できませんでした...";
     }
 
     return responseText.trim();
   } catch (error) {
-    console.error("AI生成エラー:", error);
+    console.error(`[AI] Error in getAIResponse:`, error.message);
+    
+    // より具体的なエラーハンドリング
+    if (error.message.includes('quota') || error.message.includes('QUOTA_EXCEEDED')) {
+      console.error("[AI] Quota exceeded - consider upgrading API plan");
+      return errorMessage || "API使用量の上限に達しました。しばらく時間をおいてから再度お試しください。";
+    } else if (error.message.includes('rate') || error.message.includes('RATE_LIMIT')) {
+      console.error("[AI] Rate limit hit");
+      return errorMessage || "リクエストが集中しています。少し時間をおいてから再度お試しください。";
+    } else if (error.message.includes('API key') || error.message.includes('authentication')) {
+      console.error("[AI] Authentication error");
+      return errorMessage || "API認証エラーが発生しました。管理者にお問い合わせください。";
+    }
+    
     return errorMessage || "ちょっと調子が悪いみたい...ごめんね！";
   }
 }
