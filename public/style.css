@@ -61,11 +61,15 @@ body {
   min-height: 100vh;
   overflow-x: hidden;
   font-size: 18px; /* Increased base font size for better readability */
-  /* Prevent horizontal overflow on all screen sizes */
+  /* ENHANCED: Prevent horizontal overflow on all screen sizes */
   max-width: 100vw;
-  /* Add safe area support for modern mobile devices */
+  width: 100%;
+  box-sizing: border-box;
+  /* ENHANCED: Better safe area support for modern mobile devices */
   padding-left: env(safe-area-inset-left);
   padding-right: env(safe-area-inset-right);
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
 }
 
 body::before {
@@ -93,6 +97,10 @@ body::before {
   margin-bottom: 2rem;
   border: 1px solid var(--border-color);
   box-shadow: 0 20px 40px var(--shadow-light), 0 0 0 1px rgba(255, 255, 255, 0.5);
+  /* ENHANCED: Prevent horizontal overflow */
+  width: calc(100% - 4rem);
+  max-width: calc(100vw - 4rem);
+  box-sizing: border-box;
 }
 
 h1 {
@@ -355,9 +363,11 @@ button:disabled {
   grid-template-columns: 280px 1fr;
   gap: 2rem;
   margin-top: 2rem;
-  /* Prevent overflow on smaller screens */
+  /* ENHANCED: Prevent overflow on smaller screens */
   min-width: 0;
   overflow: hidden;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 #dashboard-nav {
@@ -428,9 +438,11 @@ button:disabled {
   border: 1px solid var(--border-color);
   min-height: 500px;
   box-shadow: 0 8px 24px var(--shadow-light);
-  /* Prevent overflow on smaller screens */
+  /* ENHANCED: Prevent overflow on smaller screens */
   min-width: 0;
   overflow-x: auto;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .dashboard-panel {
@@ -633,8 +645,10 @@ input:checked + .slider:before {
   height: 100%;
   background: rgba(0, 0, 0, 0.5);
   backdrop-filter: blur(8px);
-  /* Ensure modal is always scrollable if content overflows */
+  /* ENHANCED: Ensure modal is always scrollable if content overflows */
   overflow-y: auto;
+  /* ENHANCED: Better mobile support */
+  -webkit-overflow-scrolling: touch;
 }
 
 .modal-content {
@@ -650,8 +664,12 @@ input:checked + .slider:before {
   position: relative;
   overflow-y: auto; /* Enable vertical scrolling */
   overflow-x: hidden; /* Hide horizontal overflow */
-  /* Ensure there's always space for buttons at bottom */
+  /* ENHANCED: Ensure there's always space for buttons at bottom */
   padding-bottom: 3rem;
+  /* ENHANCED: Better box sizing */
+  box-sizing: border-box;
+  /* ENHANCED: Better mobile support */
+  -webkit-overflow-scrolling: touch;
 }
 
 .modal-content::before {
@@ -1077,25 +1095,31 @@ input:checked + .slider:before {
     position: static;
     padding: 1.5rem;
     border-radius: 12px; /* Slightly smaller radius for tablets */
-    /* Add visual indicator for scrollable content */
+    /* ENHANCED: Add visual indicator for scrollable content */
     position: relative;
+    /* ENHANCED: Prevent horizontal overflow of the nav container */
+    overflow: hidden;
+    width: 100%;
+    box-sizing: border-box;
   }
   
-  /* Add scroll indicator for mobile navigation */
+  /* ENHANCED: Better scroll indicator for mobile navigation */
   #dashboard-nav::after {
-    content: '';
+    content: '→';
     position: absolute;
     top: 50%;
-    right: 0.5rem;
-    width: 0;
-    height: 0;
-    border-left: 8px solid var(--accent-color);
-    border-top: 6px solid transparent;
-    border-bottom: 6px solid transparent;
+    right: 1rem;
     transform: translateY(-50%);
+    color: var(--accent-color);
+    font-size: 1.2rem;
+    font-weight: bold;
     opacity: 0.7;
     pointer-events: none;
     z-index: 10;
+    background: linear-gradient(to right, transparent 0%, var(--primary-bg) 30%, var(--primary-bg) 100%);
+    padding-left: 1rem;
+    width: 2rem;
+    text-align: right;
   }
   
   .nav-header {
@@ -1108,13 +1132,18 @@ input:checked + .slider:before {
     overflow-x: auto;
     gap: 0.75rem; /* Increased gap for better spacing */
     padding-bottom: 0.75rem;
-    /* Better scrollbar styling */
+    /* ENHANCED: Better scrollbar styling */
     scrollbar-width: thin;
     scrollbar-color: var(--accent-color) var(--accent-bg);
-    /* Add padding to ensure last item is fully visible */
-    padding-right: 1rem;
-    /* Add scroll snap for better UX */
+    /* ENHANCED: Add padding to ensure last item is fully visible */
+    padding-right: 3rem; /* Space for scroll indicator */
+    /* ENHANCED: Add scroll snap for better UX */
     scroll-snap-type: x mandatory;
+    /* ENHANCED: Better mobile scrolling */
+    -webkit-overflow-scrolling: touch;
+    scroll-behavior: smooth;
+    /* ENHANCED: Ensure no vertical scrolling */
+    overflow-y: hidden;
   }
   
   #dashboard-nav ul::-webkit-scrollbar {
@@ -1138,8 +1167,10 @@ input:checked + .slider:before {
   #dashboard-nav li {
     flex-shrink: 0;
     margin-bottom: 0;
-    /* Add scroll snap point */
+    /* ENHANCED: Add scroll snap point */
     scroll-snap-align: start;
+    /* ENHANCED: Ensure minimum item width */
+    min-width: fit-content;
   }
   
   #dashboard-nav a {
@@ -1148,6 +1179,10 @@ input:checked + .slider:before {
     min-height: 48px; /* Ensure minimum touch target */
     display: flex;
     align-items: center;
+    /* ENHANCED: Better touch feedback */
+    -webkit-tap-highlight-color: rgba(79, 70, 229, 0.1);
+    /* ENHANCED: Ensure button is fully visible */
+    box-sizing: border-box;
   }
   
   h1 {
@@ -1157,6 +1192,9 @@ input:checked + .slider:before {
   .container {
     margin: 1rem;
     padding: 2rem; /* Increased padding */
+    /* ENHANCED: Better container sizing on tablets */
+    width: calc(100% - 2rem);
+    max-width: calc(100vw - 2rem);
   }
 }
 
@@ -1192,10 +1230,13 @@ input:checked + .slider:before {
     max-height: 90vh; /* Better height utilization */
     padding: 1.5rem;
     border-radius: 12px; /* Smaller radius for mobile */
-    /* Ensure bottom padding for buttons */
+    /* ENHANCED: Ensure bottom padding for buttons */
     padding-bottom: max(2.5rem, env(safe-area-inset-bottom) + 1.5rem);
-    /* Better scroll handling */
+    /* ENHANCED: Better scroll handling */
     max-height: calc(100vh - 2rem);
+    /* ENHANCED: Better container sizing */
+    width: calc(100% - 1rem);
+    max-width: calc(100vw - 1rem);
   }
   
   .admin-entry {
@@ -1245,7 +1286,7 @@ input:checked + .slider:before {
     gap: 1rem; /* Better spacing */
   }
   
-  /* SIGNIFICANTLY IMPROVED touch targets and readability */
+  /* ENHANCED: SIGNIFICANTLY IMPROVED touch targets and readability */
   input[type="email"], 
   input[type="password"], 
   input[type="text"], 
@@ -1257,6 +1298,13 @@ input:checked + .slider:before {
     font-size: 18px; /* Prevent iOS zoom on focus + better readability */
     padding: 1.25rem 1rem; /* Better padding balance */
     border-radius: 8px; /* Slightly smaller radius for mobile */
+    /* ENHANCED: Better mobile input handling */
+    -webkit-appearance: none;
+    appearance: none;
+    /* ENHANCED: Prevent horizontal overflow */
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
   }
   
   button {
@@ -1264,36 +1312,53 @@ input:checked + .slider:before {
     font-size: 1.1rem;
     padding: 1.25rem 1.5rem; /* Better padding */
     border-radius: 8px; /* Consistent with inputs */
+    /* ENHANCED: Better touch feedback */
+    -webkit-tap-highlight-color: rgba(79, 70, 229, 0.2);
+    /* ENHANCED: Prevent horizontal overflow */
+    max-width: 100%;
+    box-sizing: border-box;
   }
   
-  /* Better navigation on mobile */
+  /* ENHANCED: Better navigation on mobile */
   #dashboard-nav {
     padding: 1rem;
     margin-bottom: 1rem;
+    /* ENHANCED: Prevent horizontal overflow */
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
   }
   
   #dashboard-nav ul {
     gap: 0.5rem;
     padding-bottom: 1rem;
-    /* Improved scrolling behavior on mobile */
+    /* ENHANCED: Improved scrolling behavior on mobile */
     -webkit-overflow-scrolling: touch;
     scroll-behavior: smooth;
+    /* ENHANCED: Better padding for last item visibility */
+    padding-right: 4rem; /* More space for scroll indicator */
   }
   
   #dashboard-nav a {
     padding: 1rem 1.25rem;
     font-size: 0.9rem;
     min-height: 52px;
-    /* Better touch feedback */
+    /* ENHANCED: Better touch feedback */
     -webkit-tap-highlight-color: rgba(79, 70, 229, 0.1);
+    /* ENHANCED: Ensure full visibility */
+    box-sizing: border-box;
   }
   
-  /* Better dashboard content padding */
+  /* ENHANCED: Better dashboard content padding */
   #dashboard-content {
     padding: 1.5rem;
+    /* ENHANCED: Prevent horizontal overflow */
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
   }
   
-  /* Improved form groups */
+  /* ENHANCED: Improved form groups */
   .form-group {
     margin-bottom: 1.5rem;
   }
@@ -1308,7 +1373,7 @@ input:checked + .slider:before {
     line-height: 1.5;
   }
   
-  /* Better toggle containers */
+  /* ENHANCED: Better toggle containers */
   .toggle-container {
     padding: 1.25rem;
     flex-direction: column;
@@ -1332,13 +1397,13 @@ input:checked + .slider:before {
     transform: translateX(30px);
   }
   
-  /* Better modal spacing */
+  /* ENHANCED: Better modal spacing */
   .modal-content h2 {
     font-size: 1.5rem;
     margin-bottom: 1rem;
   }
   
-  /* Better card spacing */
+  /* ENHANCED: Better card spacing */
   .ai-card {
     padding: 1.25rem;
     margin-bottom: 1rem;
@@ -1350,7 +1415,7 @@ input:checked + .slider:before {
     min-height: 52px;
   }
   
-  /* Better user info spacing */
+  /* ENHANCED: Better user info spacing */
   .user-welcome {
     font-size: 1.1rem;
   }
@@ -1359,10 +1424,13 @@ input:checked + .slider:before {
     font-size: 1rem;
   }
   
-  /* Better container margins */
+  /* ENHANCED: Better container margins */
   .container {
     margin: 0.5rem;
     padding: 1.25rem;
+    /* ENHANCED: Better mobile container sizing */
+    width: calc(100% - 1rem);
+    max-width: calc(100vw - 1rem);
   }
 }
 
@@ -1790,19 +1858,33 @@ select:focus,
   margin-top: 2rem;
   padding-top: 2rem;
   border-top: 1px solid var(--border-color);
-  /* Ensure buttons don't get cut off */
+  /* ENHANCED: Ensure buttons don't get cut off */
   min-height: 80px;
   align-items: flex-start;
+  /* ENHANCED: Prevent horizontal overflow */
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  /* ENHANCED: Better safe area support */
+  padding-bottom: env(safe-area-inset-bottom);
 }
 
 @media (max-width: 768px) {
   .button-group {
     flex-direction: column;
     gap: 1rem;
-    /* Add extra padding for mobile to prevent buttons being cut off */
+    /* ENHANCED: Add extra padding for mobile to prevent buttons being cut off */
     padding-bottom: 2rem;
-    /* Add safe area for mobile devices with notches/home indicators */
+    /* ENHANCED: Add safe area for mobile devices with notches/home indicators */
     padding-bottom: max(2rem, env(safe-area-inset-bottom) + 1rem);
+    /* ENHANCED: Ensure full width on mobile */
+    width: 100%;
+    justify-content: stretch;
+  }
+  
+  .button-group button {
+    width: 100%;
+    max-width: 100%;
   }
 }
 
@@ -2226,21 +2308,32 @@ select:focus,
   }
 }
 
-/* Extra small screens optimization (phones in portrait) */
+/* ENHANCED: Extra small screens optimization (phones in portrait) */
 @media (max-width: 480px) {
   .container {
     margin: 0.25rem;
     padding: 0.75rem; /* Minimal container padding on small phones */
+    /* ENHANCED: Better small screen container sizing */
+    width: calc(100% - 0.5rem);
+    max-width: calc(100vw - 0.5rem);
   }
   
   #auth-container {
     padding: 1rem; /* Minimal auth container padding */
     border-radius: 8px;
+    /* ENHANCED: Better small screen sizing */
+    width: 100%;
+    max-width: 100%;
+    margin: 0;
   }
   
   .login-form {
     padding: 1.5rem 1rem; /* Minimal form padding to maximize width */
     border-radius: 12px;
+    /* ENHANCED: Better small screen sizing */
+    width: 100%;
+    max-width: 100%;
+    margin: 0;
   }
   
   .login-form h2 {
@@ -2255,53 +2348,71 @@ select:focus,
   .form-group input[type="password"],
   .form-group input[type="email"] {
     padding: 1rem 0.8rem; /* Compact padding for small screens */
+    /* ENHANCED: Ensure no horizontal overflow */
+    width: 100%;
+    max-width: 100%;
   }
   
-  /* Enhanced dashboard mobile optimization for very small screens */
+  /* ENHANCED: Enhanced dashboard mobile optimization for very small screens */
   #dashboard-nav {
     padding: 0.75rem; /* More compact navigation padding */
     margin-bottom: 0.75rem;
+    /* ENHANCED: Better small screen sizing */
+    width: 100%;
+    max-width: 100%;
   }
   
   #dashboard-nav ul {
     gap: 0.4rem; /* Tighter gap for small screens */
     padding-bottom: 0.75rem;
+    /* ENHANCED: Even more space for scroll indicator on small screens */
+    padding-right: 5rem;
   }
   
   #dashboard-nav a {
     padding: 0.875rem 1rem; /* More compact navigation items */
     font-size: 0.85rem; /* Slightly smaller text for better fit */
     min-height: 48px; /* Maintain adequate touch target */
+    /* ENHANCED: Better text wrapping prevention */
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
   
   #dashboard-content {
     padding: 1rem; /* More compact content padding */
+    /* ENHANCED: Better small screen sizing */
+    width: 100%;
+    max-width: 100%;
   }
   
-  /* Better form element spacing for very small screens */
+  /* ENHANCED: Better form element spacing for very small screens */
   .form-group {
     margin-bottom: 1.25rem; /* Slightly tighter form spacing */
   }
   
-  /* Ensure navigation items don't get too crowded on tiny screens */
+  /* ENHANCED: Ensure navigation items don't get too crowded on tiny screens */
   .nav-header h3 {
     font-size: 1rem; /* Smaller header for compact nav */
     margin-bottom: 0.75rem;
   }
   
-  /* Optimize modal for very small screens */
+  /* ENHANCED: Optimize modal for very small screens */
   .modal-content {
     margin: 1% auto;
     width: 98%; /* Use almost full width on tiny screens */
     max-height: 95vh;
     padding: 1rem;
-    /* Critical: Ensure buttons are always accessible */
+    /* ENHANCED: Critical: Ensure buttons are always accessible */
     padding-bottom: max(3rem, env(safe-area-inset-bottom) + 2rem);
-    /* Better viewport usage */
+    /* ENHANCED: Better viewport usage */
     max-height: calc(100vh - 1rem);
+    /* ENHANCED: Better sizing */
+    width: calc(100% - 0.5rem);
+    max-width: calc(100vw - 0.5rem);
   }
   
-  /* Better h1 sizing for very small screens */
+  /* ENHANCED: Better h1 sizing for very small screens */
   h1 {
     font-size: 2.2rem; /* More conservative size for tiny screens */
   }
@@ -2310,13 +2421,45 @@ select:focus,
     font-size: 1.8rem; /* Better proportions for small screens */
   }
   
-  /* Ensure user info doesn't overflow */
+  /* ENHANCED: Ensure user info doesn't overflow */
   .user-info {
     padding: 1rem;
+    /* ENHANCED: Better small screen sizing */
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
   }
   
   .user-welcome {
     font-size: 1rem; /* Slightly smaller on tiny screens */
+  }
+  
+  /* ENHANCED: Better input sizing for small screens */
+  input[type="email"], 
+  input[type="password"], 
+  input[type="text"], 
+  input[type="time"], 
+  input[type="number"], 
+  textarea, 
+  select {
+    /* ENHANCED: Ensure inputs never overflow */
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+  }
+  
+  button {
+    /* ENHANCED: Ensure buttons never overflow */
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+  }
+  
+  /* ENHANCED: Better scroll indicator positioning for small screens */
+  #dashboard-nav::after {
+    right: 0.5rem;
+    font-size: 1rem;
+    width: 1.5rem;
   }
 }
 
