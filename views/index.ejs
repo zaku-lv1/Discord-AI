@@ -889,6 +889,10 @@
                   <i class="fas fa-plus" style="margin-right: 8px;"></i>
                   ニックネームを追加
                 </button>
+                <button type="button" id="verify-ai-nicknames-btn" class="verify-btn">
+                  <i class="fas fa-check-circle" style="margin-right: 8px;"></i>
+                  ニックネーム認識を検証
+                </button>
               </div>
             </div>
 
@@ -896,6 +900,27 @@
               <h5>登録済みニックネーム一覧</h5>
               <div id="ai-nicknames-container" class="nicknames-container">
                 <!-- AI specific nicknames will be populated here -->
+              </div>
+            </div>
+
+            <!-- ニックネーム認識検証セクション -->
+            <div class="ai-verification-section" id="ai-verification-section" style="display: none;">
+              <h5>ニックネーム認識検証</h5>
+              <div class="form-group">
+                <label for="verification-test-message">テストメッセージ</label>
+                <textarea 
+                  id="verification-test-message" 
+                  rows="3" 
+                  placeholder="ニックネームを含むテストメッセージを入力してください（例: A-kunはどこにいる？）"
+                ></textarea>
+                <small>登録済みのニックネームを含むメッセージを入力して、正しく認識されるかテストできます。</small>
+              </div>
+              <button type="button" id="run-verification-btn" class="verify-btn">
+                <i class="fas fa-play" style="margin-right: 8px;"></i>
+                検証を実行
+              </button>
+              <div id="verification-results" class="verification-results">
+                <!-- 検証結果がここに表示されます -->
               </div>
             </div>
           </div>
