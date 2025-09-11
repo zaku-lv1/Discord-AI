@@ -471,4 +471,144 @@ router.get("/discord-mappings", verifyAuthentication, async (req, res) => {
   }
 });
 
+// ニックネーム認識検証エンドポイント
+router.post("/:id/verify-nicknames", verifyAuthentication, async (req, res) => {
+  try {
+    const aiId = req.params.id;
+    const { testMessage } = req.body;
+    
+    if (!testMessage) {
+      return res.status(400).json({
+        message: "テストメッセージが必要です。",
+      });
+    }
+    
+    const db = firebaseService.getDB();
+    const doc = await db.collection("bot_settings").doc("ai_profiles").get();
+    if (!doc.exists) {
+      return res.status(404).json({ message: "AIが見つかりません。" });
+    }
+    
+    const existingProfiles = doc.data().profiles || [];
+    const profile = existingProfiles.find(p => p.id === aiId);
+    
+    if (!profile) {
+      return res.status(404).json({ message: "AIが見つかりません。" });
+    }
+    
+    // AI固有のニックネームを取得
+    const aiNicknames = profile.userNicknames || {};
+    
+    // グローバルDiscord IDマッピングを取得
+    const mappingsSnapshot = await db.collection("discord_id_mappings").get();
+    let globalMappings = {};
+    
+    mappingsSnapshot.forEach(doc => {
+      const data = doc.data();
+      if (data.mappings) {
+        Object.assign(globalMappings, data.mappings);
+      }
+    });
+    
+    // AI固有のニックネームとグローバルマッピングをマージ（AI固有が優先）
+    const combinedNicknames = { ...globalMappings, ...aiNicknames };
+    
+    // 名前からDiscord IDへの逆マッピングを作成
+    const nameToIdMappings = {};
+    
+    // グローバルマッピングから逆マッピングを作成
+    Object.entries(globalMappings).forEach(([discordId, nickname]) => {
+      if (nickname && typeof nickname === 'string') {
+        nameToIdMappings[nickname] = discordId;
+      }
+    });
+    
+    // AI固有のニックネームから逆マッピングを作成（AI固有が優先）
+    Object.entries(aiNicknames).forEach(([discordId, nicknameData]) => {
+      if (nicknameData && nicknameData.nickname) {
+        nameToIdMappings[nicknameData.nickname] = discordId;
+      }
+    });
+    
+    // ニックネーム認識をテスト
+    const recognizedNicknames = [];
+    const testResults = [];
+    
+    // 登録されている各ニックネームがテストメッセージで認識されるかチェック
+    Object.entries(nameToIdMappings).forEach(([nickname, discordId]) => {
+      const patterns = [
+        new RegExp(`\\b${escapeRegExp(nickname)}\\b`, 'gi'), // 完全単語マッチ（英数字）
+        new RegExp(`(?<![a-zA-Z0-9_-])${escapeRegExp(nickname)}(?![a-zA-Z0-9_-])`, 'gi'), // 英数字・アンダースコア・ハイフン以外の境界
+        new RegExp(`(?<=[\\s、。！？,!?]|^)${escapeRegExp(nickname)}(?=[\\s、。！？,!?]|$)`, 'gi'), // 句読点・空白・文頭文末
+      ];
+      
+      let found = false;
+      for (const pattern of patterns) {
+        if (pattern.test(testMessage)) {
+          found = true;
+          break;
+        }
+      }
+      
+      if (found) {
+        recognizedNicknames.push({
+          nickname,
+          discordId,
+          source: aiNicknames[discordId] ? 'ai-specific' : 'global'
+        });
+      }
+      
+      testResults.push({
+        nickname,
+        discordId,
+        recognized: found,
+        source: aiNicknames[discordId] ? 'ai-specific' : 'global'
+      });
+    });
+    
+    // テストメッセージをニックネーム変換処理でシミュレート
+    let processedMessage = testMessage;
+    const sortedNames = Object.keys(nameToIdMappings).sort((a, b) => b.length - a.length);
+    
+    for (const name of sortedNames) {
+      const discordId = nameToIdMappings[name];
+      if (!discordId) continue;
+      
+      const patterns = [
+        new RegExp(`\\b${escapeRegExp(name)}\\b`, 'gi'),
+        new RegExp(`(?<![a-zA-Z0-9_-])${escapeRegExp(name)}(?![a-zA-Z0-9_-])`, 'gi'),
+        new RegExp(`(?<=[\\s、。！？,!?]|^)${escapeRegExp(name)}(?=[\\s、。！？,!?]|$)`, 'gi'),
+      ];
+      
+      for (const pattern of patterns) {
+        processedMessage = processedMessage.replace(pattern, (match) => {
+          return `<@${discordId}>`;
+        });
+      }
+    }
+    
+    res.json({
+      message: "ニックネーム認識検証が完了しました。",
+      testMessage,
+      processedMessage,
+      recognizedNicknames,
+      testResults,
+      totalNicknames: Object.keys(nameToIdMappings).length,
+      recognizedCount: recognizedNicknames.length
+    });
+    
+  } catch (error) {
+    console.error("ニックネーム認識検証エラー:", error);
+    res.status(500).json({
+      message: "検証中にエラーが発生しました。",
+      details: error.message,
+    });
+  }
+});
+
+// 正規表現エスケープ関数
+function escapeRegExp(string) {
+  return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 module.exports = router;

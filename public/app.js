@@ -41,6 +41,13 @@ document.addEventListener("DOMContentLoaded", () => {
   const editNewNicknameInput = document.getElementById("edit-new-nickname");
   const addAiNicknameBtn = document.getElementById("add-ai-nickname-btn");
   const aiNicknamesContainer = document.getElementById("ai-nicknames-container");
+  
+  // --- ニックネーム検証要素 ---
+  const verifyAiNicknamesBtn = document.getElementById("verify-ai-nicknames-btn");
+  const aiVerificationSection = document.getElementById("ai-verification-section");
+  const verificationTestMessage = document.getElementById("verification-test-message");
+  const runVerificationBtn = document.getElementById("run-verification-btn");
+  const verificationResults = document.getElementById("verification-results");
 
   // --- ユーザー管理要素 ---
   const generateRoleInviteBtn = document.getElementById("generate-role-invite-btn");
@@ -1481,6 +1488,133 @@ document.addEventListener("DOMContentLoaded", () => {
         }
       }
     });
+  }
+
+  // --- ニックネーム認識検証機能 ---
+  if (verifyAiNicknamesBtn) {
+    verifyAiNicknamesBtn.addEventListener('click', () => {
+      if (!state.currentEditingAi) {
+        showWarningToast('AIを選択してください');
+        return;
+      }
+      
+      // 検証セクションの表示/非表示を切り替え
+      const isHidden = aiVerificationSection.style.display === 'none';
+      aiVerificationSection.style.display = isHidden ? 'block' : 'none';
+      
+      if (isHidden) {
+        // デフォルトのテストメッセージを設定
+        if (!verificationTestMessage.value.trim()) {
+          verificationTestMessage.value = '太郎くんと花子ちゃんはどこにいますか？';
+        }
+      }
+    });
+  }
+
+  if (runVerificationBtn) {
+    runVerificationBtn.addEventListener('click', async () => {
+      const testMessage = verificationTestMessage.value.trim();
+      
+      if (!testMessage) {
+        showWarningToast('テストメッセージを入力してください');
+        return;
+      }
+      
+      if (!state.currentEditingAi) {
+        showWarningToast('AIを選択してください');
+        return;
+      }
+      
+      try {
+        runVerificationBtn.disabled = true;
+        showInfoToast('ニックネーム認識を検証中...');
+        
+        const res = await fetch(`/api/ais/${state.currentEditingAi.id}/verify-nicknames`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          credentials: 'include',
+          body: JSON.stringify({ testMessage })
+        });
+        
+        if (!res.ok) {
+          const data = await res.json();
+          throw new Error(data.message || '検証に失敗しました');
+        }
+        
+        const data = await res.json();
+        displayVerificationResults(data);
+        showSuccessToast('検証が完了しました');
+        
+      } catch (error) {
+        console.error('ニックネーム認識検証エラー:', error);
+        showErrorToast(`検証に失敗しました: ${error.message}`);
+      } finally {
+        runVerificationBtn.disabled = false;
+      }
+    });
+  }
+
+  // 検証結果表示関数
+  function displayVerificationResults(data) {
+    const resultsContainer = verificationResults;
+    
+    resultsContainer.innerHTML = `
+      <div class="verification-summary">
+        <h6>検証結果サマリー</h6>
+        <div class="verification-stats">
+          <div class="verification-stat">
+            <span class="stat-number">${data.recognizedCount}</span>
+            <span class="stat-label">認識された</span>
+          </div>
+          <div class="verification-stat">
+            <span class="stat-number">${data.totalNicknames - data.recognizedCount}</span>
+            <span class="stat-label">認識されなかった</span>
+          </div>
+          <div class="verification-stat">
+            <span class="stat-number">${data.totalNicknames}</span>
+            <span class="stat-label">総ニックネーム数</span>
+          </div>
+        </div>
+      </div>
+      
+      <div class="verification-messages">
+        <div class="verification-message">
+          <div class="message-label">元のメッセージ:</div>
+          <div class="message-content">${escapeHtml(data.testMessage)}</div>
+        </div>
+        <div class="verification-message">
+          <div class="message-label">処理後のメッセージ:</div>
+          <div class="message-content">${escapeHtml(data.processedMessage)}</div>
+        </div>
+      </div>
+      
+      <div class="verification-nicknames-list">
+        <h6>ニックネーム認識詳細</h6>
+        ${data.testResults.map(result => `
+          <div class="verification-nickname-item ${result.recognized ? 'recognized' : 'not-recognized'}">
+            <div class="verification-nickname-info">
+              <div class="verification-nickname-name">${escapeHtml(result.nickname)}</div>
+              <div class="verification-nickname-discord-id">${result.discordId}</div>
+              <span class="verification-nickname-source">${result.source === 'ai-specific' ? 'AI固有' : 'グローバル'}</span>
+            </div>
+            <div class="verification-nickname-status ${result.recognized ? 'recognized' : 'not-recognized'}">
+              ${result.recognized ? '認識された' : '認識されなかった'}
+            </div>
+          </div>
+        `).join('')}
+      </div>
+    `;
+    
+    resultsContainer.classList.add('show');
+  }
+
+  // HTMLエスケープ関数
+  function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
   }
 
   // --- 新しい認証システム用のイベントリスナー ---
