@@ -140,17 +140,17 @@ async function getAIResponse(userMessage, conversationHistory, systemPrompt, err
     
     if (modelMode === 'flash_only') {
       // Flash onlyモード
-      responseText = await tryWithModel("gemini-1.5-flash");
-      console.log(`[AI] Response from gemini-1.5-flash`);
+      responseText = await tryWithModel("gemini-2.5-flash");
+      console.log(`[AI] Response from gemini-2.5-flash`);
     } else {
       // ハイブリッドモード: proを試してからflashにフォールバック
       try {
-        responseText = await tryWithModel("gemini-1.5-pro");
-        console.log(`[AI] Response from gemini-1.5-pro`);
+        responseText = await tryWithModel("gemini-2.5-pro");
+        console.log(`[AI] Response from gemini-2.5-pro`);
       } catch (proError) {
-        console.warn(`[AI] gemini-1.5-pro failed (${proError.message}), falling back to gemini-1.5-flash`);
-        responseText = await tryWithModel("gemini-1.5-flash");
-        console.log(`[AI] Response from gemini-1.5-flash (fallback)`);
+        console.warn(`[AI] gemini-2.5-pro failed (${proError.message}), falling back to gemini-2.5-flash`);
+        responseText = await tryWithModel("gemini-2.5-flash");
+        console.log(`[AI] Response from gemini-2.5-flash (fallback)`);
       }
     }
 
