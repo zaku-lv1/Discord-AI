@@ -403,9 +403,9 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // Enhanced auth check with retry and better error handling
-  async function checkAuthStatusWithRetry(maxRetries = 3, initialDelay = 500) {
-    // Add a small initial delay to allow session to be fully established
-    await new Promise(resolve => setTimeout(resolve, 200));
+  async function checkAuthStatusWithRetry(maxRetries = 3, initialDelay = 300) {
+    // Reduced initial delay since backend now ensures session availability
+    await new Promise(resolve => setTimeout(resolve, 100));
     
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
@@ -1688,18 +1688,11 @@ document.addEventListener("DOMContentLoaded", () => {
           currentUrl.search = '';
           window.history.replaceState({}, '', currentUrl);
           
-          // Use improved auth check with retry - allow more time for session establishment
-          const authSuccess = await checkAuthStatusWithRetry(6, 750);
+          // Session establishment is now more reliable - use shorter retry
+          const authSuccess = await checkAuthStatusWithRetry(3, 300);
           if (!authSuccess) {
-            console.error('[ERROR] Login succeeded but authentication check failed after all retries');
-            // Instead of showing an error immediately, try one more time with a longer delay
-            setTimeout(async () => {
-              console.log('[DEBUG] Attempting final auth check after longer delay...');
-              const finalAuthSuccess = await checkAuthStatusWithRetry(3, 1500);
-              if (!finalAuthSuccess) {
-                showErrorToast('ログインは成功しましたが、セッションの確立に時間がかかっています。ページを再読み込みしてください。');
-              }
-            }, 2000);
+            console.error('[ERROR] Login succeeded but authentication check failed after retries');
+            showErrorToast('ログインは成功しましたが、セッションの確立に失敗しました。ページを再読み込みしてください。');
           }
         } else {
           const errorMessage = result.data ? result.data.message : result.error;
