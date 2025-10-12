@@ -88,27 +88,32 @@ router.post('/login', (req, res, next) => {
             verified: user.verified 
           });
           
-          // Verify session is immediately readable
-          console.log('[DEBUG] セッション認証状態確認:', req.isAuthenticated());
+          // Verify session is immediately readable before responding
+          const isAuthNow = req.isAuthenticated();
+          console.log('[DEBUG] セッション認証状態確認:', isAuthNow);
           
-          res.json({ 
-            success: true, 
-            message: 'ログインしました',
-            user: {
-              id: user.id,
-              username: user.username,
-              email: user.email,
-              type: user.type,
-              role: user.role,
-              verified: user.verified,
-              handle: user.handle
-            },
-            sessionInfo: {
-              sessionId: req.sessionID,
-              loginTime: req.session.loginTime,
-              rememberMe: !!rememberMe
-            }
-          });
+          // Add a small delay to ensure session is fully propagated
+          // This is critical when rememberMe is false and only session cookie is used
+          setTimeout(() => {
+            res.json({ 
+              success: true, 
+              message: 'ログインしました',
+              user: {
+                id: user.id,
+                username: user.username,
+                email: user.email,
+                type: user.type,
+                role: user.role,
+                verified: user.verified,
+                handle: user.handle
+              },
+              sessionInfo: {
+                sessionId: req.sessionID,
+                loginTime: req.session.loginTime,
+                rememberMe: !!rememberMe
+              }
+            });
+          }, rememberMe ? 0 : 200); // Add 200ms delay only when rememberMe is false
         });
       };
       
