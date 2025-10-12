@@ -1,442 +1,599 @@
-/* ========== Font Awesome Icon Styling ========== */
-.fas, .far, .fab {
-  font-size: inherit;
-  vertical-align: middle;
-}
+/* ========================================
+   Modern AI Management System Design
+   Fresh, clean, contemporary design from scratch
+   ======================================== */
 
-/* Ensure icons align properly in navigation */
-#dashboard-nav .fas {
-  width: 20px;
-  text-align: center;
-}
-
-/* Icon sizing for buttons */
-button .fas, 
-button .far, 
-button .fab {
-  font-size: 1em;
-}
-
-/* Profile avatar placeholder icon */
-.avatar-placeholder .fas {
-  color: var(--text-secondary);
-}
-
-/* Status indicators with icons */
-.user-status {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-/* ========== シンプルでクリーンなデザイン ========== */
+/* ========== CSS Variables - Modern Design System ========== */
 :root {
-  --primary-bg: #ffffff;
-  --secondary-bg: #fafafa;
-  --accent-bg: #f5f5f5;
-  --text-primary: #333333;
-  --text-secondary: #666666;
-  --accent-color: #5b7bff;
-  --accent-secondary: #5b7bff;
-  --danger-color: #ef4444;
-  --warning-color: #f59e0b;
-  --success-color: #10b981;
-  --border-color: #e0e0e0;
-  --shadow-light: rgba(0, 0, 0, 0.03);
-  --shadow-medium: rgba(0, 0, 0, 0.06);
-  --shadow-heavy: rgba(0, 0, 0, 0.1);
-  --glow-color: rgba(91, 123, 255, 0.15);
+  /* Color Palette - Modern & Vibrant */
+  --primary: #6366f1;
+  --primary-light: #818cf8;
+  --primary-dark: #4f46e5;
+  --secondary: #8b5cf6;
+  --accent: #ec4899;
+  
+  /* Backgrounds */
+  --bg-primary: #ffffff;
+  --bg-secondary: #f8fafc;
+  --bg-tertiary: #f1f5f9;
+  --bg-dark: #0f172a;
+  --bg-card: #ffffff;
+  
+  /* Text Colors */
+  --text-primary: #0f172a;
+  --text-secondary: #475569;
+  --text-tertiary: #94a3b8;
+  --text-inverse: #ffffff;
+  
+  /* Status Colors */
+  --success: #10b981;
+  --error: #ef4444;
+  --warning: #f59e0b;
+  --info: #3b82f6;
+  
+  /* Borders & Shadows */
+  --border: #e2e8f0;
+  --border-light: #f1f5f9;
+  --radius-sm: 0.5rem;
+  --radius-md: 0.75rem;
+  --radius-lg: 1rem;
+  --radius-xl: 1.5rem;
+  
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  
+  /* Spacing */
+  --space-xs: 0.25rem;
+  --space-sm: 0.5rem;
+  --space-md: 1rem;
+  --space-lg: 1.5rem;
+  --space-xl: 2rem;
+  --space-2xl: 3rem;
+  
+  /* Typography */
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', sans-serif;
+  --font-mono: 'SF Mono', 'Monaco', 'Inconsolata', 'Fira Code', 'Courier New', monospace;
 }
 
+/* ========== Base Styles ========== */
 * {
+  margin: 0;
+  padding: 0;
   box-sizing: border-box;
+}
+
+html {
+  font-size: 16px;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 body {
-  font-family: 'Inter', 'Roboto', 'Segoe UI', sans-serif;
-  background: #fafafa;
+  font-family: var(--font-sans);
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: var(--text-primary);
-  margin: 0;
-  padding: 0;
+  line-height: 1.6;
   min-height: 100vh;
   overflow-x: hidden;
-  font-size: 16px;
-  max-width: 100vw;
-  width: 100%;
-  box-sizing: border-box;
-  padding-left: env(safe-area-inset-left);
-  padding-right: env(safe-area-inset-right);
-  padding-top: env(safe-area-inset-top);
-  padding-bottom: env(safe-area-inset-bottom);
 }
 
-
-.container {
-  max-width: 1000px;
-  margin: 0 auto;
-  padding: 2rem;
-  background: #ffffff;
-  border-radius: 8px;
-  margin-top: 2rem;
-  margin-bottom: 2rem;
-  border: 1px solid var(--border-color);
-  box-shadow: 0 2px 8px var(--shadow-light);
-  /* ENHANCED: Prevent horizontal overflow */
-  width: calc(100% - 4rem);
-  max-width: calc(100vw - 4rem);
-  box-sizing: border-box;
+/* ========== Typography ========== */
+h1, h2, h3, h4, h5, h6 {
+  font-weight: 700;
+  line-height: 1.2;
+  margin-bottom: var(--space-md);
+  color: var(--text-primary);
 }
 
 h1 {
-  text-align: center;
   font-size: 2.5rem;
-  font-weight: 600;
-  color: var(--text-primary);
-  margin-bottom: 2rem;
+  letter-spacing: -0.025em;
 }
 
 h2 {
-  color: var(--text-primary);
-  font-size: 1.75rem;
-  font-weight: 600;
-  margin-bottom: 1.5rem;
-  padding-bottom: 0.75rem;
-  border-bottom: 3px solid var(--accent-color);
-  position: relative;
-}
-
-h2::after {
-  content: '';
-  position: absolute;
-  bottom: -3px;
-  left: 0;
-  width: 60px;
-  height: 3px;
-  background: linear-gradient(45deg, var(--accent-color), var(--accent-secondary));
-  border-radius: 2px;
-  box-shadow: 0 2px 8px var(--glow-color);
+  font-size: 2rem;
+  letter-spacing: -0.02em;
 }
 
 h3 {
-  color: var(--text-primary);
-  font-size: 1.6rem; /* Increased from 1.4rem */
-  font-weight: 500;
-  margin: 1.5rem 0 1rem 0;
+  font-size: 1.5rem;
+  letter-spacing: -0.01em;
 }
 
-/* ========== フォーム要素 ========== */
-input[type="email"], 
-input[type="password"], 
-input[type="text"], 
-input[type="time"], 
-input[type="number"], 
-textarea, 
-select {
-  width: 100%;
-  padding: 0.75rem 1rem;
-  background: var(--primary-bg);
-  border: 1px solid var(--border-color);
-  border-radius: 6px;
-  color: var(--text-primary);
-  font-size: 1rem;
-  font-family: inherit;
-  transition: border-color 0.2s ease;
-  margin-bottom: 1rem;
-  min-height: 42px;
+h4 {
+  font-size: 1.25rem;
 }
 
-input:focus, 
-textarea:focus, 
-select:focus {
-  outline: none;
-  border-color: var(--accent-color);
-  box-shadow: 0 0 0 3px var(--glow-color);
-}
-
-input::placeholder, 
-textarea::placeholder {
+p {
+  margin-bottom: var(--space-md);
   color: var(--text-secondary);
 }
 
-textarea {
-  resize: vertical;
-  min-height: 120px;
+/* ========== Container & Layout ========== */
+.container {
+  max-width: 1200px;
+  margin: var(--space-2xl) auto;
+  padding: var(--space-xl);
+  background: var(--bg-card);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-xl);
 }
 
+@media (max-width: 768px) {
+  .container {
+    margin: var(--space-md);
+    padding: var(--space-lg);
+    border-radius: var(--radius-lg);
+  }
+}
+
+/* ========== Form Elements ========== */
+input[type="text"],
+input[type="email"],
+input[type="password"],
+input[type="number"],
+input[type="time"],
+textarea,
 select {
-  cursor: pointer;
-  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='%235b7bff' d='M8 13L2 7h12z'/%3e%3c/svg%3e");
-  background-repeat: no-repeat;
-  background-position: right 1rem center;
-  background-size: 16px;
-  appearance: none;
-  padding-right: 3rem;
+  width: 100%;
+  padding: 0.75rem 1rem;
+  border: 2px solid var(--border);
+  border-radius: var(--radius-md);
+  font-size: 1rem;
+  font-family: var(--font-sans);
+  color: var(--text-primary);
+  background: var(--bg-primary);
+  transition: all 0.2s ease;
 }
 
-/* ========== ボタン ========== */
-button {
+input:focus,
+textarea:focus,
+select:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: var(--text-tertiary);
+}
+
+.form-group {
+  margin-bottom: var(--space-lg);
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: var(--space-sm);
+  font-weight: 600;
+  color: var(--text-primary);
+  font-size: 0.875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.form-group small {
+  display: block;
+  margin-top: var(--space-sm);
+  color: var(--text-tertiary);
+  font-size: 0.875rem;
+}
+
+/* ========== Buttons ========== */
+button,
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
   padding: 0.75rem 1.5rem;
   border: none;
-  border-radius: 6px;
+  border-radius: var(--radius-md);
   font-size: 1rem;
-  font-weight: 500;
+  font-weight: 600;
+  font-family: var(--font-sans);
   cursor: pointer;
   transition: all 0.2s ease;
-  min-height: 42px;
-}
-
-button:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px var(--shadow-medium);
-}
-
-.save-btn, #login-btn, #register-btn {
-  background: var(--accent-color);
-  color: white;
-}
-
-.save-btn:hover, #login-btn:hover, #register-btn:hover {
-  background: #4a6ae8;
-}
-
-.secondary-btn {
-  background: var(--secondary-bg);
-  color: var(--text-primary);
-  border: 1px solid var(--border-color);
-}
-
-.secondary-btn:hover {
-  background: var(--accent-bg);
-
-.delete-btn {
-  background: var(--danger-color);
-  color: white;
-}
-
-.delete-btn:hover {
-  background: #dc2626;
-}
-
-#logout-btn {
-  background: var(--secondary-bg);
-  color: var(--text-primary);
-  padding: 0.625rem 1.25rem;
-  font-size: 0.9rem;
-  border: 1px solid var(--border-color);
-}
-
-#logout-btn:hover {
-  background: var(--accent-bg);
+  text-decoration: none;
 }
 
 button:disabled {
   opacity: 0.5;
   cursor: not-allowed;
-  transform: none !important;
 }
 
-/* ========== ユーザー情報 ========== */
-.user-info {
+/* Primary Button */
+.save-btn,
+#login-btn,
+#register-btn,
+button[type="submit"] {
+  background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+  color: var(--text-inverse);
+  box-shadow: var(--shadow-md);
+}
+
+.save-btn:hover,
+#login-btn:hover,
+#register-btn:hover,
+button[type="submit"]:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-lg);
+}
+
+/* Secondary Button */
+.secondary-btn {
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  border: 2px solid var(--border);
+}
+
+.secondary-btn:hover {
+  background: var(--bg-tertiary);
+  border-color: var(--primary);
+}
+
+/* Delete Button */
+.delete-btn {
+  background: var(--error);
+  color: var(--text-inverse);
+}
+
+.delete-btn:hover {
+  background: #dc2626;
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-lg);
+}
+
+/* ========== Cards ========== */
+.ai-card,
+.profile-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-lg);
+  margin-bottom: var(--space-lg);
+  transition: all 0.3s ease;
+  box-shadow: var(--shadow-sm);
+}
+
+.ai-card:hover,
+.profile-card:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--shadow-xl);
+  border-color: var(--primary);
+}
+
+.ai-card-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 1.5rem;
-  background: var(--primary-bg);
-  border-radius: 8px;
-  margin-bottom: 2rem;
-  border: 1px solid var(--border-color);
+  margin-bottom: var(--space-md);
+  padding-bottom: var(--space-md);
+  border-bottom: 2px solid var(--border-light);
+}
+
+.ai-card-title {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.ai-card-id {
+  font-size: 0.875rem;
+  color: var(--text-tertiary);
+  font-family: var(--font-mono);
+  background: var(--bg-secondary);
+  padding: 0.25rem 0.75rem;
+  border-radius: var(--radius-sm);
+}
+
+/* ========== Modal ========== */
+.modal {
+  display: none;
+  position: fixed;
+  z-index: 1000;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(15, 23, 42, 0.75);
+  backdrop-filter: blur(4px);
+  animation: fadeIn 0.3s ease;
+}
+
+.modal.active {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.modal-content {
+  background: var(--bg-card);
+  border-radius: var(--radius-xl);
+  padding: var(--space-2xl);
+  max-width: 600px;
+  width: 90%;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: var(--shadow-xl);
+  animation: slideUp 0.3s ease;
+}
+
+.modal-content h2 {
+  margin-bottom: var(--space-lg);
+  color: var(--text-primary);
+}
+
+.close {
+  position: absolute;
+  top: var(--space-lg);
+  right: var(--space-lg);
+  font-size: 2rem;
+  font-weight: 300;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.close:hover {
+  color: var(--text-primary);
+  transform: rotate(90deg);
+}
+
+/* ========== Auth Forms ========== */
+.auth-container {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-lg);
+}
+
+.auth-card {
+  background: var(--bg-card);
+  border-radius: var(--radius-xl);
+  padding: var(--space-2xl);
+  max-width: 450px;
+  width: 100%;
+  box-shadow: var(--shadow-xl);
+}
+
+.auth-header {
+  text-align: center;
+  margin-bottom: var(--space-2xl);
+}
+
+.auth-header h1 {
+  background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  margin-bottom: var(--space-sm);
+}
+
+.auth-header p {
+  color: var(--text-secondary);
+  font-size: 1rem;
+}
+
+.login-options {
+  margin-top: var(--space-lg);
+}
+
+.login-actions {
+  margin-top: var(--space-lg);
+  text-align: center;
+}
+
+.switch-form-link {
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+}
+
+.switch-form-link a,
+#forgot-password-link {
+  color: var(--primary);
+  text-decoration: none;
+  font-weight: 600;
+  transition: all 0.2s ease;
+}
+
+.switch-form-link a:hover,
+#forgot-password-link:hover {
+  color: var(--primary-dark);
+  text-decoration: underline;
+}
+
+/* ========== Dashboard ========== */
+.user-info {
+  background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+  color: var(--text-inverse);
+  padding: var(--space-xl);
+  border-radius: var(--radius-lg);
+  margin-bottom: var(--space-xl);
 }
 
 .user-profile {
   display: flex;
   align-items: center;
-  gap: 1rem;
+  gap: var(--space-lg);
 }
 
 .user-profile img {
-  border: 2px solid var(--border-color);
-}
-
-.user-details {
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  border: 4px solid rgba(255, 255, 255, 0.3);
 }
 
 .user-welcome {
-  margin: 0;
-  font-weight: 600;
-  color: var(--text-primary);
-  font-size: 1rem;
+  font-size: 1.75rem;
+  font-weight: 700;
+  margin-bottom: var(--space-xs);
 }
 
 .user-status {
-  margin: 0;
-  font-weight: 400;
-  color: var(--text-secondary);
-  font-size: 0.9rem;
-}
-
-.user-actions {
+  font-size: 1rem;
+  opacity: 0.9;
   display: flex;
-  gap: 1rem;
   align-items: center;
+  gap: 0.5rem;
 }
 
-/* ========== ダッシュボード ========== */
-#dashboard-container {
-  display: grid;
-  grid-template-columns: 280px 1fr;
-  gap: 2rem;
-  margin-top: 2rem;
-  /* ENHANCED: Prevent overflow on smaller screens */
-  min-width: 0;
-  overflow: hidden;
-  width: 100%;
-  box-sizing: border-box;
-}
-
+/* ========== Navigation ========== */
 #dashboard-nav {
-  background: var(--primary-bg);
-  border-radius: 8px;
-  padding: 1.5rem;
-  height: fit-content;
-  border: 1px solid var(--border-color);
-  position: sticky;
-  top: 2rem;
-}
-
-.nav-header {
-  margin-bottom: 1.5rem;
-  padding-bottom: 1rem;
-  border-bottom: 1px solid var(--border-color);
-}
-
-.nav-header h3 {
-  margin: 0;
-  color: var(--text-primary);
-  font-size: 1.1rem;
-  font-weight: 600;
-}
-
-#dashboard-nav ul {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-}
-
-#dashboard-nav li {
-  margin-bottom: 0.5rem;
-}
-
-#dashboard-nav a {
+  background: var(--bg-card);
+  border-radius: var(--radius-lg);
+  padding: var(--space-sm);
+  margin-bottom: var(--space-xl);
   display: flex;
-  align-items: center;
-  padding: 0.75rem 1rem;
-  text-decoration: none;
-  color: var(--text-secondary);
-  border-radius: 6px;
-  transition: all 0.2s ease;
-  font-weight: 400;
-}
-
-#dashboard-nav a:hover {
-  color: var(--text-primary);
-  background: var(--secondary-bg);
-}
-
-#dashboard-nav a.active {
-  background: var(--accent-color);
-  color: white;
-}
-
-#dashboard-content {
-  background: var(--primary-bg);
-  border-radius: 16px;
-  padding: 2.5rem;
-  border: 1px solid var(--border-color);
-  min-height: 500px;
-  box-shadow: 0 8px 24px var(--shadow-light);
-  /* ENHANCED: Prevent overflow on smaller screens */
-  min-width: 0;
+  gap: var(--space-sm);
   overflow-x: auto;
-  width: 100%;
-  box-sizing: border-box;
+}
+
+#dashboard-nav button {
+  padding: 0.75rem 1.25rem;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-md);
+  color: var(--text-secondary);
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+#dashboard-nav button:hover {
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+}
+
+#dashboard-nav button.active {
+  background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+  color: var(--text-inverse);
 }
 
 .dashboard-panel {
   display: none;
+  animation: fadeIn 0.3s ease;
 }
 
 .dashboard-panel.active {
   display: block;
 }
 
-/* ========== フォームグループ ========== */
-.form-group {
-  margin-bottom: 1.5rem;
+/* ========== Toast Notifications ========== */
+.toast-container {
+  position: fixed;
+  top: var(--space-lg);
+  right: var(--space-lg);
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
 }
 
-.form-group label {
-  display: block;
-  margin-bottom: 0.5rem;
+.toast {
+  background: var(--bg-card);
+  border-radius: var(--radius-md);
+  padding: var(--space-lg);
+  min-width: 300px;
+  box-shadow: var(--shadow-xl);
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  transform: translateX(400px);
+  transition: transform 0.3s ease;
+  border-left: 4px solid var(--primary);
+}
+
+.toast.show {
+  transform: translateX(0);
+}
+
+.toast.success {
+  border-left-color: var(--success);
+}
+
+.toast.error {
+  border-left-color: var(--error);
+}
+
+.toast.warning {
+  border-left-color: var(--warning);
+}
+
+.toast.info {
+  border-left-color: var(--info);
+}
+
+.toast-icon {
+  font-size: 1.5rem;
+}
+
+.toast.success .toast-icon {
+  color: var(--success);
+}
+
+.toast.error .toast-icon {
+  color: var(--error);
+}
+
+.toast.warning .toast-icon {
+  color: var(--warning);
+}
+
+.toast.info .toast-icon {
+  color: var(--info);
+}
+
+.toast-message {
+  flex: 1;
+  color: var(--text-primary);
   font-weight: 500;
+}
+
+.toast-close {
+  background: none;
+  border: none;
+  color: var(--text-tertiary);
+  font-size: 1.25rem;
+  cursor: pointer;
+  padding: 0;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.toast-close:hover {
   color: var(--text-primary);
 }
 
-.form-group small {
-  display: block;
-  margin-top: 0.5rem;
-  color: var(--text-secondary);
-  font-size: 0.9rem;
-}
-
-/* ========== Form Section Styling ========== */
-.form-section {
-  margin: 2rem 0;
-  padding: 1.5rem;
-  background: var(--secondary-bg);
-  border-radius: 12px;
-  border: 1px solid var(--border-color);
-}
-
-.form-section h3 {
-  margin: 0 0 0.5rem 0;
-  font-size: 1.2rem;
-  font-weight: 600;
-  color: var(--text-primary);
-}
-
-.form-section .section-description {
-  margin: 0 0 1.5rem 0;
-  color: var(--text-secondary);
-  font-size: 0.95rem;
-  line-height: 1.5;
-}
-
-/* ========== トグルスイッチ ========== */
+/* ========== Toggle Switch ========== */
 .toggle-container {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 1.25rem;
-  background: var(--secondary-bg);
-  border-radius: 12px;
-  border: 1px solid var(--border-color);
-  box-shadow: 0 2px 8px var(--shadow-light);
+  gap: var(--space-md);
 }
 
 .toggle-switch {
   position: relative;
-  width: 60px;
-  height: 30px;
+  display: inline-block;
+  width: 52px;
+  height: 28px;
 }
 
 .toggle-switch input {
   opacity: 0;
   width: 0;
   height: 0;
-  margin: 0;
 }
 
 .slider {
@@ -446,993 +603,37 @@ button:disabled {
   left: 0;
   right: 0;
   bottom: 0;
-  background: var(--border-color);
-  transition: 0.4s;
-  border-radius: 30px;
-  box-shadow: inset 0 2px 4px var(--shadow-light);
+  background-color: var(--border);
+  transition: 0.3s;
+  border-radius: 28px;
 }
 
 .slider:before {
   position: absolute;
   content: "";
-  height: 22px;
-  width: 22px;
+  height: 20px;
+  width: 20px;
   left: 4px;
   bottom: 4px;
-  background: white;
-  transition: 0.4s;
+  background-color: white;
+  transition: 0.3s;
   border-radius: 50%;
-  box-shadow: 0 2px 8px var(--shadow-medium);
 }
 
 input:checked + .slider {
-  background: linear-gradient(45deg, var(--accent-color), var(--accent-secondary));
-  box-shadow: 0 0 15px var(--glow-color);
+  background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
 }
 
 input:checked + .slider:before {
-  transform: translateX(30px);
+  transform: translateX(24px);
 }
 
-/* ========== AI管理カード ========== */
-.ai-card {
-  background: var(--primary-bg);
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
-  padding: 1.5rem;
-  margin-bottom: 1rem;
-  transition: all 0.2s ease;
-}
-
-.ai-card:hover {
-  border-color: var(--accent-color);
-  box-shadow: 0 4px 12px var(--shadow-light);
-}
-
-.ai-card-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 1rem;
-}
-
-.ai-card-title {
-  font-size: 1.2rem;
-  font-weight: 600;
-  color: var(--text-primary);
-  margin: 0;
-}
-
-.ai-card-id {
-  background: var(--accent-color);
-  color: white;
-  padding: 0.375rem 0.75rem;
-  border-radius: 4px;
-  font-size: 0.85rem;
-  font-weight: 500;
-}
-
-.ai-details {
-  margin-bottom: 1rem;
-}
-
-.ai-details p {
-  margin: 0.5rem 0;
-  color: var(--text-secondary);
-  font-size: 0.9rem;
-}
-
-.ai-details strong {
-  color: var(--text-primary);
-  font-weight: 600;
-}
-
-.ai-card-actions {
-  display: flex;
-  gap: 0.75rem;
-  margin-top: 1.5rem;
-}
-
-.ai-card-actions button {
-  padding: 0.75rem 1.5rem;
-  font-size: 0.9rem;
-}
-
-/* ========== モーダル ========== */
-.modal {
-  display: none;
-  position: fixed;
-  z-index: 1000;
-  left: 0;
-  top: 0;
-  width: 100%;
-  height: 100%;
-  background: rgba(0, 0, 0, 0.5);
-  backdrop-filter: blur(8px);
-  /* ENHANCED: Ensure modal is always scrollable if content overflows */
-  overflow-y: auto;
-  /* ENHANCED: Better mobile support */
-  -webkit-overflow-scrolling: touch;
-}
-
-.modal-content {
-  background: var(--primary-bg);
-  margin: 5% auto;
-  padding: 2.5rem;
-  border-radius: 20px;
-  width: 90%;
-  max-width: 600px;
-  max-height: 80vh; /* Limit height to 80% of viewport */
-  border: 1px solid var(--border-color);
-  box-shadow: 0 20px 40px var(--shadow-heavy);
-  position: relative;
-  overflow-y: auto; /* Enable vertical scrolling */
-  overflow-x: hidden; /* Hide horizontal overflow */
-  /* ENHANCED: Ensure there's always space for buttons at bottom */
-  padding-bottom: 3rem;
-  /* ENHANCED: Better box sizing */
-  box-sizing: border-box;
-  /* ENHANCED: Better mobile support */
-  -webkit-overflow-scrolling: touch;
-}
-
-.modal-content::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 4px;
-  background: linear-gradient(45deg, var(--accent-color), var(--accent-secondary));
-  border-radius: 20px 20px 0 0;
-}
-
-.close {
-  color: var(--text-secondary);
-  float: right;
-  font-size: 2rem;
-  font-weight: bold;
-  cursor: pointer;
-  line-height: 1;
-  transition: color 0.3s ease;
-}
-
-.close:hover {
-  color: var(--text-primary);
-}
-
-/* ========== 認証フォーム ========== */
-#auth-container {
-  max-width: 700px; /* Reduced from 1000px to make login box more manageable */
-  margin: 0 auto;
-  background: var(--primary-bg);
-  padding: 3rem;
-  border-radius: 20px;
-  border: 1px solid var(--border-color);
-  box-shadow: 0 12px 32px var(--shadow-medium);
-  position: relative;
-}
-
-#auth-container::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 4px;
-  background: linear-gradient(45deg, var(--accent-color), var(--accent-secondary));
-  border-radius: 20px 20px 0 0;
-}
-
-#discord-login-form {
-  text-align: center;
-}
-
-#discord-login-form h2 {
-  margin-bottom: 1rem;
-  font-size: 1.8rem;
-}
-
-#discord-login-form p {
-  color: var(--text-secondary);
-  margin-bottom: 2rem;
-  font-size: 1.1rem;
-}
-
-#discord-login-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  text-decoration: none;
-  width: 100%;
-  margin-bottom: 2rem;
-  font-size: 1.1rem;
-  padding: 1.25rem 2rem;
-}
-
-.discord-info {
-  margin-top: 2rem;
-  padding: 1.5rem;
-  background: var(--secondary-bg);
-  border-radius: 12px;
-  border-left: 4px solid var(--accent-color);
-  box-shadow: 0 4px 12px var(--shadow-light);
-}
-
-.discord-info p {
-  margin: 0.75rem 0;
-  font-size: 0.95rem;
-  color: var(--text-secondary);
-}
-
-/* ========== プロファイル設定 ========== */
-.profile-overview {
-  margin-bottom: 2rem;
-}
-
-.profile-card {
-  display: flex;
-  align-items: center;
-  gap: 2rem;
-  padding: 2rem;
-  background: linear-gradient(135deg, var(--secondary-bg), var(--primary-bg));
-  border-radius: 16px;
-  border: 1px solid var(--border-color);
-  box-shadow: 0 4px 12px var(--shadow-light);
-  position: relative;
-  overflow: hidden;
-}
-
-.profile-card::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 4px;
-  background: linear-gradient(45deg, var(--accent-color), var(--accent-secondary));
-}
-
-.profile-avatar {
-  position: relative;
-  width: 80px;
-  height: 80px;
-}
-
-.profile-avatar img {
-  border: 3px solid var(--accent-color);
-  box-shadow: 0 4px 12px var(--glow-color);
-}
-
-.avatar-placeholder {
-  width: 80px;
-  height: 80px;
-  background: var(--accent-bg);
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--text-secondary);
-  border: 3px solid var(--border-color);
-}
-
-.profile-summary h3 {
-  margin: 0 0 0.5rem 0;
-  color: var(--text-primary);
-  font-size: 1.5rem;
-  font-weight: 700;
-}
-
-.profile-summary p {
-  margin: 0;
-  color: var(--text-secondary);
-  font-size: 1rem;
-  padding: 0.25rem 0.75rem;
-  background: var(--accent-color);
-  color: white;
-  border-radius: 20px;
-  display: inline-block;
-  font-weight: 500;
-}
-
-.discord-info-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 1.5rem;
-}
-
-.profile-settings {
-  background: var(--secondary-bg);
-  padding: 2rem;
-  border-radius: 16px;
-  margin-bottom: 2rem;
-  border: 1px solid var(--border-color);
-  box-shadow: 0 4px 12px var(--shadow-light);
-}
-
-@media (max-width: 768px) {
-  .profile-card {
-    flex-direction: column;
-    text-align: center;
-    gap: 1rem;
-  }
-  
-  .discord-info-grid {
-    grid-template-columns: 1fr;
-  }
-}
-
-.login-actions {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-  margin-top: 2rem;
-}
-
-.switch-form-link {
-  text-align: center;
-  margin-top: 1rem;
-}
-
-.switch-form-link a, #forgot-password-link {
-  color: var(--accent-color);
-  text-decoration: none;
-  transition: color 0.3s ease;
-}
-
-.switch-form-link a:hover, #forgot-password-link:hover {
-  color: #00d4ff;
-  text-decoration: underline;
-}
-
-/* ========== ステータスメッセージ ========== */
-#status-message {
-  display: none; /* Hide status message to remove footer loading display */
-  margin-top: 1.5rem;
-  padding: 1.25rem;
-  text-align: center;
-  border-radius: 12px;
-  font-weight: 500;
-  min-height: 1.2rem;
-  background: var(--secondary-bg);
-  border: 1px solid var(--border-color);
-  color: var(--text-primary);
-  box-shadow: 0 4px 12px var(--shadow-light);
-}
-
-/* ========== トースト通知システム ========== */
-.toast-container {
-  position: fixed;
-  top: 20px;
-  right: 20px;
-  z-index: 9999;
-  max-width: 400px;
-  width: 100%;
-}
-
-.toast {
-  background: linear-gradient(135deg, var(--primary-bg), var(--secondary-bg));
-  border: 2px solid var(--border-color);
-  border-radius: 16px;
-  padding: 1.5rem;
-  margin-bottom: 1rem;
-  box-shadow: 0 8px 32px var(--shadow-medium);
-  transform: translateX(100%);
-  opacity: 0;
-  transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-  position: relative;
-  overflow: hidden;
-  backdrop-filter: blur(10px);
-}
-
-.toast::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 4px;
-  background: linear-gradient(45deg, var(--success-color), var(--accent-secondary));
-  border-radius: 16px 16px 0 0;
-}
-
-.toast.success::before {
-  background: linear-gradient(45deg, var(--success-color), #059669);
-}
-
-.toast.error::before {
-  background: linear-gradient(45deg, var(--danger-color), #dc2626);
-}
-
-.toast.warning::before {
-  background: linear-gradient(45deg, var(--warning-color), #d97706);
-}
-
-.toast.info::before {
-  background: linear-gradient(45deg, var(--accent-color), var(--accent-secondary));
-}
-
-.toast.show {
-  transform: translateX(0);
-  opacity: 1;
-}
-
-.toast-content {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-}
-
-.toast-icon {
-  width: 24px;
-  height: 24px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 14px;
-  font-weight: bold;
-  color: white;
-  flex-shrink: 0;
-}
-
-.toast.success .toast-icon {
-  background: var(--success-color);
-}
-
-.toast.error .toast-icon {
-  background: var(--danger-color);
-}
-
-.toast.warning .toast-icon {
-  background: var(--warning-color);
-}
-
-.toast.info .toast-icon {
-  background: var(--accent-color);
-}
-
-.toast-message {
-  flex: 1;
-  color: var(--text-primary);
-  font-size: 1rem;
-  font-weight: 500;
-  line-height: 1.4;
-}
-
-.toast-close {
-  background: none;
-  border: none;
-  color: var(--text-secondary);
-  cursor: pointer;
-  font-size: 1.2rem;
-  padding: 0;
-  margin: 0;
-  width: 24px;
-  height: 24px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 50%;
-  transition: all 0.2s ease;
-  flex-shrink: 0;
-}
-
-.toast-close:hover {
-  background: var(--accent-bg);
-  color: var(--text-primary);
-}
-
-/* トーストのプログレスバー */
-.toast-progress {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  height: 3px;
-  background: rgba(255, 255, 255, 0.3);
-  border-radius: 0 0 16px 16px;
-  transform-origin: left;
-  animation: toastProgress 4s linear forwards;
-}
-
-@keyframes toastProgress {
-  from {
-    transform: scaleX(1);
-  }
-  to {
-    transform: scaleX(0);
-  }
-}
-
-@media (max-width: 768px) {
-  .toast-container {
-    top: 10px;
-    right: 10px;
-    left: 10px;
-    max-width: none;
-  }
-  
-  .toast {
-    padding: 1rem;
-  }
-}
-
-/* ========== ローディング ========== */
-.loader-container {
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
-  height: 100vh;
-  gap: 1.5rem;
-}
-
-.spinner {
-  width: 60px;
-  height: 60px;
-  border: 4px solid var(--border-color);
-  border-top: 4px solid var(--accent-color);
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
-  box-shadow: 0 4px 12px var(--glow-color);
-}
-
-.loader-text {
-  color: var(--text-primary);
-  font-size: 1.2rem;
-  font-weight: 500;
-}
-
-@keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
-}
-
-/* ========== レスポンシブ ========== */
-@media (max-width: 1024px) {
-  #dashboard-container {
-    grid-template-columns: 1fr;
-    gap: 1rem;
-  }
-  
-  #dashboard-nav {
-    position: static;
-    padding: 1.5rem;
-    border-radius: 12px; /* Slightly smaller radius for tablets */
-    /* ENHANCED: Add visual indicator for scrollable content */
-    position: relative;
-    /* ENHANCED: Prevent horizontal overflow of the nav container */
-    overflow: hidden;
-    width: 100%;
-    box-sizing: border-box;
-  }
-  
-  /* ENHANCED: Better scroll indicator for mobile navigation */
-  #dashboard-nav::after {
-    content: '→';
-    position: absolute;
-    top: 50%;
-    right: 1rem;
-    transform: translateY(-50%);
-    color: var(--accent-color);
-    font-size: 1.2rem;
-    font-weight: bold;
-    opacity: 0.7;
-    pointer-events: none;
-    z-index: 10;
-    background: linear-gradient(to right, transparent 0%, var(--primary-bg) 30%, var(--primary-bg) 100%);
-    padding-left: 1rem;
-    width: 2rem;
-    text-align: right;
-  }
-  
-  .nav-header {
-    text-align: center;
-    margin-bottom: 1rem;
-  }
-  
-  #dashboard-nav ul {
-    display: flex;
-    overflow-x: auto;
-    gap: 0.75rem; /* Increased gap for better spacing */
-    padding-bottom: 0.75rem;
-    /* ENHANCED: Better scrollbar styling */
-    scrollbar-width: thin;
-    scrollbar-color: var(--accent-color) var(--accent-bg);
-    /* ENHANCED: Add padding to ensure last item is fully visible */
-    padding-right: 3rem; /* Space for scroll indicator */
-    /* ENHANCED: Add scroll snap for better UX */
-    scroll-snap-type: x mandatory;
-    /* ENHANCED: Better mobile scrolling */
-    -webkit-overflow-scrolling: touch;
-    scroll-behavior: smooth;
-    /* ENHANCED: Ensure no vertical scrolling */
-    overflow-y: hidden;
-  }
-  
-  #dashboard-nav ul::-webkit-scrollbar {
-    height: 8px; /* Slightly larger scrollbar for better visibility */
-  }
-  
-  #dashboard-nav ul::-webkit-scrollbar-track {
-    background: var(--accent-bg);
-    border-radius: 4px;
-  }
-  
-  #dashboard-nav ul::-webkit-scrollbar-thumb {
-    background: var(--accent-color);
-    border-radius: 4px;
-  }
-  
-  #dashboard-nav ul::-webkit-scrollbar-thumb:hover {
-    background: var(--accent-secondary);
-  }
-  
-  #dashboard-nav li {
-    flex-shrink: 0;
-    margin-bottom: 0;
-    /* ENHANCED: Add scroll snap point */
-    scroll-snap-align: start;
-    /* ENHANCED: Ensure minimum item width */
-    min-width: fit-content;
-  }
-  
-  #dashboard-nav a {
-    white-space: nowrap;
-    padding: 1rem 1.25rem; /* Increased padding for better touch targets */
-    min-height: 48px; /* Ensure minimum touch target */
-    display: flex;
-    align-items: center;
-    /* ENHANCED: Better touch feedback */
-    -webkit-tap-highlight-color: rgba(79, 70, 229, 0.1);
-    /* ENHANCED: Ensure button is fully visible */
-    box-sizing: border-box;
-  }
-  
-  h1 {
-    font-size: 3rem; /* Maintain larger size on tablets */
-  }
-  
-  .container {
-    margin: 1rem;
-    padding: 2rem; /* Increased padding */
-    /* ENHANCED: Better container sizing on tablets */
-    width: calc(100% - 2rem);
-    max-width: calc(100vw - 2rem);
-  }
-}
-
-@media (max-width: 768px) {
-  h1 {
-    font-size: 2.5rem; /* Still maintain good size on mobile */
-  }
-  
-  .user-info {
-    flex-direction: column;
-    gap: 1rem;
-    text-align: center;
-    padding: 1.5rem; /* Better padding for mobile */
-  }
-  
-  .user-profile {
-    justify-content: center;
-  }
-  
-  .ai-card-header {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 0.75rem;
-  }
-  
-  .ai-card-actions {
-    flex-direction: column;
-  }
-  
-  .modal-content {
-    margin: 2% auto; /* Better top margin for mobile */
-    width: 95%;
-    max-height: 90vh; /* Better height utilization */
-    padding: 1.5rem;
-    border-radius: 12px; /* Smaller radius for mobile */
-    /* ENHANCED: Ensure bottom padding for buttons */
-    padding-bottom: max(2.5rem, env(safe-area-inset-bottom) + 1.5rem);
-    /* ENHANCED: Better scroll handling */
-    max-height: calc(100vh - 2rem);
-    /* ENHANCED: Better container sizing */
-    width: calc(100% - 1rem);
-    max-width: calc(100vw - 1rem);
-  }
-  
-  .admin-entry {
-    grid-template-columns: 1fr;
-    gap: 1rem; /* Better spacing */
-    padding: 1.25rem; /* More padding for touch */
-  }
-  
-  .admin-role-badge {
-    padding: 0.5rem 1rem;
-    font-size: 0.9rem;
-    align-self: flex-start;
-  }
-  
-  .super-admin-label {
-    font-size: 1rem;
-    padding: 0.75rem 1rem;
-  }
-  
-  .admin-actions-buttons {
-    flex-direction: column;
-    gap: 0.75rem;
-  }
-  
-  .admin-management {
-    padding: 1.25rem;
-  }
-  
-  .invite-card {
-    padding: 1.25rem;
-  }
-  
-  .code-input-group {
-    flex-direction: column;
-    gap: 0.75rem; /* Better spacing */
-  }
-  
-  .profile-card {
-    flex-direction: column;
-    text-align: center;
-    gap: 1rem;
-    padding: 1.5rem; /* Better padding */
-  }
-  
-  .discord-info-grid {
-    grid-template-columns: 1fr;
-    gap: 1rem; /* Better spacing */
-  }
-  
-  /* ENHANCED: SIGNIFICANTLY IMPROVED touch targets and readability */
-  input[type="email"], 
-  input[type="password"], 
-  input[type="text"], 
-  input[type="time"], 
-  input[type="number"], 
-  textarea, 
-  select {
-    min-height: 64px; /* Much larger touch targets on mobile */
-    font-size: 18px; /* Prevent iOS zoom on focus + better readability */
-    padding: 1.25rem 1rem; /* Better padding balance */
-    border-radius: 8px; /* Slightly smaller radius for mobile */
-    /* ENHANCED: Better mobile input handling */
-    -webkit-appearance: none;
-    appearance: none;
-    /* ENHANCED: Prevent horizontal overflow */
-    width: 100%;
-    max-width: 100%;
-    box-sizing: border-box;
-  }
-  
-  button {
-    min-height: 64px; /* Much larger touch targets on mobile */
-    font-size: 1.1rem;
-    padding: 1.25rem 1.5rem; /* Better padding */
-    border-radius: 8px; /* Consistent with inputs */
-    /* ENHANCED: Better touch feedback */
-    -webkit-tap-highlight-color: rgba(79, 70, 229, 0.2);
-    /* ENHANCED: Prevent horizontal overflow */
-    max-width: 100%;
-    box-sizing: border-box;
-  }
-  
-  /* ENHANCED: Better navigation on mobile */
-  #dashboard-nav {
-    padding: 1rem;
-    margin-bottom: 1rem;
-    /* ENHANCED: Prevent horizontal overflow */
-    width: 100%;
-    max-width: 100%;
-    box-sizing: border-box;
-  }
-  
-  #dashboard-nav ul {
-    gap: 0.5rem;
-    padding-bottom: 1rem;
-    /* ENHANCED: Improved scrolling behavior on mobile */
-    -webkit-overflow-scrolling: touch;
-    scroll-behavior: smooth;
-    /* ENHANCED: Better padding for last item visibility */
-    padding-right: 4rem; /* More space for scroll indicator */
-  }
-  
-  #dashboard-nav a {
-    padding: 1rem 1.25rem;
-    font-size: 0.9rem;
-    min-height: 52px;
-    /* ENHANCED: Better touch feedback */
-    -webkit-tap-highlight-color: rgba(79, 70, 229, 0.1);
-    /* ENHANCED: Ensure full visibility */
-    box-sizing: border-box;
-  }
-  
-  /* ENHANCED: Better dashboard content padding */
-  #dashboard-content {
-    padding: 1.5rem;
-    /* ENHANCED: Prevent horizontal overflow */
-    width: 100%;
-    max-width: 100%;
-    box-sizing: border-box;
-  }
-  
-  /* ENHANCED: Improved form groups */
-  .form-group {
-    margin-bottom: 1.5rem;
-  }
-  
-  .form-group label {
-    font-size: 1rem; /* Larger labels for mobile */
-    margin-bottom: 0.75rem;
-  }
-  
-  .form-group small {
-    font-size: 0.9rem; /* Larger help text for mobile */
-    line-height: 1.5;
-  }
-  
-  /* ENHANCED: Better toggle containers */
-  .toggle-container {
-    padding: 1.25rem;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 0.75rem;
-  }
-  
-  .toggle-switch {
-    width: 64px;
-    height: 34px; /* Larger toggles for easier touch */
-  }
-  
-  .slider:before {
-    height: 26px;
-    width: 26px;
-    left: 4px;
-    bottom: 4px;
-  }
-  
-  input:checked + .slider:before {
-    transform: translateX(30px);
-  }
-  
-  /* ENHANCED: Better modal spacing */
-  .modal-content h2 {
-    font-size: 1.5rem;
-    margin-bottom: 1rem;
-  }
-  
-  /* ENHANCED: Better card spacing */
-  .ai-card {
-    padding: 1.25rem;
-    margin-bottom: 1rem;
-  }
-  
-  .ai-card-actions button {
-    padding: 0.875rem 1.25rem;
-    font-size: 0.95rem;
-    min-height: 52px;
-  }
-  
-  /* ENHANCED: Better user info spacing */
-  .user-welcome {
-    font-size: 1.1rem;
-  }
-  
-  .user-status {
-    font-size: 1rem;
-  }
-  
-  /* ENHANCED: Better container margins */
-  .container {
-    margin: 0.5rem;
-    padding: 1.25rem;
-    /* ENHANCED: Better mobile container sizing */
-    width: calc(100% - 1rem);
-    max-width: calc(100vw - 1rem);
-  }
-}
-
-/* ========== アニメーション ========== */
-@keyframes fadeIn {
-  from { 
-    opacity: 0; 
-    transform: translateY(20px); 
-  }
-  to { 
-    opacity: 1; 
-    transform: translateY(0); 
-  }
-}
-
-@keyframes slideIn {
-  from {
-    opacity: 0;
-    transform: translateX(-20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateX(0);
-  }
-}
-
-@keyframes pulse {
-  0%, 100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.7;
-  }
-}
-
-.dashboard-panel {
-  animation: fadeIn 0.4s ease-out;
-}
-
-.ai-card {
-  animation: fadeIn 0.3s ease-out;
-}
-
-.nav-link {
-  animation: slideIn 0.3s ease-out;
-}
-
-.user-info {
-  animation: fadeIn 0.5s ease-out;
-}
-
-.spinner {
-  animation: spin 1s linear infinite, pulse 2s ease-in-out infinite;
-}
-
-/* ========== フォーカス・アクセシビリティ ========== */
-button:focus,
-input:focus,
-textarea:focus,
-select:focus,
-.nav-link:focus {
-  outline: 3px solid var(--accent-color);
-  outline-offset: 2px;
-}
-
-.nav-link:focus {
-  outline-color: white;
-}
-
-/* 高コントラスト対応 */
-@media (prefers-contrast: high) {
-  :root {
-    --text-primary: #000000;
-    --text-secondary: #333333;
-    --border-color: #666666;
-  }
-}
-
-/* 動作制限設定対応 */
-@media (prefers-reduced-motion: reduce) {
-  * {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
-  }
-  
-  .spinner {
-    animation: none;
-    border-top-color: var(--accent-color);
-  }
-}
-
-/* ========== グリッドレイアウト ========== */
+/* ========== Grid Layout ========== */
 .ai-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
-  gap: 1.5rem;
-  margin-top: 1.5rem;
+  grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+  gap: var(--space-lg);
+  margin-top: var(--space-lg);
 }
 
 @media (max-width: 768px) {
@@ -1441,1810 +642,461 @@ select:focus,
   }
 }
 
-/* ========== 空の状態 ========== */
-.empty-state {
-  text-align: center;
-  padding: 4rem 2rem;
-  color: var(--text-secondary);
-  background: var(--secondary-bg);
-  border-radius: 16px;
-  border: 2px dashed var(--border-color);
-}
-
-.empty-state h3 {
-  color: var(--text-primary);
-  margin-bottom: 1rem;
-  font-size: 1.5rem;
-}
-
-.empty-state p {
-  margin-bottom: 2rem;
-  font-size: 1.1rem;
-}
-
-.empty-state button {
-  margin-top: 1rem;
-}
-
-/* ========== 管理者パネル ========== */
-.admin-header {
-  margin-bottom: 2rem;
-}
-
-.admin-description {
-  color: var(--text-secondary);
-  font-size: 1.1rem;
-  margin: 0.5rem 0 0 0;
-  line-height: 1.6;
-}
-
-.invite-section {
-  margin-bottom: 3rem;
-}
-
-.invite-card {
-  background: linear-gradient(135deg, var(--secondary-bg), rgba(248, 250, 252, 0.8));
-  padding: 2rem;
-  border-radius: 16px;
-  border: 1px solid var(--border-color);
-  box-shadow: 0 4px 12px var(--shadow-light);
-  position: relative;
-  overflow: hidden;
-}
-
-.invite-card::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 4px;
-  background: linear-gradient(45deg, var(--success-color), var(--accent-secondary));
-  border-radius: 16px 16px 0 0;
-}
-
-.invite-card h3 {
-  display: flex;
-  align-items: center;
-  margin-bottom: 1rem;
-  color: var(--text-primary);
-  font-weight: 600;
-}
-
-.invite-card p {
-  color: var(--text-secondary);
-  margin-bottom: 1.5rem;
-  line-height: 1.6;
-}
-
-.invite-code-result {
-  margin-top: 1.5rem;
-  padding-top: 1.5rem;
-  border-top: 1px solid var(--border-color);
-}
-
-.invite-code-box {
-  background: var(--primary-bg);
-  padding: 1.5rem;
-  border-radius: 12px;
-  border: 1px solid var(--border-color);
-  box-shadow: 0 2px 8px var(--shadow-light);
-}
-
-.code-input-group {
-  display: flex;
-  gap: 0.75rem;
-  margin: 0.75rem 0;
-}
-
-.code-input-group input {
-  flex: 1;
-  margin-bottom: 0;
-  font-family: 'Courier New', monospace;
-  font-weight: 600;
-  letter-spacing: 1px;
-  text-align: center;
-  background: var(--accent-bg);
-}
-
-.admin-management {
-  background: linear-gradient(135deg, var(--secondary-bg), rgba(248, 250, 252, 0.9));
-  padding: 2rem;
-  border-radius: 16px;
-  border: 1px solid var(--border-color);
-  box-shadow: 0 4px 12px var(--shadow-light);
-  position: relative;
-  overflow: hidden;
-}
-
-.admin-management::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 4px;
-  background: linear-gradient(45deg, var(--accent-color), var(--accent-secondary));
-  border-radius: 16px 16px 0 0;
-}
-
-.admin-management h3 {
-  display: flex;
-  align-items: center;
-  margin-bottom: 1.5rem;
-  color: var(--text-primary);
-  font-weight: 600;
-}
-
-.admins-list {
-  margin-bottom: 2rem;
-}
-
-.admin-entry {
-  display: grid;
-  grid-template-columns: 2fr 2fr auto auto;
-  gap: 1.25rem;
-  align-items: center;
-  padding: 1.75rem;
-  background: var(--primary-bg);
-  border: 1px solid var(--border-color);
-  border-radius: 12px;
-  margin-bottom: 1rem;
-  transition: all 0.3s ease;
-  position: relative;
-  overflow: hidden;
-  box-shadow: 0 2px 8px var(--shadow-light);
-}
-
-.admin-entry::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 4px;
-  height: 100%;
-  background: var(--accent-color);
-  transition: width 0.3s ease;
-}
-
-.admin-entry:hover {
-  box-shadow: 0 6px 20px var(--shadow-medium);
-  transform: translateY(-2px);
-  border-color: var(--accent-color);
-}
-
-.admin-entry:hover::before {
-  width: 6px;
-}
-
-.admin-entry.super-admin {
-  border-color: var(--warning-color);
-  background: linear-gradient(135deg, var(--primary-bg), rgba(245, 158, 11, 0.02));
-}
-
-.admin-entry.super-admin::before {
-  background: linear-gradient(180deg, var(--warning-color), var(--accent-color));
-}
-
-.super-admin-label {
-  font-size: 1.1rem;
-  color: var(--warning-color);
-  font-weight: 700;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-  background: rgba(245, 158, 11, 0.1);
-  padding: 0.625rem 1rem;
-  border-radius: 8px;
-  border: 1px solid rgba(245, 158, 11, 0.2);
-  box-shadow: 0 2px 8px rgba(245, 158, 11, 0.15);
-}
-
-.admin-info-display {
-  background: linear-gradient(135deg, var(--accent-bg), rgba(79, 70, 229, 0.05));
-  padding: 1.25rem;
-  border-radius: 12px;
-  margin-bottom: 1.5rem;
-  border: 1px solid var(--border-color);
-  box-shadow: 0 2px 8px var(--shadow-light);
-}
-
-.admin-info-item {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 0.75rem 0;
-  border-bottom: 1px solid rgba(79, 70, 229, 0.1);
-}
-
-.admin-info-item:last-child {
-  border-bottom: none;
-}
-
-.admin-info-label {
-  font-weight: 600;
-  color: var(--text-secondary);
-}
-
-.admin-info-value {
-  font-weight: 500;
-  color: var(--text-primary);
-}
-
-.admin-role-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.375rem 0.875rem;
-  border-radius: 8px;
-  font-size: 0.875rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
-  transition: all 0.3s ease;
-}
-
-.admin-role-badge:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-}
-
-.admin-role-badge.owner {
-  background: linear-gradient(135deg, rgba(245, 158, 11, 0.15), rgba(245, 158, 11, 0.05));
-  color: var(--warning-color);
-  border: 1px solid rgba(245, 158, 11, 0.3);
-}
-
-.admin-role-badge.admin {
-  background: linear-gradient(135deg, rgba(79, 70, 229, 0.15), rgba(79, 70, 229, 0.05));
-  color: var(--accent-color);
-  border: 1px solid rgba(79, 70, 229, 0.3);
-}
-
-.admin-role-badge.editor {
-  background: linear-gradient(135deg, rgba(16, 185, 129, 0.15), rgba(16, 185, 129, 0.05));
-  color: var(--success-color);
-  border: 1px solid rgba(16, 185, 129, 0.3);
-}
-
-.admin-actions {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-}
-
-.admin-actions small {
-  color: var(--text-secondary);
-  font-style: italic;
-  line-height: 1.4;
-}
-
-.admin-help-text {
-  background: rgba(79, 70, 229, 0.05);
-  border: 1px solid rgba(79, 70, 229, 0.1);
-  border-radius: 12px;
-  padding: 1.25rem;
-  margin-bottom: 1.5rem;
-  box-shadow: 0 2px 8px rgba(79, 70, 229, 0.05);
-}
-
-.admin-help-text .fas {
-  color: var(--accent-color);
-  margin-right: 0.5rem;
-}
-
-.admin-field-group {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-
-.admin-field-group label {
-  font-weight: 600;
-  color: var(--text-secondary);
-  font-size: 0.9rem;
-}
-
-.admin-actions-buttons {
-  display: flex;
-  gap: 0.75rem;
-  align-items: center;
-  justify-content: center;
-}
-
-/* ========== ボタングループ ========== */
-.button-group {
-  display: flex;
-  gap: 1rem;
-  justify-content: flex-end;
-  margin-top: 2rem;
-  padding-top: 2rem;
-  border-top: 1px solid var(--border-color);
-  /* ENHANCED: Ensure buttons don't get cut off */
-  min-height: 80px;
-  align-items: flex-start;
-  /* ENHANCED: Prevent horizontal overflow */
-  width: 100%;
-  max-width: 100%;
-  box-sizing: border-box;
-  /* ENHANCED: Better safe area support */
-  padding-bottom: env(safe-area-inset-bottom);
-}
-
-@media (max-width: 768px) {
-  .button-group {
-    flex-direction: column;
-    gap: 1rem;
-    /* ENHANCED: Add extra padding for mobile to prevent buttons being cut off */
-    padding-bottom: 2rem;
-    /* ENHANCED: Add safe area for mobile devices with notches/home indicators */
-    padding-bottom: max(2rem, env(safe-area-inset-bottom) + 1rem);
-    /* ENHANCED: Ensure full width on mobile */
-    width: 100%;
-    justify-content: stretch;
-  }
-  
-  .button-group button {
-    width: 100%;
-    max-width: 100%;
-  }
-}
-
-/* ========== 新しい認証システム用スタイル ========== */
-.login-selector {
-  text-align: center;
-  margin-bottom: 2rem;
-}
-
-.login-tabs {
-  display: flex;
-  justify-content: center;
-  gap: 0;
-  margin: 1.5rem 0;
-  background: var(--accent-bg);
-  border-radius: 12px;
-  padding: 4px;
-  max-width: 400px;
-  margin: 1.5rem auto;
-}
-
-.login-tab {
-  flex: 1;
-  background: transparent;
-  border: none;
-  padding: 12px 20px;
-  border-radius: 8px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  font-weight: 500;
-  color: var(--text-secondary);
-  transition: all 0.2s ease;
-  font-size: 14px;
-}
-
-.login-tab:hover {
-  background: rgba(255, 255, 255, 0.5);
-  color: var(--text-primary);
-}
-
-.login-tab.active {
-  background: var(--primary-bg);
-  color: var(--accent-color);
-  box-shadow: 0 2px 4px var(--shadow-light);
-}
-
-.login-form {
-  max-width: 600px;
-  margin: 0 auto;
-  background: var(--primary-bg);
-  padding: 2.5rem;
-  border-radius: 8px;
-  border: 1px solid var(--border-color);
-  box-shadow: 0 2px 8px var(--shadow-light);
-}
-
-.login-form h2 {
-  margin-bottom: 0.5rem;
-  font-size: 1.75rem;
-  font-weight: 600;
-  text-align: center;
-  color: var(--text-primary);
-  margin-top: 0;
-}
-
-.login-form h3 {
-  margin-top: 0;
-  margin-bottom: 1.5rem;
-  text-align: center;
-  color: var(--text-primary);
-  font-weight: 600;
-  font-size: 1.25rem;
-}
-
-.login-form p {
-  text-align: center;
-  color: var(--text-secondary);
-  margin-bottom: 2rem;
-  font-size: 0.95rem;
-  line-height: 1.6;
-}
-
-.login-options {
-  display: block;
-}
-
-.login-switch {
-  text-align: center;
-  margin-top: 2rem;
-  padding-top: 2rem;
-  border-top: 1px solid var(--border-color);
-}
-
-.login-switch p {
-  margin: 0.5rem 0;
-  color: var(--text-secondary);
-  font-size: 14px;
-}
-
-.login-switch a {
-  color: var(--accent-color);
-  text-decoration: none;
-  font-weight: 600;
-  transition: all 0.3s ease;
-  position: relative;
-}
-
-.login-switch a::after {
-  content: '';
-  position: absolute;
-  bottom: -2px;
-  left: 0;
-  width: 0;
-  height: 2px;
-  background: linear-gradient(45deg, var(--accent-color), var(--accent-secondary));
-  transition: width 0.3s ease;
-}
-
-.login-switch a:hover::after {
-  width: 100%;
-}
-
-.login-switch a:hover {
-  color: var(--accent-secondary);
-  text-decoration: none;
-}
-
-/* 既存のフォームスタイルを調整 */
-.form-group {
-  margin-bottom: 2rem;
-}
-
-.form-group label {
-  display: block;
-  margin-bottom: 0.75rem;
-  font-weight: 600;
-  color: var(--text-primary);
-  font-size: 15px; /* Reduced from 16px for better proportion */
-  letter-spacing: 0.025em;
-}
-
-.form-group input[type="text"],
-.form-group input[type="password"],
-.form-group input[type="email"] {
-  width: 100%;
-  padding: 1rem 1.25rem; /* Reduced padding for more compact look */
-  border: 2px solid var(--border-color);
-  border-radius: 12px;
-  font-size: 16px; /* Reduced from 17px for better proportion */
-  background: var(--primary-bg);
-  color: var(--text-primary);
-  transition: all 0.3s ease;
-  font-family: inherit;
-  box-shadow: 0 2px 4px var(--shadow-light);
-  min-height: 52px; /* Reduced from 56px for more compact feel */
-}
-
-.form-group input[type="text"]:focus,
-.form-group input[type="password"]:focus,
-.form-group input[type="email"]:focus {
-  outline: none;
-  border-color: var(--accent-color);
-  box-shadow: 0 0 0 4px var(--glow-color), 0 4px 12px var(--shadow-medium);
-  transform: translateY(-2px);
-}
-
-.form-group input::placeholder {
-  color: var(--text-secondary);
-  opacity: 0.8;
-}
-
-.form-group small {
-  display: block;
-  margin-top: 0.75rem;
-  font-size: 13px; /* Reduced from 14px for better proportion */
-  color: var(--text-secondary);
-  line-height: 1.4;
-}
-
-/* ボタンスタイルの調整 */
-.button-group {
-  margin-top: 2.5rem;
-}
-
-.save-btn {
-  width: 100%;
-  background: linear-gradient(135deg, var(--accent-color) 0%, var(--accent-secondary) 100%);
-  color: white;
-  border: none;
-  padding: 1.5rem 2rem; /* Increased padding for better touch targets */
-  border-radius: 12px;
-  font-weight: 600;
-  font-size: 17px; /* Increased from 16px */
-  cursor: pointer;
-  transition: all 0.3s ease;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  box-shadow: 0 4px 12px var(--glow-color);
-  position: relative;
-  overflow: hidden;
-  min-height: 60px; /* Ensure substantial touch target */
-}
-
-.save-btn::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: -100%;
-  width: 100%;
-  height: 100%;
-  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
-  transition: left 0.5s;
-}
-
-.save-btn:hover::before {
-  left: 100%;
-}
-
-.save-btn:hover:not(:disabled) {
-  transform: translateY(-3px);
-  box-shadow: 0 8px 24px var(--glow-color);
-  background: linear-gradient(135deg, var(--accent-secondary) 0%, var(--accent-color) 100%);
-}
-
-.save-btn:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-  transform: none;
-  box-shadow: 0 2px 4px var(--shadow-light);
-}
-
-/* 認証待ちセクションのスタイル */
-.verification-info {
-  background: var(--secondary-bg);
-  border: 1px solid var(--border-color);
-  border-radius: 12px;
-  padding: 1.5rem;
-  margin: 1.5rem 0;
-  border-left: 4px solid var(--accent-color);
-}
-
-.verification-info p {
-  margin: 0.75rem 0;
-  font-size: 14px;
-  color: var(--text-secondary);
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.verification-info strong {
-  color: var(--text-primary);
-  font-weight: 600;
-}
-
-/* セカンダリボタンスタイル */
-.secondary-btn {
-  background: var(--secondary-bg);
-  color: var(--text-primary);
-  border: 2px solid var(--border-color);
-  padding: 1rem 1.5rem;
-  border-radius: 12px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  font-size: 14px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-}
-
-.secondary-btn:hover {
-  border-color: var(--accent-color);
-  background: var(--primary-bg);
-  box-shadow: 0 4px 12px var(--shadow-light);
-  transform: translateY(-2px);
-}
-
-/* アニメーション効果 */
-.login-form {
-  animation: slideInLogin 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-}
-
-@keyframes slideInLogin {
-  from {
-    opacity: 0;
-    transform: translateY(30px) scale(0.95);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
-}
-
-/* レスポンシブ対応 */
-@media (max-width: 768px) {
-  .container {
-    margin: 0.5rem;
-    padding: 1rem; /* Reduced container padding on mobile */
-  }
-  
-  #auth-container {
-    max-width: none; /* Remove width restriction on mobile */
-    margin: 0;
-    padding: 1.5rem; /* Reduced auth container padding */
-    border-radius: 12px;
-  }
-  
-  .login-form {
-    margin: 0;
-    padding: 2rem 1.5rem; /* Reduced horizontal padding to maximize width */
-    border-radius: 16px;
-    max-width: none; /* Remove width restriction to use full available space */
-  }
-  
-  .login-form h2 {
-    font-size: 2.2rem; /* Maintain good size on mobile */
-  }
-  
-  .login-form h3 {
-    font-size: 1.5rem; /* Maintain good size on mobile */
-  }
-  
-  .form-group input[type="text"],
-  .form-group input[type="password"],
-  .form-group input[type="email"] {
-    font-size: 18px; /* iOS zoom防止 and better readability */
-    min-height: 60px; /* Ensure good touch targets */
-    padding: 1.2rem 1rem; /* Optimized padding for mobile */
-  }
-  
-  .save-btn {
-    min-height: 64px; /* Larger touch target on mobile */
-    font-size: 18px;
-    padding: 1.2rem 2rem; /* Better padding for mobile */
-  }
-  
-  /* Improve button group spacing on mobile */
-  .button-group {
-    gap: 1rem;
-  }
-  
-  /* Better text spacing on mobile */
-  .login-switch p {
-    font-size: 1rem;
-    margin: 0.75rem 0;
-  }
-}
-
-/* Wider screens optimization */
-@media (min-width: 1200px) {
-  .login-form {
-    max-width: 900px; /* Reduced from 1400px - still wider but more reasonable */
-    padding: 4rem 5rem; /* More spacious padding for wider form but not excessive */
-  }
-  
-  .form-group {
-    display: flex;
-    flex-direction: column;
-    gap: 0.8rem;
-  }
-  
-  .form-group input[type="text"],
-  .form-group input[type="password"], 
-  .form-group input[type="email"] {
-    padding: 1.1rem 1.4rem; /* Slightly more spacious but not excessive */
-    font-size: 1rem; /* Reduced from 1.1rem */
-  }
-}
-
-/* ENHANCED: Extra small screens optimization (phones in portrait) */
-@media (max-width: 480px) {
-  .container {
-    margin: 0.25rem;
-    padding: 0.75rem; /* Minimal container padding on small phones */
-    /* ENHANCED: Better small screen container sizing */
-    width: calc(100% - 0.5rem);
-    max-width: calc(100vw - 0.5rem);
-  }
-  
-  #auth-container {
-    padding: 1rem; /* Minimal auth container padding */
-    border-radius: 8px;
-    /* ENHANCED: Better small screen sizing */
-    width: 100%;
-    max-width: 100%;
-    margin: 0;
-  }
-  
-  .login-form {
-    padding: 1.5rem 1rem; /* Minimal form padding to maximize width */
-    border-radius: 12px;
-    /* ENHANCED: Better small screen sizing */
-    width: 100%;
-    max-width: 100%;
-    margin: 0;
-  }
-  
-  .login-form h2 {
-    font-size: 2rem; /* Slightly smaller on very small screens */
-  }
-  
-  .login-form h3 {
-    font-size: 1.3rem; /* Slightly smaller on very small screens */
-  }
-  
-  .form-group input[type="text"],
-  .form-group input[type="password"],
-  .form-group input[type="email"] {
-    padding: 1rem 0.8rem; /* Compact padding for small screens */
-    /* ENHANCED: Ensure no horizontal overflow */
-    width: 100%;
-    max-width: 100%;
-  }
-  
-  /* ENHANCED: Enhanced dashboard mobile optimization for very small screens */
-  #dashboard-nav {
-    padding: 0.75rem; /* More compact navigation padding */
-    margin-bottom: 0.75rem;
-    /* ENHANCED: Better small screen sizing */
-    width: 100%;
-    max-width: 100%;
-  }
-  
-  #dashboard-nav ul {
-    gap: 0.4rem; /* Tighter gap for small screens */
-    padding-bottom: 0.75rem;
-    /* ENHANCED: Even more space for scroll indicator on small screens */
-    padding-right: 5rem;
-  }
-  
-  #dashboard-nav a {
-    padding: 0.875rem 1rem; /* More compact navigation items */
-    font-size: 0.85rem; /* Slightly smaller text for better fit */
-    min-height: 48px; /* Maintain adequate touch target */
-    /* ENHANCED: Better text wrapping prevention */
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-  
-  #dashboard-content {
-    padding: 1rem; /* More compact content padding */
-    /* ENHANCED: Better small screen sizing */
-    width: 100%;
-    max-width: 100%;
-  }
-  
-  /* ENHANCED: Better form element spacing for very small screens */
-  .form-group {
-    margin-bottom: 1.25rem; /* Slightly tighter form spacing */
-  }
-  
-  /* ENHANCED: Ensure navigation items don't get too crowded on tiny screens */
-  .nav-header h3 {
-    font-size: 1rem; /* Smaller header for compact nav */
-    margin-bottom: 0.75rem;
-  }
-  
-  /* ENHANCED: Optimize modal for very small screens */
-  .modal-content {
-    margin: 1% auto;
-    width: 98%; /* Use almost full width on tiny screens */
-    max-height: 95vh;
-    padding: 1rem;
-    /* ENHANCED: Critical: Ensure buttons are always accessible */
-    padding-bottom: max(3rem, env(safe-area-inset-bottom) + 2rem);
-    /* ENHANCED: Better viewport usage */
-    max-height: calc(100vh - 1rem);
-    /* ENHANCED: Better sizing */
-    width: calc(100% - 0.5rem);
-    max-width: calc(100vw - 0.5rem);
-  }
-  
-  /* ENHANCED: Better h1 sizing for very small screens */
-  h1 {
-    font-size: 2.2rem; /* More conservative size for tiny screens */
-  }
-  
-  h2 {
-    font-size: 1.8rem; /* Better proportions for small screens */
-  }
-  
-  /* ENHANCED: Ensure user info doesn't overflow */
-  .user-info {
-    padding: 1rem;
-    /* ENHANCED: Better small screen sizing */
-    width: 100%;
-    max-width: 100%;
-    box-sizing: border-box;
-  }
-  
-  .user-welcome {
-    font-size: 1rem; /* Slightly smaller on tiny screens */
-  }
-  
-  /* ENHANCED: Better input sizing for small screens */
-  input[type="email"], 
-  input[type="password"], 
-  input[type="text"], 
-  input[type="time"], 
-  input[type="number"], 
-  textarea, 
-  select {
-    /* ENHANCED: Ensure inputs never overflow */
-    width: 100%;
-    max-width: 100%;
-    min-width: 0;
-  }
-  
-  button {
-    /* ENHANCED: Ensure buttons never overflow */
-    width: 100%;
-    max-width: 100%;
-    min-width: 0;
-  }
-  
-  /* ENHANCED: Better scroll indicator positioning for small screens */
-  #dashboard-nav::after {
-    right: 0.5rem;
-    font-size: 1rem;
-    width: 1.5rem;
-  }
-}
-
-/* Discord Management Section Styling */
-.discord-management-section {
-  margin-top: 2.5rem;
-  padding: 2rem;
-  background: linear-gradient(135deg, var(--secondary-bg), rgba(248, 250, 252, 0.8));
-  border-radius: 16px;
-  border: 1px solid var(--border-color);
-  box-shadow: 0 4px 12px var(--shadow-light);
-}
-
-.discord-management-section h3 {
-  color: #5865f2; /* Discord blue */
-  margin-bottom: 1rem;
-}
-
-.section-description {
-  color: var(--text-secondary);
-  margin-bottom: 1.5rem;
-  font-size: 0.95rem;
-  line-height: 1.5;
-}
-
-.discord-id-manager {
-  background: var(--primary-bg);
-  padding: 1.5rem;
-  border-radius: 12px;
-  border: 1px solid var(--border-color);
-  margin-bottom: 2rem;
-}
-
-.discord-mappings-list h4 {
-  color: var(--text-primary);
-  margin-bottom: 1rem;
-  font-size: 1.1rem;
-}
-
-.mappings-container {
-  max-height: 300px;
-  overflow-y: auto;
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
-  background: var(--primary-bg);
-}
-
-.discord-mapping-item {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 1rem 1.5rem;
-  border-bottom: 1px solid var(--border-color);
-  transition: background-color 0.2s ease;
-}
-
-.discord-mapping-item:last-child {
-  border-bottom: none;
-}
-
-.discord-mapping-item:hover {
-  background: var(--secondary-bg);
-}
-
-.mapping-info {
-  flex: 1;
-}
-
-.mapping-info .discord-id {
-  font-family: 'Courier New', monospace;
-  color: var(--text-secondary);
-  font-size: 0.9rem;
-  margin-bottom: 0.25rem;
-}
-
-.mapping-info .nickname {
-  color: var(--text-primary);
-  font-weight: 600;
-  font-size: 1rem;
-}
-
-.mapping-actions {
-  display: flex;
-  gap: 0.5rem;
-}
-
-.mapping-actions .secondary-btn {
-  padding: 0.5rem 1rem;
-  font-size: 0.85rem;
-  min-height: auto;
-}
-
-.empty-mappings {
-  padding: 2rem;
-  text-align: center;
-  color: var(--text-secondary);
-  font-style: italic;
-}
-
-/* ========== AI-specific Nickname Management Styles ========== */
-.ai-nickname-management {
-  margin-top: 2rem;
-  padding: 1.5rem;
-  background: var(--secondary-bg);
-  border-radius: 8px;
-  border: 1px solid var(--border-color);
-}
-
-.ai-nickname-management h4 {
-  margin: 0 0 1rem 0;
-  color: var(--text-primary);
-  font-size: 1.1rem;
-  font-weight: 600;
-}
-
-.ai-nickname-management .section-description {
-  margin-bottom: 1.5rem;
-  color: var(--text-secondary);
-  font-size: 0.9rem;
-}
-
-.nickname-input-section {
-  margin-bottom: 2rem;
-}
-
-.ai-nicknames-list h5 {
-  margin: 0 0 1rem 0;
-  color: var(--text-primary);
-  font-size: 1rem;
-  font-weight: 500;
-}
-
-.nicknames-container {
-  background: var(--primary-bg);
-  border: 1px solid var(--border-color);
-  border-radius: 6px;
-  max-height: 300px;
-  overflow-y: auto;
-}
-
-.nickname-item {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 1rem;
-  border-bottom: 1px solid var(--border-color);
-}
-
-.nickname-item:last-child {
-  border-bottom: none;
-}
-
-.nickname-item:hover {
-  background: var(--secondary-bg);
-}
-
-.nickname-info {
-  flex: 1;
-}
-
-.nickname-info .discord-id {
-  font-family: monospace;
-  font-size: 0.85rem;
-  color: var(--text-secondary);
-  margin-bottom: 0.25rem;
-}
-
-.nickname-info .nickname {
-  font-weight: 500;
-  color: var(--text-primary);
-}
-
-.nickname-actions {
-  display: flex;
-  gap: 0.5rem;
-}
-
-.nickname-actions .secondary-btn {
-  padding: 0.4rem 0.8rem;
-  font-size: 0.8rem;
-}
-
-.empty-nicknames {
-  padding: 2rem;
-  text-align: center;
-  color: var(--text-secondary);
-  font-style: italic;
-}
-
-/* ========== User Management Styles ========== */
-.users-list {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-  margin-top: 1rem;
-}
-
-.user-card {
-  background: var(--primary-bg);
-  border: 1px solid var(--border-color);
-  border-radius: 12px;
-  padding: 1.5rem;
-  box-shadow: 0 2px 8px var(--shadow-light);
-  transition: all 0.3s ease;
-}
-
-.user-card:hover {
-  box-shadow: 0 4px 16px var(--shadow-medium);
-  transform: translateY(-2px);
-}
-
-.user-info {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 1rem;
-}
-
-.user-details h4 {
-  margin: 0 0 0.25rem 0;
-  color: var(--text-primary);
-  font-size: 1.1rem;
-  font-weight: 600;
-}
-
-.user-display-name {
-  margin: 0 0 0.25rem 0;
-  color: var(--text-secondary);
-  font-size: 0.9rem;
-}
-
-.user-email {
-  margin: 0;
-  color: var(--text-secondary);
-  font-size: 0.85rem;
-}
-
-.user-role {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.role-badge {
-  padding: 0.25rem 0.75rem;
-  border-radius: 20px;
-  font-size: 0.8rem;
-  font-weight: 500;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
-.role-badge.role-owner {
-  background: linear-gradient(135deg, #fbbf24, #f59e0b);
-  color: white;
-}
-
-.role-badge.role-admin {
-  background: linear-gradient(135deg, #8b5cf6, #7c3aed);
-  color: white;
-}
-
-.role-badge.role-editor {
-  background: linear-gradient(135deg, #10b981, #059669);
-  color: white;
-}
-
-.role-badge.role-viewer {
-  background: linear-gradient(135deg, #6b7280, #4b5563);
-  color: white;
-}
-
-.current-user-badge {
-  background: var(--accent-bg);
-  color: var(--accent-color);
-  padding: 0.25rem 0.5rem;
-  border-radius: 12px;
-  font-size: 0.75rem;
-  font-weight: 500;
-}
-
-.user-actions {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-}
-
-.role-selector {
-  padding: 0.5rem;
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
-  background: var(--primary-bg);
-  color: var(--text-primary);
-  font-size: 0.9rem;
-}
-
-.change-role-btn {
-  padding: 0.5rem 1rem;
-  background: var(--accent-color);
-  color: white;
-  border: none;
-  border-radius: 8px;
-  font-size: 0.9rem;
-  cursor: pointer;
-  transition: all 0.3s ease;
-}
-
-.change-role-btn:hover {
-  background: var(--accent-secondary);
-  transform: translateY(-1px);
-}
-
-.invite-section {
-  margin-bottom: 2rem;
-}
-
-.invite-card {
-  background: var(--secondary-bg);
-  border: 1px solid var(--border-color);
-  border-radius: 12px;
-  padding: 2rem;
-  margin-bottom: 1rem;
-}
-
-.invite-card h3 {
-  margin: 0 0 1rem 0;
-  color: var(--text-primary);
-  display: flex;
-  align-items: center;
-}
-
-.invite-card p {
-  margin: 0 0 1.5rem 0;
-  color: var(--text-secondary);
-  line-height: 1.6;
-}
-
-.invite-code-result {
-  margin-top: 1.5rem;
-  padding: 1.5rem;
-  background: var(--primary-bg);
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
-  border-left: 4px solid var(--success-color);
-}
-
-.invite-code-box label {
-  display: block;
-  margin-bottom: 0.5rem;
-  color: var(--text-primary);
-  font-weight: 500;
-}
-
-.code-input-group {
-  display: flex;
-  gap: 0.5rem;
-  margin-bottom: 0.5rem;
-}
-
-.code-input-group input {
-  flex: 1;
-  padding: 0.75rem;
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
-  background: var(--secondary-bg);
-  font-family: 'Courier New', monospace;
-  font-size: 1.1rem;
-  font-weight: bold;
-  letter-spacing: 1px;
-  text-align: center;
-}
-
-.code-input-group button {
-  padding: 0.75rem 1rem;
-  background: var(--accent-color);
-  color: white;
-  border: none;
-  border-radius: 8px;
-  cursor: pointer;
-  transition: all 0.3s ease;
-}
-
-.code-input-group button:hover {
-  background: var(--accent-secondary);
-}
-
-/* Responsive design for user management */
-@media (max-width: 768px) {
-  .user-info {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 1rem;
-  }
-  
-  .user-actions {
-    width: 100%;
-    justify-content: space-between;
-  }
-  
-  .role-selector {
-    flex: 1;
-  }
-  
-  .code-input-group {
-    flex-direction: column;
-  }
-  
-  .invite-card {
-    padding: 1.5rem;
-  }
-}
-
-/* ========== System Settings Styles ========== */
-.system-status-section {
-  margin-bottom: 3rem;
-}
-
-.status-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-  gap: 1.5rem;
-  margin-top: 1.5rem;
-}
-
-.status-card {
-  background: var(--primary-bg);
-  border: 1px solid var(--border-color);
-  border-radius: 12px;
-  padding: 1.5rem;
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-  box-shadow: 0 2px 8px var(--shadow-light);
-  transition: all 0.3s ease;
-  position: relative;
-  overflow: hidden;
-}
-
-.status-card::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 3px;
-  background: linear-gradient(45deg, var(--accent-color), var(--accent-secondary));
-}
-
-.status-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px var(--shadow-medium);
-}
-
-.status-icon {
-  width: 48px;
-  height: 48px;
-  border-radius: 12px;
-  background: linear-gradient(135deg, var(--accent-color), var(--accent-secondary));
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: white;
-  font-size: 1.2rem;
-  box-shadow: 0 4px 12px var(--glow-color);
-}
-
-.status-info h4 {
-  margin: 0 0 0.5rem 0;
-  color: var(--text-primary);
-  font-size: 1.1rem;
-  font-weight: 600;
-}
-
-.status-info p {
-  margin: 0;
-  color: var(--text-secondary);
-  font-size: 0.9rem;
-}
-
-.system-settings-form {
-  background: var(--secondary-bg);
-  border: 1px solid var(--border-color);
-  border-radius: 16px;
-  padding: 2rem;
-  margin-bottom: 3rem;
-  box-shadow: 0 4px 12px var(--shadow-light);
-}
-
-.settings-section {
-  margin-bottom: 2.5rem;
-  padding-bottom: 2rem;
-  border-bottom: 1px solid var(--border-color);
-}
-
-.settings-section:last-of-type {
-  border-bottom: none;
-  margin-bottom: 0;
-  padding-bottom: 0;
-}
-
-.settings-section h4 {
-  margin: 0 0 1.5rem 0;
-  color: var(--text-primary);
-  font-size: 1.2rem;
-  font-weight: 600;
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding-bottom: 0.5rem;
-  border-bottom: 2px solid var(--accent-color);
-}
-
-.ownership-transfer-section {
-  background: var(--secondary-bg);
-  border: 1px solid var(--border-color);
-  border-radius: 16px;
-  padding: 2rem;
-  box-shadow: 0 4px 12px var(--shadow-light);
-}
-
-.danger-zone {
-  background: rgba(239, 68, 68, 0.05);
-  border: 2px solid rgba(239, 68, 68, 0.1);
-  border-radius: 12px;
-  padding: 2rem;
-  margin-top: 1.5rem;
-}
-
-.danger-warning {
-  background: rgba(239, 68, 68, 0.1);
-  border: 1px solid rgba(239, 68, 68, 0.2);
-  border-radius: 8px;
-  padding: 1rem;
-  margin-bottom: 2rem;
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-}
-
-.danger-warning i {
-  color: var(--danger-color);
-  font-size: 1.1rem;
-}
-
-.danger-warning strong {
-  color: var(--danger-color);
-}
-
-.danger-btn {
-  background: linear-gradient(135deg, var(--danger-color), #dc2626);
-  color: white;
-  border: none;
-  padding: 1rem 2rem;
-  border-radius: 8px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
-}
-
-.danger-btn:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 20px rgba(239, 68, 68, 0.4);
-  background: linear-gradient(135deg, #dc2626, #b91c1c);
-}
-
-.danger-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-  transform: none;
-  box-shadow: 0 2px 4px rgba(239, 68, 68, 0.2);
-}
-
-.checkbox-container {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  margin: 1rem 0;
-}
-
-.checkbox-container input[type="checkbox"] {
-  width: 18px;
-  height: 18px;
-  margin: 0;
-  cursor: pointer;
-}
-
-.checkbox-container label {
-  color: var(--text-secondary);
-  font-size: 0.9rem;
-  cursor: pointer;
-  line-height: 1.4;
-}
-
-/* Remember me checkbox styling */
+/* ========== Checkbox Styling ========== */
 .checkbox-group {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  margin: 0.5rem 0;
+  gap: var(--space-sm);
 }
 
-.checkbox-group input[type="checkbox"] {
-  width: 16px;
-  height: 16px;
-  margin: 0;
+input[type="checkbox"] {
+  width: 20px;
+  height: 20px;
   cursor: pointer;
-  accent-color: var(--accent-color);
+  accent-color: var(--primary);
 }
 
-.checkbox-group label {
+/* ========== Form Sections ========== */
+.form-section {
+  margin: var(--space-xl) 0;
+  padding: var(--space-lg);
+  background: var(--bg-secondary);
+  border-radius: var(--radius-lg);
+  border-left: 4px solid var(--primary);
+}
+
+.form-section h3 {
+  font-size: 1.25rem;
+  margin-bottom: var(--space-sm);
   color: var(--text-primary);
-  font-size: 0.9rem;
-  cursor: pointer;
-  line-height: 1.4;
-  margin: 0;
 }
 
-/* Status indicators */
-.status-active {
-  color: var(--success-color);
-  font-weight: 600;
-}
-
-.status-inactive {
+.form-section .section-description {
   color: var(--text-secondary);
+  font-size: 0.875rem;
+  margin-bottom: var(--space-lg);
 }
 
-.status-maintenance {
-  color: var(--warning-color);
-  font-weight: 600;
+/* ========== Empty State ========== */
+.empty-state {
+  text-align: center;
+  padding: var(--space-2xl);
+  color: var(--text-tertiary);
 }
 
-.status-error {
-  color: var(--danger-color);
-  font-weight: 600;
+.empty-state i {
+  font-size: 4rem;
+  margin-bottom: var(--space-lg);
+  opacity: 0.5;
 }
 
-/* Responsive design for system settings */
+.empty-state h3 {
+  color: var(--text-secondary);
+  margin-bottom: var(--space-sm);
+}
+
+/* ========== Animations ========== */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slideUp {
+  from {
+    transform: translateY(20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes slideDown {
+  from {
+    transform: translateY(-20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+/* ========== Utility Classes ========== */
+.text-center {
+  text-align: center;
+}
+
+.mt-1 { margin-top: var(--space-sm); }
+.mt-2 { margin-top: var(--space-md); }
+.mt-3 { margin-top: var(--space-lg); }
+.mt-4 { margin-top: var(--space-xl); }
+
+.mb-1 { margin-bottom: var(--space-sm); }
+.mb-2 { margin-bottom: var(--space-md); }
+.mb-3 { margin-bottom: var(--space-lg); }
+.mb-4 { margin-bottom: var(--space-xl); }
+
+.hidden {
+  display: none !important;
+}
+
+/* ========== Responsive Design ========== */
 @media (max-width: 768px) {
-  .status-grid {
-    grid-template-columns: 1fr;
+  h1 {
+    font-size: 2rem;
   }
   
-  .status-card {
-    padding: 1rem;
+  h2 {
+    font-size: 1.5rem;
   }
   
-  .status-icon {
-    width: 40px;
-    height: 40px;
+  .auth-card {
+    padding: var(--space-lg);
   }
   
-  .system-settings-form,
-  .ownership-transfer-section {
-    padding: 1.5rem;
-  }
-  
-  .danger-zone {
-    padding: 1.5rem;
-  }
-  
-  .danger-warning {
+  .user-profile {
     flex-direction: column;
     text-align: center;
-    gap: 0.5rem;
-  }
-}
-
-/* ========== カスタム確認・入力ダイアログ ========== */
-#confirm-modal .modal-content,
-#prompt-modal .modal-content {
-  max-width: 500px;
-  text-align: center;
-}
-
-#confirm-modal h3,
-#prompt-modal h3 {
-  color: var(--text-primary);
-  margin-bottom: 1rem;
-  font-size: 1.5rem;
-  font-weight: 600;
-}
-
-#confirm-modal p,
-#prompt-modal p {
-  color: var(--text-secondary);
-  margin-bottom: 1.5rem;
-  line-height: 1.6;
-  white-space: pre-line;
-}
-
-#prompt-input {
-  width: 100%;
-  padding: 0.75rem 1rem;
-  border: 2px solid var(--border-color);
-  border-radius: 8px;
-  font-size: 1rem;
-  background: var(--primary-bg);
-  color: var(--text-primary);
-  transition: border-color 0.3s ease;
-  margin-bottom: 1.5rem;
-}
-
-#prompt-input:focus {
-  outline: none;
-  border-color: var(--accent-color);
-  box-shadow: 0 0 0 3px var(--glow-color);
-}
-
-#confirm-modal .button-group,
-#prompt-modal .button-group {
-  display: flex;
-  gap: 1rem;
-  justify-content: center;
-  margin-top: 1.5rem;
-}
-
-#confirm-modal .button-group button,
-#prompt-modal .button-group button {
-  min-width: 120px;
-  padding: 0.75rem 1.5rem;
-  font-size: 1rem;
-}
-
-/* モバイル対応 */
-@media (max-width: 480px) {
-  #confirm-modal .button-group,
-  #prompt-modal .button-group {
-    flex-direction: column;
   }
   
-  #confirm-modal .button-group button,
-  #prompt-modal .button-group button {
-    min-width: auto;
-    width: 100%;
+  .toast {
+    min-width: 280px;
+  }
+  
+  .toast-container {
+    left: var(--space-md);
+    right: var(--space-md);
   }
 }
 
-/* ========== ニックネーム認識検証スタイル ========== */
-.ai-verification-section {
-  margin-top: 2rem;
-  padding: 1.5rem;
-  background: var(--secondary-bg);
-  border-radius: 12px;
-  border: 2px solid var(--border-color);
+/* ========== Accessibility ========== */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }
 
-.verify-btn {
-  background: linear-gradient(135deg, var(--success-color), #0891b2);
-  color: white;
-  border: none;
-  padding: 0.75rem 1.5rem;
-  border-radius: 8px;
-  font-size: 0.95rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  display: inline-flex;
+/* ========== Print Styles ========== */
+@media print {
+  body {
+    background: white;
+  }
+  
+  .modal,
+  .toast-container,
+  #dashboard-nav {
+    display: none !important;
+  }
+}
+
+/* ========== Icon Styling ========== */
+.fas, .far, .fab {
+  font-size: inherit;
+  vertical-align: middle;
+}
+
+#dashboard-nav .fas {
+  width: 20px;
+  text-align: center;
+  margin-right: 0.5rem;
+}
+
+button .fas,
+button .far,
+button .fab {
+  font-size: 1em;
+}
+
+.avatar-placeholder {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--primary-light) 0%, var(--secondary) 100%);
+  display: flex;
   align-items: center;
   justify-content: center;
-  gap: 0.5rem;
+  color: var(--text-inverse);
+  font-size: 2rem;
 }
 
-.verify-btn:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 25px rgba(16, 185, 129, 0.3);
+.avatar-placeholder .fas {
+  color: var(--text-inverse);
 }
 
-.verify-btn:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-  transform: none;
+/* ========== Button Groups ========== */
+.button-group {
+  display: flex;
+  gap: var(--space-md);
+  margin-top: var(--space-lg);
+  flex-wrap: wrap;
 }
 
-.verification-results {
-  margin-top: 1.5rem;
-  display: none;
+.ai-card-actions {
+  display: flex;
+  gap: var(--space-sm);
+  margin-top: var(--space-md);
+  flex-wrap: wrap;
 }
 
-.verification-results.show {
-  display: block;
+.ai-card-actions button {
+  flex: 1;
+  min-width: 120px;
 }
 
-.verification-summary {
-  background: var(--primary-bg);
-  border: 2px solid var(--border-color);
-  border-radius: 8px;
-  padding: 1rem;
-  margin-bottom: 1rem;
+/* ========== Invitation Code Styling ========== */
+.invite-code-result {
+  margin-top: var(--space-lg);
+  padding-top: var(--space-lg);
+  border-top: 2px solid var(--border-light);
 }
 
-.verification-summary h6 {
-  margin: 0 0 0.5rem 0;
+.invite-code-box {
+  background: var(--bg-secondary);
+  padding: var(--space-lg);
+  border-radius: var(--radius-lg);
+  border: 2px solid var(--primary);
+}
+
+.code-input-group {
+  display: flex;
+  gap: var(--space-md);
+  margin: var(--space-md) 0;
+}
+
+.code-input-group input {
+  flex: 1;
+  font-family: var(--font-mono);
+  font-weight: 700;
+  letter-spacing: 2px;
+  text-align: center;
+  background: var(--bg-card);
+  font-size: 1.125rem;
+}
+
+/* ========== Admin & Role Management ========== */
+.admin-management {
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.05) 0%, rgba(139, 92, 246, 0.05) 100%);
+  padding: var(--space-xl);
+  border-radius: var(--radius-lg);
+  border: 2px solid var(--border-light);
+}
+
+.user-list-item {
+  background: var(--bg-card);
+  padding: var(--space-lg);
+  border-radius: var(--radius-md);
+  margin-bottom: var(--space-md);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border: 1px solid var(--border);
+  transition: all 0.2s ease;
+}
+
+.user-list-item:hover {
+  border-color: var(--primary);
+  box-shadow: var(--shadow-md);
+}
+
+/* ========== Profile Overview ========== */
+.profile-overview {
+  margin-bottom: var(--space-xl);
+}
+
+.profile-summary {
+  padding: var(--space-lg);
+}
+
+.profile-summary h3 {
+  font-size: 1.5rem;
+  margin-bottom: var(--space-sm);
   color: var(--text-primary);
-  font-size: 1.1rem;
+}
+
+.profile-summary p {
+  color: var(--text-secondary);
+  margin-bottom: var(--space-xs);
+}
+
+.discord-info-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: var(--space-lg);
+  margin-top: var(--space-lg);
+}
+
+.discord-info {
+  background: var(--bg-secondary);
+  padding: var(--space-lg);
+  border-radius: var(--radius-md);
+  border-left: 4px solid var(--primary);
+}
+
+.discord-info p {
+  margin-bottom: var(--space-sm);
+  color: var(--text-primary);
+}
+
+.discord-info strong {
+  color: var(--primary);
   font-weight: 600;
 }
 
-.verification-stats {
-  display: flex;
-  gap: 1rem;
-  margin-bottom: 1rem;
+/* ========== Loading Spinner ========== */
+.spinner {
+  display: inline-block;
+  width: 20px;
+  height: 20px;
+  border: 3px solid rgba(255, 255, 255, 0.3);
+  border-radius: 50%;
+  border-top-color: white;
+  animation: spin 0.8s linear infinite;
 }
 
-.verification-stat {
-  background: var(--accent-bg);
-  padding: 0.5rem 1rem;
-  border-radius: 6px;
-  text-align: center;
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ========== Details & AI Settings ========== */
+.ai-details {
+  margin-top: var(--space-md);
+  padding-top: var(--space-md);
+  border-top: 1px solid var(--border-light);
+}
+
+.ai-details p {
+  margin-bottom: var(--space-sm);
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+}
+
+.ai-details strong {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+/* ========== Nickname Management ========== */
+.nickname-item {
+  background: var(--bg-secondary);
+  padding: var(--space-md);
+  border-radius: var(--radius-md);
+  margin-bottom: var(--space-sm);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.nickname-item .nickname-info {
   flex: 1;
 }
 
-.verification-stat .stat-number {
-  display: block;
-  font-size: 1.5rem;
-  font-weight: bold;
-  color: var(--accent-color);
+.nickname-item .nickname-discord-id {
+  font-family: var(--font-mono);
+  color: var(--text-tertiary);
+  font-size: 0.875rem;
 }
 
-.verification-stat .stat-label {
-  font-size: 0.85rem;
-  color: var(--text-secondary);
-}
-
-.verification-messages {
-  margin-bottom: 1rem;
-}
-
-.verification-message {
-  background: var(--primary-bg);
-  border: 1px solid var(--border-color);
-  border-radius: 6px;
-  padding: 0.75rem;
-  margin-bottom: 0.5rem;
-}
-
-.verification-message .message-label {
-  font-size: 0.85rem;
-  color: var(--text-secondary);
-  margin-bottom: 0.25rem;
-}
-
-.verification-message .message-content {
-  font-family: 'Courier New', monospace;
-  background: var(--secondary-bg);
-  padding: 0.5rem;
-  border-radius: 4px;
-  font-size: 0.9rem;
-}
-
-.verification-nicknames-list {
-  background: var(--primary-bg);
-  border: 1px solid var(--border-color);
-  border-radius: 6px;
-  padding: 1rem;
-}
-
-.verification-nicknames-list h6 {
-  margin: 0 0 0.75rem 0;
+.nickname-item .nickname-name {
   color: var(--text-primary);
-  font-size: 1rem;
   font-weight: 600;
+  margin-left: var(--space-md);
 }
 
-.verification-nickname-item {
+/* ========== Tab Navigation ========== */
+.tab-nav {
   display: flex;
+  gap: var(--space-sm);
+  border-bottom: 2px solid var(--border);
+  margin-bottom: var(--space-xl);
+}
+
+.tab-nav button {
+  padding: var(--space-md) var(--space-lg);
+  background: transparent;
+  border: none;
+  border-bottom: 3px solid transparent;
+  color: var(--text-secondary);
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.tab-nav button:hover {
+  color: var(--text-primary);
+}
+
+.tab-nav button.active {
+  color: var(--primary);
+  border-bottom-color: var(--primary);
+}
+
+/* ========== Status Badges ========== */
+.badge {
+  display: inline-flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 0.5rem;
-  margin-bottom: 0.5rem;
-  background: var(--secondary-bg);
-  border-radius: 4px;
-  border-left: 4px solid transparent;
-}
-
-.verification-nickname-item.recognized {
-  border-left-color: var(--success-color);
-}
-
-.verification-nickname-item.not-recognized {
-  border-left-color: var(--warning-color);
-}
-
-.verification-nickname-info {
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-}
-
-.verification-nickname-name {
-  font-weight: 600;
-  color: var(--text-primary);
-}
-
-.verification-nickname-discord-id {
-  font-size: 0.85rem;
-  color: var(--text-secondary);
-  font-family: 'Courier New', monospace;
-}
-
-.verification-nickname-source {
-  font-size: 0.75rem;
-  color: var(--text-secondary);
-  padding: 0.1rem 0.4rem;
-  background: var(--accent-bg);
-  border-radius: 3px;
-}
-
-.verification-nickname-status {
   padding: 0.25rem 0.75rem;
-  border-radius: 4px;
-  font-size: 0.85rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
   font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
 }
 
-.verification-nickname-status.recognized {
-  background: rgba(16, 185, 129, 0.1);
-  color: var(--success-color);
+.badge-owner {
+  background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+  color: var(--text-inverse);
 }
 
-.verification-nickname-status.not-recognized {
+.badge-editor {
+  background: var(--success);
+  color: var(--text-inverse);
+}
+
+.badge-viewer {
+  background: var(--text-tertiary);
+  color: var(--text-inverse);
+}
+
+/* ========== Alert Messages ========== */
+.alert {
+  padding: var(--space-lg);
+  border-radius: var(--radius-md);
+  margin-bottom: var(--space-lg);
+  border-left: 4px solid;
+}
+
+.alert-info {
+  background: rgba(59, 130, 246, 0.1);
+  border-left-color: var(--info);
+  color: var(--info);
+}
+
+.alert-warning {
   background: rgba(245, 158, 11, 0.1);
-  color: var(--warning-color);
+  border-left-color: var(--warning);
+  color: var(--warning);
+}
+
+.alert-error {
+  background: rgba(239, 68, 68, 0.1);
+  border-left-color: var(--error);
+  color: var(--error);
+}
+
+.alert-success {
+  background: rgba(16, 185, 129, 0.1);
+  border-left-color: var(--success);
+  color: var(--success);
 }
