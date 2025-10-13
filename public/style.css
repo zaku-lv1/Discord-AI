@@ -130,9 +130,9 @@ p {
 /* ========== Glassmorphic Container ========== */
 .container {
   position: relative;
-  max-width: 1400px;
+  max-width: 1200px;
   margin: var(--space-6) auto;
-  padding: 0;
+  padding: 0 var(--space-6);
   z-index: 1;
 }
 
@@ -1069,6 +1069,10 @@ input[type="checkbox"]:checked::after {
 
 /* ========== Responsive ========== */
 @media (max-width: 768px) {
+  .container {
+    padding: 0 var(--space-3);
+  }
+  
   h1 {
     font-size: 2rem;
   }

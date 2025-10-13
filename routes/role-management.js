@@ -23,7 +23,7 @@ router.get("/users", verifyAuthentication, requireOwner, async (req, res) => {
 });
 
 
-// Create invitation code for specific role (Owner only - can only create editor codes)
+// Create invitation code for specific role (Admin only - can create user or admin codes)
 router.post("/invitation-codes", verifyAuthentication, requireOwner, async (req, res) => {
   try {
     const { targetRole } = req.body;
@@ -35,11 +35,11 @@ router.post("/invitation-codes", verifyAuthentication, requireOwner, async (req,
       });
     }
 
-    // Only allow creating editor invitation codes
-    if (targetRole !== roleService.roles.EDITOR) {
+    // Allow creating both user and admin invitation codes
+    if (targetRole !== roleService.roles.USER && targetRole !== roleService.roles.ADMIN) {
       return res.status(400).json({
         success: false,
-        message: "編集者の招待コードのみ作成できます。オーナーは1人だけです。"
+        message: "一般ユーザーまたは管理者の招待コードのみ作成できます"
       });
     }
 

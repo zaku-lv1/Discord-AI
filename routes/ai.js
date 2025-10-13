@@ -1,5 +1,5 @@
 const express = require("express");
-const { verifyAuthentication, requireEditor } = require("../middleware/auth");
+const { verifyAuthentication } = require("../middleware/auth");
 const firebaseService = require("../services/firebase");
 const characterPresets = require("../data/character-presets");
 
@@ -41,7 +41,7 @@ router.get("/", verifyAuthentication, async (req, res) => {
 });
 
 // AI作成
-router.post("/", verifyAuthentication, requireEditor, async (req, res) => {
+router.post("/", verifyAuthentication, async (req, res) => {
   try {
     const {
       id,
@@ -117,7 +117,7 @@ router.post("/", verifyAuthentication, requireEditor, async (req, res) => {
 });
 
 // AI更新
-router.put("/:id", verifyAuthentication, requireEditor, async (req, res) => {
+router.put("/:id", verifyAuthentication, async (req, res) => {
   try {
     const aiId = req.params.id;
     const {
@@ -195,7 +195,7 @@ router.put("/:id", verifyAuthentication, requireEditor, async (req, res) => {
 });
 
 // AI削除
-router.delete("/:id", verifyAuthentication, requireEditor, async (req, res) => {
+router.delete("/:id", verifyAuthentication, async (req, res) => {
   try {
     const aiId = req.params.id;
 
@@ -256,7 +256,7 @@ router.get("/:id/nicknames", verifyAuthentication, async (req, res) => {
 });
 
 // AI固有のニックネーム追加
-router.post("/:id/nicknames", verifyAuthentication, requireEditor, async (req, res) => {
+router.post("/:id/nicknames", verifyAuthentication, async (req, res) => {
   try {
     const aiId = req.params.id;
     const { discordId, nickname } = req.body;
@@ -328,7 +328,7 @@ router.post("/:id/nicknames", verifyAuthentication, requireEditor, async (req, r
 });
 
 // AI固有のニックネーム更新
-router.put("/:id/nicknames/:discordId", verifyAuthentication, requireEditor, async (req, res) => {
+router.put("/:id/nicknames/:discordId", verifyAuthentication, async (req, res) => {
   try {
     const aiId = req.params.id;
     const { discordId } = req.params;
@@ -392,7 +392,7 @@ router.put("/:id/nicknames/:discordId", verifyAuthentication, requireEditor, asy
 });
 
 // AI固有のニックネーム削除
-router.delete("/:id/nicknames/:discordId", verifyAuthentication, requireEditor, async (req, res) => {
+router.delete("/:id/nicknames/:discordId", verifyAuthentication, async (req, res) => {
   try {
     const aiId = req.params.id;
     const { discordId } = req.params;
