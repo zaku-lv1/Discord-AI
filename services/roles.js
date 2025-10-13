@@ -1,28 +1,30 @@
 const firebaseService = require("./firebase");
 
-// Define user roles with hierarchy (simplified to OWNER and EDITOR only)
-const USER_ROLES = {
-  OWNER: 'owner',        // オーナー - full system control including invitation codes and maintenance mode
-  EDITOR: 'editor'       // 編集者 - edit content, limited permissions
+// Simplified user system (Synapse-Note style)
+// Users are either admin or regular users (no complex roles)
+const USER_TYPES = {
+  ADMIN: 'admin',
+  USER: 'user'
 };
 
-// Role hierarchy (higher number = more permissions)
-const ROLE_HIERARCHY = {
-  [USER_ROLES.EDITOR]: 1, 
-  [USER_ROLES.OWNER]: 2
-};
-
-// Role display names in Japanese
-const ROLE_DISPLAY_NAMES = {
-  [USER_ROLES.OWNER]: 'オーナー',
-  [USER_ROLES.EDITOR]: '編集者'
+// Display names in Japanese
+const TYPE_DISPLAY_NAMES = {
+  [USER_TYPES.ADMIN]: '管理者',
+  [USER_TYPES.USER]: '一般ユーザー'
 };
 
 class RoleService {
   constructor() {
-    this.roles = USER_ROLES;
-    this.hierarchy = ROLE_HIERARCHY;
-    this.displayNames = ROLE_DISPLAY_NAMES;
+    this.types = USER_TYPES;
+    this.displayNames = TYPE_DISPLAY_NAMES;
+    
+    // Keep legacy role names for backward compatibility
+    this.roles = {
+      OWNER: 'owner',
+      EDITOR: 'editor',
+      ADMIN: 'admin',
+      USER: 'user'
+    };
   }
 
   /**
@@ -42,22 +44,36 @@ class RoleService {
   }
 
   /**
-   * Check if user has required role or higher
+   * Check if user is admin (simplified from role hierarchy)
+   */
+  isAdmin(user) {
+    // Check if user has admin flag
+    if (user && user.isAdmin === true) return true;
+    
+    // Legacy compatibility: check for owner/admin role
+    if (user && (user.role === 'owner' || user.role === 'admin')) return true;
+    
+    return false;
+  }
+  
+  /**
+   * Check if user has required role or higher (for backward compatibility)
    */
   hasRole(userRole, requiredRole) {
-    const userLevel = this.hierarchy[userRole] || 0;
-    const requiredLevel = this.hierarchy[requiredRole] || 0;
-    return userLevel >= requiredLevel;
+    // Simplified: admin has all permissions, regular users don't
+    if (userRole === 'admin' || userRole === 'owner') return true;
+    if (requiredRole === 'editor' || requiredRole === 'user') return true;
+    return false;
   }
 
   /**
-   * Get user role by email or handle
+   * Get user info by email or handle
    */
   async getUserRole(emailOrHandle) {
     try {
       const db = firebaseService.getDB();
       
-      console.log(`[DEBUG] Getting user role for: ${emailOrHandle}`);
+      console.log(`[DEBUG] Getting user info for: ${emailOrHandle}`);
       
       // First check in users collection
       let userQuery;
@@ -72,21 +88,11 @@ class RoleService {
       
       if (!userQuery.empty) {
         const userData = userQuery.docs[0].data();
-        const userRole = userData.role || USER_ROLES.EDITOR;
-        console.log(`[DEBUG] Found user in users collection with role: ${userRole}`);
         
-        // Ensure role is valid in simplified system
-        if (Object.values(USER_ROLES).includes(userRole)) {
-          console.log(`[DEBUG] Returning valid role: ${userRole}`);
-          return userRole;
-        }
-        // Map old roles to new simplified system
-        if (userRole === 'admin' || userRole === 'viewer') {
-          console.log(`[DEBUG] Mapping legacy role ${userRole} to editor`);
-          return USER_ROLES.EDITOR;
-        }
-        console.log(`[DEBUG] Unknown role ${userRole}, defaulting to editor`);
-        return USER_ROLES.EDITOR;
+        // Return admin or user based on isAdmin flag (Synapse-Note style)
+        const role = userData.isAdmin ? 'admin' : 'user';
+        console.log(`[DEBUG] Found user with role: ${role} (isAdmin: ${userData.isAdmin})`);
+        return role;
       }
 
       console.log(`[DEBUG] User not found in users collection, checking legacy admin system`);
@@ -99,11 +105,11 @@ class RoleService {
         
         const admin = admins.find(a => a.email === emailOrHandle);
         if (admin) {
-          // First admin in the list is considered the owner in legacy system
-          const isOwner = admins[0].email === emailOrHandle;
-          const assignedRole = isOwner ? USER_ROLES.OWNER : USER_ROLES.EDITOR;
+          // First admin in the list is considered admin in new system
+          const isFirstAdmin = admins[0].email === emailOrHandle;
+          const isAdmin = isFirstAdmin;
           
-          console.log(`[DEBUG] Found user in legacy admin system, assigning role: ${assignedRole} (isOwner: ${isOwner})`);
+          console.log(`[DEBUG] Found user in legacy admin system, isAdmin: ${isAdmin}`);
           
           // Try to migrate this user to the new system if they have a handle
           if (admin.handle || admin.username) {
@@ -113,49 +119,39 @@ class RoleService {
                 handle: handle,
                 username: admin.username || admin.handle,
                 email: emailOrHandle,
-                role: assignedRole,
+                isAdmin: isAdmin,
                 displayName: admin.name || admin.username,
                 verified: true,
                 createdAt: firebaseService.getServerTimestamp(),
                 migratedFromLegacy: true
               });
-              console.log(`[DEBUG] Migrated user ${emailOrHandle} to new system with role ${assignedRole}`);
+              console.log(`[DEBUG] Migrated user ${emailOrHandle} to new system (isAdmin: ${isAdmin})`);
             } catch (migrationError) {
               console.error(`[WARNING] Failed to migrate user ${emailOrHandle}:`, migrationError);
             }
           }
           
-          return assignedRole;
+          return isAdmin ? 'admin' : 'user';
         }
       }
 
-      console.log(`[DEBUG] User not found in any system, defaulting to editor`);
-      return USER_ROLES.EDITOR;
+      console.log(`[DEBUG] User not found in any system, defaulting to user`);
+      return 'user';
     } catch (error) {
       console.error('Error getting user role:', error);
-      return USER_ROLES.EDITOR;
+      return 'user';
     }
   }
 
   /**
-   * Update user role (with owner uniqueness constraint)
+   * Update user admin status (Synapse-Note style)
    */
   async updateUserRole(emailOrHandle, newRole) {
     try {
       const db = firebaseService.getDB();
       
-      // Validate role
-      if (!Object.values(USER_ROLES).includes(newRole)) {
-        throw new Error('Invalid role specified');
-      }
-
-      // If trying to assign OWNER role, ensure only one owner exists
-      if (newRole === USER_ROLES.OWNER) {
-        const existingOwners = await db.collection('users').where('role', '==', USER_ROLES.OWNER).get();
-        if (!existingOwners.empty) {
-          throw new Error('システムには既にオーナーが存在します。オーナーは1人だけです。');
-        }
-      }
+      // Convert role to admin flag
+      const isAdmin = (newRole === 'admin' || newRole === 'owner');
 
       // Find user
       let userQuery;
@@ -172,19 +168,20 @@ class RoleService {
 
       const userDoc = userQuery.docs[0];
       await userDoc.ref.update({
-        role: newRole,
+        isAdmin: isAdmin,
+        role: isAdmin ? 'admin' : 'user', // For backward compatibility
         updatedAt: firebaseService.getServerTimestamp()
       });
 
       return true;
     } catch (error) {
-      console.error('Error updating user role:', error);
+      console.error('Error updating user admin status:', error);
       throw error;
     }
   }
 
   /**
-   * List all users with their roles
+   * List all users with their admin status (Synapse-Note style)
    */
   async listUsersWithRoles() {
     try {
@@ -194,35 +191,27 @@ class RoleService {
       const users = [];
       usersSnapshot.forEach(doc => {
         const userData = doc.data();
-        let userRole = userData.role || USER_ROLES.EDITOR;
-        
-        // Map old roles to simplified system
-        if (userRole === 'admin' || userRole === 'viewer') {
-          userRole = USER_ROLES.EDITOR;
-        }
-        
-        // Ensure role is valid in simplified system
-        if (!Object.values(USER_ROLES).includes(userRole)) {
-          userRole = USER_ROLES.EDITOR;
-        }
+        const isAdmin = userData.isAdmin === true;
+        const userType = isAdmin ? USER_TYPES.ADMIN : USER_TYPES.USER;
         
         users.push({
           id: doc.id,
           handle: userData.handle || this.formatHandle(userData.username),
           email: userData.email,
           displayName: userData.displayName || userData.username,
-          role: userRole,
-          roleDisplay: this.displayNames[userRole],
+          isAdmin: isAdmin,
+          role: isAdmin ? 'admin' : 'user', // For backward compatibility
+          roleDisplay: this.displayNames[userType],
           verified: userData.verified,
           createdAt: userData.createdAt,
           lastLogin: userData.lastLogin
         });
       });
 
-      // Sort by role hierarchy (highest first), then by creation date
+      // Sort by admin status (admins first), then by creation date
       users.sort((a, b) => {
-        const roleCompare = (this.hierarchy[b.role] || 0) - (this.hierarchy[a.role] || 0);
-        if (roleCompare !== 0) return roleCompare;
+        const adminCompare = (b.isAdmin ? 1 : 0) - (a.isAdmin ? 1 : 0);
+        if (adminCompare !== 0) return adminCompare;
         
         const aDate = a.createdAt?.toDate ? a.createdAt.toDate() : new Date(a.createdAt || 0);
         const bDate = b.createdAt?.toDate ? b.createdAt.toDate() : new Date(b.createdAt || 0);
@@ -231,7 +220,7 @@ class RoleService {
 
       return users;
     } catch (error) {
-      console.error('Error listing users with roles:', error);
+      console.error('Error listing users:', error);
       throw error;
     }
   }
