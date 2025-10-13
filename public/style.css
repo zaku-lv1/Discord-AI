@@ -136,58 +136,145 @@ p {
   z-index: 1;
 }
 
-/* Split Layout Design */
-.auth-container {
-  min-height: 100vh;
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 0;
-  background: var(--background-color);
+@media (max-width: 768px) {
+  .container {
+    padding: 0 var(--space-3);
+  }
 }
 
-.auth-visual {
-  background: linear-gradient(135deg, var(--primary-color), var(--primary-hover-color));
-  padding: var(--space-8);
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
+/* ========== 認証フォーム (SynapseNote Style) ========== */
+#auth-container {
+  max-width: 700px;
+  margin: 3rem auto;
+  background: var(--surface-bg);
+  padding: 3rem;
+  border-radius: 20px;
+  border: 1px solid var(--surface-border);
+  box-shadow: 0 12px 32px rgba(49, 120, 215, 0.12);
   position: relative;
-  overflow: hidden;
 }
 
-.auth-visual::before {
+#auth-container::before {
   content: '';
   position: absolute;
-  width: 500px;
-  height: 500px;
-  border-radius: 50%;
-  background: radial-gradient(circle, rgba(255, 255, 255, 0.2) 0%, transparent 70%);
-  opacity: 0.3;
-  animation: pulse 3s ease-in-out infinite;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: linear-gradient(45deg, var(--primary-color), var(--accent-info));
+  border-radius: 20px 20px 0 0;
 }
 
-@keyframes pulse {
-  0%, 100% { transform: scale(1); opacity: 0.3; }
-  50% { transform: scale(1.2); opacity: 0.4; }
+.login-form {
+  max-width: 100%;
+  margin: 0 auto;
+  background: transparent;
 }
 
-.auth-content {
-  background: var(--surface-bg);
-  padding: var(--space-8);
+.login-form h2 {
+  margin-bottom: 0.5rem;
+  font-size: 1.75rem;
+  font-weight: 600;
+  text-align: center;
+  color: var(--text-primary);
+  margin-top: 0;
+  background: none;
+  -webkit-text-fill-color: var(--text-primary);
+}
+
+.login-form h3 {
+  margin-top: 0;
+  margin-bottom: 1.5rem;
+  text-align: center;
+  color: var(--text-primary);
+  font-weight: 600;
+  font-size: 1.25rem;
+  background: none;
+  -webkit-text-fill-color: var(--text-primary);
+}
+
+.login-form p {
+  text-align: center;
+  color: var(--text-secondary);
+  margin-bottom: 2rem;
+  font-size: 0.95rem;
+  line-height: 1.6;
+}
+
+.login-options {
+  display: block;
+}
+
+.login-switch {
+  text-align: center;
+  margin-top: 2rem;
+  padding-top: 2rem;
+  border-top: 1px solid var(--surface-border);
+}
+
+.login-switch p {
+  margin: 0.5rem 0;
+  color: var(--text-secondary);
+  font-size: 14px;
+}
+
+.login-switch a {
+  color: var(--primary-color);
+  text-decoration: none;
+  font-weight: 600;
+  transition: all 0.3s ease;
+  position: relative;
+}
+
+.login-switch a::after {
+  content: '';
+  position: absolute;
+  bottom: -2px;
+  left: 0;
+  width: 0;
+  height: 2px;
+  background: linear-gradient(45deg, var(--primary-color), var(--accent-info));
+  transition: width 0.3s ease;
+}
+
+.login-switch a:hover::after {
+  width: 100%;
+}
+
+.login-switch a:hover {
+  color: var(--primary-hover-color);
+  text-decoration: none;
+}
+
+@media (max-width: 768px) {
+  #auth-container {
+    margin: 1.5rem auto;
+    padding: 2rem;
+  }
+}
+
+/* Verification Info Styling */
+.verification-info {
+  background: var(--surface-elevated);
+  border: 1px solid var(--surface-border);
+  border-radius: 12px;
+  padding: 1.5rem;
+  margin: 1.5rem 0;
+  border-left: 4px solid var(--primary-color);
+}
+
+.verification-info p {
+  margin: 0.75rem 0;
+  font-size: 14px;
+  color: var(--text-secondary);
   display: flex;
-  flex-direction: column;
-  justify-content: center;
+  align-items: center;
+  gap: 0.5rem;
 }
 
-@media (max-width: 968px) {
-  .auth-container {
-    grid-template-columns: 1fr;
-  }
-  
-  .auth-visual {
-    display: none;
-  }
+.verification-info strong {
+  color: var(--text-primary);
+  font-weight: 600;
 }
 
 /* ========== Clean Form Elements ========== */
