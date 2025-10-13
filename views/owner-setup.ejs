@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>オーナー設定 - AI管理システム</title>
+    <title>管理者設定 - AI管理システム</title>
     <link rel="icon" href="/favicon.ico" type="image/x-icon">
     
     <!-- Fonts -->
@@ -106,7 +106,7 @@
                     <i class="fas fa-check-circle"></i>
                 </div>
                 <h2>設定完了</h2>
-                <p>オーナー設定は既に完了しています。</p>
+                <p>管理者設定は既に完了しています。</p>
                 <% if (typeof error !== 'undefined' && error) { %>
                     <div class="error-message">
                         <%= error %>
@@ -122,10 +122,10 @@
         <% } else { %>
             <div class="setup-header">
                 <h1>
-                    <i class="fas fa-crown" style="margin-right: 10px;"></i>
-                    オーナー設定
+                    <i class="fas fa-user-shield" style="margin-right: 10px;"></i>
+                    管理者設定
                 </h1>
-                <p>システムの初回セットアップを行います。<br>オーナーアカウントを作成してください。</p>
+                <p>システムの初回セットアップを行います。<br>最初の管理者アカウントを作成してください。</p>
             </div>
 
             <div class="security-notice">
@@ -134,9 +134,9 @@
                     セキュリティ情報
                 </h3>
                 <p>
-                    これは初回セットアップです。誰でもオーナーアカウントを作成できますが、
-                    オーナーになれるのは1人だけです。設定完了後、このページは無効になり、
-                    追加のユーザーには招待コードが必要となります。
+                    これは初回セットアップです。最初のユーザーは自動的に管理者権限が付与されます。
+                    設定完了後、追加のユーザーには招待コードが必要となります。
+                    管理者は複数設定できますが、一般ユーザーと管理者の2種類のみです。
                 </p>
             </div>
 
@@ -157,7 +157,7 @@
                         ユーザー名 <span style="color: #e74c3c;">*</span>
                     </label>
                     <input type="text" id="username" name="username" required 
-                           placeholder="オーナーのユーザー名">
+                           placeholder="管理者のユーザー名">
                     <small>@usernameの形式でハンドルが作成されます。</small>
                 </div>
 
@@ -167,7 +167,7 @@
                         メールアドレス <span style="color: #e74c3c;">*</span>
                     </label>
                     <input type="email" id="email" name="email" required 
-                           placeholder="owner@example.com">
+                           placeholder="admin@example.com">
                     <small>システム通知とログインに使用されます。</small>
                 </div>
 
@@ -192,8 +192,8 @@
 
                 <div class="button-group">
                     <button type="submit" class="save-btn" id="submit-btn">
-                        <i class="fas fa-crown" style="margin-right: 8px;"></i>
-                        オーナーアカウントを作成
+                        <i class="fas fa-user-shield" style="margin-right: 8px;"></i>
+                        管理者アカウントを作成
                     </button>
                 </div>
             </form>
@@ -298,7 +298,7 @@
                 
                 if (result.success) {
                     // Show success message and redirect
-                    showSuccessToast('オーナーアカウントが正常に作成されました。ログインページにリダイレクトします。');
+                    showSuccessToast('管理者アカウントが正常に作成されました。ログインページにリダイレクトします。');
                     setTimeout(() => {
                         window.location.href = '/';
                     }, 2000);

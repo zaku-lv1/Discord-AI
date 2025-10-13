@@ -244,7 +244,43 @@ class SystemSettingsService {
   }
 
   /**
+   * Grant admin role to a user (Synapse-Note style - multiple admins allowed)
+   */
+  async grantAdminRole(targetUserEmail, grantedBy) {
+    try {
+      const roleService = require("./roles");
+      
+      // Verify the user exists
+      const targetUserRole = await roleService.getUserRole(targetUserEmail);
+      
+      // Check if user is already an admin
+      if (targetUserRole === roleService.roles.ADMIN || targetUserRole === roleService.roles.OWNER) {
+        throw new Error("指定されたユーザーは既に管理者です");
+      }
+
+      // Grant admin role
+      await roleService.updateUserRole(targetUserEmail, roleService.roles.ADMIN);
+
+      // Log the grant
+      await this.updateSettings({
+        lastAdminGrant: {
+          to: targetUserEmail,
+          grantedAt: firebaseService.getServerTimestamp(),
+          grantedBy: grantedBy
+        }
+      }, grantedBy);
+
+      console.log("[情報] 管理者権限を付与しました:", targetUserEmail);
+      return true;
+    } catch (error) {
+      console.error("[エラー] 管理者権限の付与に失敗:", error);
+      throw error;
+    }
+  }
+
+  /**
    * Transfer ownership to another user (ensures only one owner exists)
+   * @deprecated Use grantAdminRole instead for Synapse-Note style multiple admin support
    */
   async transferOwnership(currentOwnerEmail, newOwnerEmail, modifiedBy) {
     try {

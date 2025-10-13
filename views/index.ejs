@@ -100,7 +100,7 @@
                 <div class="form-group">
                   <label for="register-invitation-code">招待コード（必須）</label>
                   <input type="text" id="register-invitation-code" placeholder="招待コードを入力してください（必須）" required />
-                  <small>新規登録には招待コードが必要です。登録後は編集者権限が付与されます。</small>
+                  <small>新規登録には招待コードが必要です。登録後は一般ユーザー権限が付与されます。</small>
                 </div>
                 <div class="button-group">
                   <button type="submit" class="save-btn">
@@ -507,7 +507,8 @@
                   <div class="form-group">
                     <label for="invitation-target-role">招待するロール</label>
                     <select id="invitation-target-role">
-                      <option value="editor">編集者 - コンテンツの編集が可能</option>
+                      <option value="user">一般ユーザー - 基本的な機能が利用可能</option>
+                      <option value="admin">管理者 - システム管理が可能</option>
                     </select>
                   </div>
 
@@ -555,7 +556,7 @@
                   <i class="fas fa-cogs" style="margin-right: 10px;"></i>
                   システム設定
                 </h2>
-                <p class="admin-description">システム全体の動作を制御する重要な設定です。オーナーのみが変更できます。</p>
+                <p class="admin-description">システム全体の動作を制御する重要な設定です。管理者のみが変更できます。</p>
               </div>
 
               <!-- システム状態 -->
@@ -608,7 +609,7 @@
                           <span class="slider"></span>
                         </label>
                       </div>
-                      <small>ONにすると、オーナー以外のアクセスを制限します。</small>
+                      <small>ONにすると、管理者以外のアクセスを制限します。</small>
                     </div>
 
                     <div class="form-group">
@@ -663,28 +664,28 @@
                 </form>
               </div>
 
-              <!-- オーナー権限移譲 -->
+              <!-- 管理者権限管理 -->
               <div class="ownership-transfer-section">
                 <h3>
-                  <i class="fas fa-crown" style="margin-right: 8px;"></i>
-                  オーナー権限移譲
+                  <i class="fas fa-user-shield" style="margin-right: 8px;"></i>
+                  管理者権限管理
                 </h3>
                 <div class="danger-zone">
                   <div class="danger-warning">
-                    <i class="fas fa-exclamation-triangle"></i>
-                    <strong>危険な操作:</strong> オーナー権限を他のユーザーに移譲すると、あなたは管理者になります。この操作は取り消せません。
+                    <i class="fas fa-info-circle"></i>
+                    <strong>注意:</strong> 管理者権限を付与すると、そのユーザーはシステム全体を管理できるようになります。複数の管理者を設定できます。
                   </div>
                   
                   <form id="ownership-transfer-form">
                     <div class="form-group">
-                      <label for="new-owner-email">新しいオーナーのメールアドレス</label>
+                      <label for="new-owner-email">管理者権限を付与するユーザーのメールアドレス</label>
                       <input 
                         type="email" 
                         id="new-owner-email" 
-                        placeholder="新しいオーナーのメールアドレス"
+                        placeholder="ユーザーのメールアドレス"
                         required
                       />
-                      <small>移譲先のユーザーは管理者以上の権限を持っている必要があります。</small>
+                      <small>既存のユーザーに管理者権限を付与します。</small>
                     </div>
 
                     <div class="form-group">
@@ -701,15 +702,15 @@
                       <div class="checkbox-container">
                         <label>
                           <input type="checkbox" id="transfer-confirmation" required />
-                          オーナー権限移譲の内容を理解し、実行することに同意します
+                          管理者権限付与の内容を理解し、実行することに同意します
                         </label>
                       </div>
                     </div>
 
                     <div class="button-group">
                       <button type="submit" class="danger-btn">
-                        <i class="fas fa-crown" style="margin-right: 8px;"></i>
-                        オーナー権限を移譲
+                        <i class="fas fa-user-shield" style="margin-right: 8px;"></i>
+                        管理者権限を付与
                       </button>
                     </div>
                   </form>

@@ -2125,7 +2125,7 @@ document.addEventListener("DOMContentLoaded", () => {
       
       try {
         submitBtn.disabled = true;
-        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin" style="margin-right: 8px;"></i>移譲中...';
+        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin" style="margin-right: 8px;"></i>処理中...';
         
         const response = await fetch('/api/system-settings/transfer-ownership', {
           method: 'POST',
@@ -2139,7 +2139,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const result = await safeParseJSON(response);
         
         if (result.success) {
-          showSuccessToast('オーナー権限の移譲が完了しました。ページを再読み込みします。');
+          showSuccessToast('管理者権限の付与が完了しました。ページを再読み込みします。');
           
           // フォームをリセット
           ownershipTransferForm.reset();
@@ -2150,11 +2150,11 @@ document.addEventListener("DOMContentLoaded", () => {
           }, 5000);
         } else {
           const errorMessage = result.data ? result.data.message : result.error;
-          showErrorToast(errorMessage || 'オーナー権限の移譲に失敗しました');
+          showErrorToast(errorMessage || '管理者権限の付与に失敗しました');
         }
       } catch (error) {
-        console.error('オーナー権限移譲エラー:', error);
-        showErrorToast('オーナー権限の移譲中にエラーが発生しました');
+        console.error('管理者権限付与エラー:', error);
+        showErrorToast('管理者権限の付与中にエラーが発生しました');
       } finally {
         submitBtn.disabled = false;
         submitBtn.innerHTML = originalText;

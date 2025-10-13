@@ -91,7 +91,66 @@ router.put("/", verifyAuthentication, requireOwner, async (req, res) => {
 });
 
 /**
+ * Grant admin role to a user (Admin only, Synapse-Note style)
+ */
+router.post("/grant-admin", verifyAuthentication, requireOwner, async (req, res) => {
+  try {
+    const { targetUserEmail, confirmEmail } = req.body;
+
+    if (!targetUserEmail || !confirmEmail) {
+      return res.status(400).json({
+        success: false,
+        message: "ユーザーのメールアドレスを入力してください"
+      });
+    }
+
+    if (targetUserEmail !== confirmEmail) {
+      return res.status(400).json({
+        success: false,
+        message: "メールアドレスが一致しません"
+      });
+    }
+
+    if (targetUserEmail === req.user.email) {
+      return res.status(400).json({
+        success: false,
+        message: "自分自身に権限を付与することはできません"
+      });
+    }
+
+    // Check if target user exists
+    const targetUserRole = await roleService.getUserRole(targetUserEmail);
+    if (!targetUserRole) {
+      return res.status(400).json({
+        success: false,
+        message: "指定されたユーザーが見つからないか、システムに登録されていません"
+      });
+    }
+
+    // Grant admin role
+    await systemSettingsService.grantAdminRole(
+      targetUserEmail,
+      req.user.email
+    );
+
+    res.json({
+      success: true,
+      message: `管理者権限を ${targetUserEmail} に付与しました`,
+      targetUser: targetUserEmail,
+      grantedBy: req.user.email
+    });
+  } catch (error) {
+    console.error("[エラー] 管理者権限の付与に失敗:", error);
+    res.status(500).json({
+      success: false,
+      message: error.message || "管理者権限の付与に失敗しました"
+    });
+  }
+});
+
+/**
  * Transfer ownership (Owner only)
+ * @deprecated Use grant-admin endpoint for Synapse-Note style admin management
  */
 router.post("/transfer-ownership", verifyAuthentication, requireOwner, async (req, res) => {
   try {
@@ -130,16 +189,15 @@ router.post("/transfer-ownership", verifyAuthentication, requireOwner, async (re
       }
     }
 
-    // Transfer ownership
-    await systemSettingsService.transferOwnership(
-      req.user.email,
+    // In Synapse-Note style, just grant admin instead of transferring ownership
+    await systemSettingsService.grantAdminRole(
       newOwnerEmail,
       req.user.email
     );
 
     res.json({
       success: true,
-      message: `オーナー権限を ${newOwnerEmail} に移譲しました`,
+      message: `管理者権限を ${newOwnerEmail} に付与しました`,
       newOwner: newOwnerEmail,
       formerOwner: req.user.email
     });
