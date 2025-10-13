@@ -1069,6 +1069,10 @@ input[type="checkbox"]:checked::after {
 
 /* ========== Responsive ========== */
 @media (max-width: 768px) {
+  .container {
+    padding: 0 var(--space-3);
+  }
+  
   h1 {
     font-size: 2rem;
   }
