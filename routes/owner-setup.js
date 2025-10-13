@@ -50,13 +50,13 @@ router.post("/", async (req, res) => {
       });
     }
 
-    const { setupKey, username, email, password, confirmPassword } = req.body;
+    const { setupKey, username, password, confirmPassword } = req.body;
 
     // Check if setup key can be skipped (always true when owner setup not completed)
     const canSkipSetupKey = await systemSettingsService.canSkipSetupKey();
 
-    // Validate required fields (setupKey is not required for owner setup)
-    if (!username || !email || !password || !confirmPassword) {
+    // Validate required fields (setupKey and email are not required for owner setup)
+    if (!username || !password || !confirmPassword) {
       return res.status(400).json({
         success: false,
         message: "全ての項目を入力してください"
@@ -86,7 +86,7 @@ router.post("/", async (req, res) => {
     const user = await authService.createLocalUser(
       username, 
       password, 
-      email, 
+      null, // Email is optional now
       true, // Skip email verification for owner setup
       null  // No invitation code needed
     );
@@ -95,7 +95,7 @@ router.post("/", async (req, res) => {
     // No need to call roleService.updateUserRole here
 
     // Complete owner setup
-    await systemSettingsService.completeOwnerSetup(email);
+    await systemSettingsService.completeOwnerSetup(user.email);
 
     res.json({
       success: true,

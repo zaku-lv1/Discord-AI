@@ -131,17 +131,12 @@ class AuthService {
     }
   }
 
-  async createLocalUser(username, password, email, skipEmailVerification = false, invitationCode = null) {
+  async createLocalUser(username, password, email = null, skipEmailVerification = false, invitationCode = null) {
     const db = firebaseService.getDB();
     
+    // Email is now optional - generate a dummy email if not provided
     if (!email) {
-      throw new Error('メールアドレスは必須です');
-    }
-
-    // メールアドレスの形式チェック
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
-      throw new Error('有効なメールアドレスを入力してください');
+      email = `${username}@local.system`;
     }
 
     // Format handle (@username)
@@ -158,12 +153,6 @@ class AuthService {
     const existingUser = await db.collection('users').where('username', '==', plainUsername).get();
     if (!existingUser.empty) {
       throw new Error('ユーザー名が既に使用されています');
-    }
-
-    // Check if email already exists
-    const existingEmail = await db.collection('users').where('email', '==', email).get();
-    if (!existingEmail.empty) {
-      throw new Error('メールアドレスが既に使用されています');
     }
 
     const hashedPassword = await this.hashPassword(password);
@@ -209,10 +198,8 @@ class AuthService {
     }
     
     // テスト環境またはメールサービスが無効な場合は認証をスキップ
-    const shouldSkipVerification = skipEmailVerification || 
-      !emailService.isInitialized() ||
-      process.env.NODE_ENV === 'test' ||
-      email.includes('test');
+    // Since email is optional now, always skip email verification
+    const shouldSkipVerification = true;
     
     const userDoc = {
       id: userId,
@@ -224,11 +211,11 @@ class AuthService {
       isAdmin: isAdmin, // Synapse-Note style admin flag
       role: isAdmin ? 'admin' : 'user', // For backward compatibility
       displayName: plainUsername, // Default display name is username
-      verified: shouldSkipVerification, // メール認証をスキップする場合はtrue
-      verificationToken: shouldSkipVerification ? null : emailService.generateVerificationToken(),
-      verificationTokenExpires: shouldSkipVerification ? null : new Date(Date.now() + 24 * 60 * 60 * 1000), // 24時間
+      verified: true, // Always verified since email is optional
+      verificationToken: null,
+      verificationTokenExpires: null,
       createdAt: firebaseService.getServerTimestamp(),
-      lastLogin: shouldSkipVerification ? firebaseService.getServerTimestamp() : null
+      lastLogin: firebaseService.getServerTimestamp()
     };
 
     await db.collection('users').doc(userId).set(userDoc);
@@ -249,17 +236,6 @@ class AuthService {
       }
     }
     
-    // メール認証が有効でメール送信可能な場合、認証メールを送信
-    if (!shouldSkipVerification && emailService.isInitialized()) {
-      try {
-        await emailService.sendVerificationEmail(email, plainUsername, userDoc.verificationToken);
-        console.log(`[情報] 認証メールを送信しました: ${email}`);
-      } catch (error) {
-        console.error('[エラー] 認証メール送信に失敗:', error);
-        // ユーザー作成は成功したが、メール送信が失敗した場合は警告のみ
-      }
-    }
-    
     // Return user without password and sensitive fields
     const { password: _, verificationToken: __, ...userWithoutPassword } = userDoc;
     return userWithoutPassword;
@@ -276,29 +252,19 @@ class AuthService {
       }
     }
     
-    // メールアドレスで検索 (must contain @ and .)
-    if (emailOrHandle.includes('@') && emailOrHandle.includes('.')) {
-      const userQuery = await db.collection('users').where('email', '==', emailOrHandle).get();
-      if (!userQuery.empty) {
-        return userQuery.docs[0].data();
-      }
-    }
-    
     // プレーンユーザー名での検索 - ハンドル形式に変換して検索
     // Plain username search - convert to handle format and search
-    if (!emailOrHandle.includes('@') || !emailOrHandle.includes('.')) {
-      const handle = emailOrHandle.startsWith('@') ? emailOrHandle : '@' + emailOrHandle;
-      const userQuery = await db.collection('users').where('handle', '==', handle).get();
-      if (!userQuery.empty) {
-        return userQuery.docs[0].data();
-      }
-      
-      // レガシー互換性: プレーンユーザー名での直接検索も試行
-      // Legacy compatibility: also try direct plain username search
-      const legacyQuery = await db.collection('users').where('username', '==', emailOrHandle).get();
-      if (!legacyQuery.empty) {
-        return legacyQuery.docs[0].data();
-      }
+    const handle = emailOrHandle.startsWith('@') ? emailOrHandle : '@' + emailOrHandle;
+    const userQuery = await db.collection('users').where('handle', '==', handle).get();
+    if (!userQuery.empty) {
+      return userQuery.docs[0].data();
+    }
+    
+    // レガシー互換性: プレーンユーザー名での直接検索も試行
+    // Legacy compatibility: also try direct plain username search
+    const legacyQuery = await db.collection('users').where('username', '==', emailOrHandle).get();
+    if (!legacyQuery.empty) {
+      return legacyQuery.docs[0].data();
     }
     
     return null;
@@ -529,12 +495,12 @@ class AuthService {
         try {
           const user = await this.findLocalUser(emailOrHandle);
           if (!user) {
-            return done(null, false, { message: 'ハンドルまたはメールアドレス、パスワードが正しくありません' });
+            return done(null, false, { message: 'ユーザー名またはパスワードが正しくありません' });
           }
 
           const isValidPassword = await this.comparePassword(password, user.password);
           if (!isValidPassword) {
-            return done(null, false, { message: 'ハンドルまたはメールアドレス、パスワードが正しくありません' });
+            return done(null, false, { message: 'ユーザー名またはパスワードが正しくありません' });
           }
 
           // メール認証チェック（テスト環境では不要）

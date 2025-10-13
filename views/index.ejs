@@ -46,15 +46,15 @@
         <!-- ログイン・登録フォーム -->
         <div id="email-auth-form" class="login-form">
           <h2>ログイン</h2>
-          <p>メールアドレスでアカウントにアクセスして、AIシステムを管理しましょう</p>
+          <p>ユーザー名とパスワードでアカウントにアクセスして、AIシステムを管理しましょう</p>
           
           <div class="login-options">
             <div id="login-section" class="active">
               <h3>ログイン</h3>
               <form id="login-form-element">
                 <div class="form-group">
-                  <label for="login-username">ハンドル名またはメールアドレス</label>
-                  <input type="text" id="login-username" required placeholder="username、@username、または email@domain.com" />
+                  <label for="login-username">ユーザー名</label>
+                  <input type="text" id="login-username" required placeholder="usernameまたは@username" />
                 </div>
                 <div class="form-group">
                   <label for="login-password">パスワード</label>
@@ -76,7 +76,6 @@
               </form>
               <div class="login-switch">
                 <p>アカウントをお持ちでない場合は <a href="#" onclick="showRegisterForm()">新規登録</a></p>
-                <p><a href="#" onclick="showPasswordResetForm()">パスワードをお忘れですか？</a></p>
               </div>
             </div>
 
@@ -84,14 +83,9 @@
               <h3>新規登録</h3>
               <form id="register-form-element">
                 <div class="form-group">
-                  <label for="register-username">ハンドル名（ユーザー名）</label>
+                  <label for="register-username">ユーザー名</label>
                   <input type="text" id="register-username" required placeholder="username（@は自動で追加されます）" />
                   <small>英数字、アンダースコア、ハイフンのみ使用可能。@usernameの形式で保存されます</small>
-                </div>
-                <div class="form-group">
-                  <label for="register-email">メールアドレス</label>
-                  <input type="email" id="register-email" required placeholder="example@domain.com" />
-                  <small>認証メールが送信されます</small>
                 </div>
                 <div class="form-group">
                   <label for="register-password">パスワード</label>
@@ -163,10 +157,6 @@
             <img id="user-avatar" src="" alt="Avatar" style="width: 48px; height: 48px; border-radius: 50%; margin-right: 15px; display: none;" />
             <div class="user-details">
               <p class="user-welcome">ようこそ, <span id="user-display-name"></span> さん</p>
-              <p class="user-status">
-                <i class="fas fa-circle" style="color: var(--success-color); margin-right: 4px; font-size: 0.7rem;"></i>
-                アクティブ
-              </p>
             </div>
           </div>
           <div class="user-actions">
@@ -455,18 +445,6 @@
                     placeholder="管理者パネルでの表示名"
                   />
                   <small>プロファイルでの表示名を設定できます。</small>
-                </div>
-
-                <div class="form-group">
-                  <label for="profile-email">メールアドレス</label>
-                  <input
-                    type="email"
-                    id="profile-email"
-                    placeholder="通知用メールアドレス"
-                    readonly
-                    style="background: var(--accent-bg); opacity: 0.8;"
-                  />
-                  <small>登録時のメールアドレスです。変更はサポートまでお問い合わせください。</small>
                 </div>
 
                 <div class="form-group">
