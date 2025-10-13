@@ -5,14 +5,15 @@
 
 /* ========== Design System - Completely New Approach ========== */
 :root {
-  /* Unique Color Palette - Dark Neon Cyber Theme */
-  --cyber-bg: #0a0e27;
-  --cyber-surface: #151b3d;
-  --cyber-elevated: #1e2749;
-  --neon-primary: #00fff5;
-  --neon-secondary: #ff00ff;
-  --neon-accent: #ffea00;
-  --neon-danger: #ff3366;
+  /* Simple Clean Color Palette */
+  --cyber-bg: #1a1d2e;
+  --cyber-surface: #22273b;
+  --cyber-elevated: #2d3348;
+  --neon-primary: #4a9eff;
+  --neon-secondary: #a78bfa;
+  --neon-accent: #fbbf24;
+  --neon-danger: #ef4444;
+  --neon-success: #10b981;
   
   /* Glass & Blur Effects */
   --glass-bg: rgba(255, 255, 255, 0.05);
@@ -21,13 +22,13 @@
   
   /* Text */
   --text-primary: #ffffff;
-  --text-secondary: #a0aec0;
-  --text-muted: #718096;
+  --text-secondary: #9ca3af;
+  --text-muted: #6b7280;
   
   /* Glow Effects */
-  --glow-cyan: 0 0 20px rgba(0, 255, 245, 0.5);
-  --glow-magenta: 0 0 20px rgba(255, 0, 255, 0.5);
-  --glow-yellow: 0 0 20px rgba(255, 234, 0, 0.5);
+  --glow-cyan: 0 0 20px rgba(74, 158, 255, 0.3);
+  --glow-magenta: 0 0 20px rgba(167, 139, 250, 0.3);
+  --glow-yellow: 0 0 20px rgba(251, 191, 36, 0.3);
   
   /* Spacing - Unique Scale */
   --unit: 0.5rem;
@@ -65,7 +66,7 @@ body {
   position: relative;
 }
 
-/* Cyber Grid Background */
+/* Subtle Grid Background */
 body::before {
   content: '';
   position: fixed;
@@ -74,8 +75,8 @@ body::before {
   width: 100%;
   height: 100%;
   background-image: 
-    linear-gradient(rgba(0, 255, 245, 0.03) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(0, 255, 245, 0.03) 1px, transparent 1px);
+    linear-gradient(rgba(74, 158, 255, 0.02) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(74, 158, 255, 0.02) 1px, transparent 1px);
   background-size: 50px 50px;
   pointer-events: none;
   z-index: 0;
@@ -90,9 +91,9 @@ body::after {
   width: 200%;
   height: 200%;
   background: 
-    radial-gradient(circle at 20% 50%, rgba(0, 255, 245, 0.1) 0%, transparent 50%),
-    radial-gradient(circle at 80% 80%, rgba(255, 0, 255, 0.1) 0%, transparent 50%),
-    radial-gradient(circle at 50% 20%, rgba(255, 234, 0, 0.05) 0%, transparent 50%);
+    radial-gradient(circle at 20% 50%, rgba(74, 158, 255, 0.08) 0%, transparent 50%),
+    radial-gradient(circle at 80% 80%, rgba(167, 139, 250, 0.08) 0%, transparent 50%),
+    radial-gradient(circle at 50% 20%, rgba(251, 191, 36, 0.03) 0%, transparent 50%);
   animation: float 20s ease-in-out infinite;
   pointer-events: none;
   z-index: 0;
@@ -661,16 +662,103 @@ button[type="submit"]:hover {
   gap: var(--space-2);
 }
 
-/* ========== Angular Navigation ========== */
+/* ========== Vertical Navigation Menu ========== */
 #dashboard-nav {
   background: var(--glass-bg);
   backdrop-filter: blur(10px);
   border: 1px solid var(--glass-border);
-  padding: 0;
+  border-radius: 12px;
+  padding: var(--space-4);
   margin-bottom: var(--space-6);
+}
+
+.nav-header {
+  margin-bottom: var(--space-4);
+  padding-bottom: var(--space-3);
+  border-bottom: 1px solid var(--glass-border);
+}
+
+.nav-header h3 {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+#dashboard-nav ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
   display: flex;
-  gap: 0;
-  overflow-x: auto;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+#dashboard-nav li {
+  margin: 0;
+}
+
+#dashboard-nav a,
+#dashboard-nav .nav-link {
+  display: flex;
+  align-items: center;
+  padding: var(--space-3) var(--space-4);
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  font-weight: 500;
+  text-decoration: none;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  border-radius: 8px;
+  position: relative;
+  font-size: 0.95rem;
+}
+
+#dashboard-nav a::before,
+#dashboard-nav .nav-link::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 3px;
+  height: 0;
+  background: var(--neon-primary);
+  transition: height 0.3s ease;
+  border-radius: 0 2px 2px 0;
+}
+
+#dashboard-nav a:hover,
+#dashboard-nav .nav-link:hover {
+  color: var(--neon-primary);
+  background: rgba(74, 158, 255, 0.08);
+}
+
+#dashboard-nav a:hover::before,
+#dashboard-nav .nav-link:hover::before {
+  height: 60%;
+}
+
+#dashboard-nav a.active,
+#dashboard-nav .nav-link.active {
+  color: var(--neon-primary);
+  background: rgba(74, 158, 255, 0.15);
+  font-weight: 600;
+}
+
+#dashboard-nav a.active::before,
+#dashboard-nav .nav-link.active::before {
+  height: 70%;
+}
+
+#dashboard-nav .fas {
+  width: 20px;
+  text-align: center;
+  margin-right: var(--space-3);
+  font-size: 1.1rem;
 }
 
 #dashboard-nav button {
@@ -702,7 +790,7 @@ button[type="submit"]:hover {
 
 #dashboard-nav button:hover {
   color: var(--neon-primary);
-  background: rgba(0, 255, 245, 0.05);
+  background: rgba(74, 158, 255, 0.05);
 }
 
 #dashboard-nav button:hover::before {
@@ -711,7 +799,7 @@ button[type="submit"]:hover {
 
 #dashboard-nav button.active {
   color: var(--neon-primary);
-  background: rgba(0, 255, 245, 0.1);
+  background: rgba(74, 158, 255, 0.1);
 }
 
 #dashboard-nav button.active::before {
@@ -1100,12 +1188,6 @@ input[type="checkbox"]:checked::after {
   vertical-align: middle;
 }
 
-#dashboard-nav .fas {
-  width: 20px;
-  text-align: center;
-  margin-right: var(--space-2);
-}
-
 button .fas,
 button .far,
 button .fab {
@@ -1267,7 +1349,7 @@ button .fab {
   display: inline-block;
   width: 20px;
   height: 20px;
-  border: 3px solid rgba(0, 255, 245, 0.2);
+  border: 3px solid rgba(74, 158, 255, 0.2);
   border-radius: 50%;
   border-top-color: var(--neon-primary);
   animation: spin 0.8s linear infinite;
@@ -1275,6 +1357,68 @@ button .fab {
 
 @keyframes spin {
   to { transform: rotate(360deg); }
+}
+
+/* ========== Loader Container ========== */
+.loader-container {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: var(--cyber-bg);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  z-index: 10000;
+  gap: var(--space-4);
+}
+
+.loader-container .spinner {
+  width: 60px;
+  height: 60px;
+  border-width: 4px;
+  border-color: rgba(74, 158, 255, 0.2);
+  border-top-color: var(--neon-primary);
+}
+
+.loader-text {
+  font-size: 1.125rem;
+  color: var(--text-secondary);
+  font-weight: 500;
+  letter-spacing: 0.05em;
+  animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 0.6;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+/* ========== Status Indicators ========== */
+.status-active {
+  color: var(--neon-success);
+  font-weight: 600;
+}
+
+.status-inactive {
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.status-maintenance {
+  color: var(--neon-accent);
+  font-weight: 600;
+}
+
+.status-error {
+  color: var(--neon-danger);
+  font-weight: 600;
 }
 
 /* ========== AI Details ========== */
