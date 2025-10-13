@@ -484,8 +484,9 @@ class AuthService {
 
   async initialize() {
     try {
-      // Initialize email service
-      await emailService.initialize();
+      // Email service is no longer required
+      // Skip email service initialization
+      console.log('[情報] メールサービスの初期化をスキップします（メールアドレス不要）');
 
       // Setup Local Authentication Strategy
       passport.use(new LocalStrategy({
@@ -503,11 +504,7 @@ class AuthService {
             return done(null, false, { message: 'ユーザー名またはパスワードが正しくありません' });
           }
 
-          // メール認証チェック（テスト環境では不要）
-          if (!user.verified && emailService.isInitialized() && 
-              process.env.NODE_ENV !== 'test' && !user.email.includes('test')) {
-            return done(null, false, { message: 'メールアドレスが認証されていません。メールボックスを確認してください' });
-          }
+          // Email verification is no longer required - skip this check
 
           // Update last login
           await this.updateLocalUserLastLogin(user.id);
