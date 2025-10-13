@@ -18,9 +18,10 @@ const verifyAuthentication = async (req, res, next) => {
     req.user.role = userRole;
     req.user.roleDisplay = roleService.displayNames[userRole];
     
-    // Set legacy flags for backward compatibility
-    req.user.isAdmin = roleService.hasRole(userRole, roleService.roles.OWNER); // Only owners have admin privileges now
-    req.user.isSuperAdmin = roleService.hasRole(userRole, roleService.roles.OWNER);
+    // Set admin flags based on the Synapse-Note style isAdmin check
+    const isUserAdmin = roleService.isAdmin(req.user);
+    req.user.isAdmin = isUserAdmin;
+    req.user.isSuperAdmin = isUserAdmin; // In Synapse-Note style, all admins have super admin privileges
     
     next();
   } catch (error) {
@@ -54,8 +55,9 @@ const requireRole = (requiredRole) => {
 };
 
 // Convenience middleware for specific roles
-const requireOwner = requireRole(roleService.roles.OWNER);
-const requireEditor = requireRole(roleService.roles.EDITOR);
+const requireOwner = requireRole(roleService.roles.OWNER); // Legacy compatibility
+const requireEditor = requireRole(roleService.roles.EDITOR); // Legacy compatibility  
+const requireAdmin = requireRole(roleService.roles.ADMIN); // Synapse-Note style admin check
 
 // Error handling middleware
 const errorHandler = (err, req, res, next) => {
@@ -75,5 +77,6 @@ module.exports = {
   requireRole,
   requireOwner,
   requireEditor,
+  requireAdmin,
   errorHandler
 };
