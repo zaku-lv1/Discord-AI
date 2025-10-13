@@ -63,8 +63,8 @@ document.addEventListener("DOMContentLoaded", () => {
   const requireInvitationCodesToggle = document.getElementById("require-invitation-codes");
   const allowOpenRegistrationToggle = document.getElementById("allow-open-registration");
   const ownershipTransferForm = document.getElementById("ownership-transfer-form");
-  const newOwnerEmailInput = document.getElementById("new-owner-email");
-  const confirmOwnerEmailInput = document.getElementById("confirm-owner-email");
+  const newOwnerUsernameInput = document.getElementById("new-owner-username");
+  const confirmOwnerUsernameInput = document.getElementById("confirm-owner-username");
   const transferConfirmationCheckbox = document.getElementById("transfer-confirmation");
   const maintenanceStatusEl = document.getElementById("maintenance-status");
   const registrationStatusEl = document.getElementById("registration-status");
@@ -2056,17 +2056,17 @@ document.addEventListener("DOMContentLoaded", () => {
         return;
       }
       
-      const newAdminEmail = newOwnerEmailInput.value.trim();
-      const confirmEmail = confirmOwnerEmailInput.value.trim();
+      const newAdminUsername = newOwnerUsernameInput.value.trim();
+      const confirmUsername = confirmOwnerUsernameInput.value.trim();
       const confirmed = transferConfirmationCheckbox.checked;
       
-      if (!newAdminEmail || !confirmEmail) {
+      if (!newAdminUsername || !confirmUsername) {
         showErrorToast('全ての項目を入力してください');
         return;
       }
       
-      if (newAdminEmail !== confirmEmail) {
-        showErrorToast('メールアドレスが一致しません');
+      if (newAdminUsername !== confirmUsername) {
+        showErrorToast('ユーザー名が一致しません');
         return;
       }
       
@@ -2075,7 +2075,7 @@ document.addEventListener("DOMContentLoaded", () => {
         return;
       }
       
-      if (newAdminEmail === state.user.email) {
+      if (newAdminUsername === state.user.username || newAdminUsername === state.user.handle) {
         showErrorToast('自分自身に権限を付与することはできません（既に管理者です）');
         return;
       }
@@ -2083,7 +2083,7 @@ document.addEventListener("DOMContentLoaded", () => {
       // 最終確認
       const confirmGrant = await showConfirmDialog(
         '管理者権限付与確認',
-        `${newAdminEmail} に管理者権限を付与しますか？\n\nこのユーザーはシステム全体を管理できるようになります。`,
+        `${newAdminUsername} に管理者権限を付与しますか？\n\nこのユーザーはシステム全体を管理できるようになります。`,
         { 
           okText: '付与する', 
           cancelText: 'キャンセル',
@@ -2104,8 +2104,8 @@ document.addEventListener("DOMContentLoaded", () => {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            targetUserEmail: newAdminEmail,
-            confirmEmail: confirmEmail
+            targetUsername: newAdminUsername,
+            confirmUsername: confirmUsername
           }),
           credentials: 'include'
         });

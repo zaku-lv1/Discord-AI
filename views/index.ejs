@@ -656,21 +656,21 @@
                   
                   <form id="ownership-transfer-form">
                     <div class="form-group">
-                      <label for="new-owner-email">管理者権限を付与するユーザーのメールアドレス</label>
+                      <label for="new-owner-username">管理者権限を付与するユーザー名</label>
                       <input 
-                        type="email" 
-                        id="new-owner-email" 
-                        placeholder="ユーザーのメールアドレス"
+                        type="text" 
+                        id="new-owner-username" 
+                        placeholder="ユーザー名（@usernameまたはusername）"
                         required
                       />
                       <small>既存のユーザーに管理者権限を付与します。</small>
                     </div>
 
                     <div class="form-group">
-                      <label for="confirm-owner-email">メールアドレス確認</label>
+                      <label for="confirm-owner-username">ユーザー名確認</label>
                       <input 
-                        type="email" 
-                        id="confirm-owner-email" 
+                        type="text" 
+                        id="confirm-owner-username" 
                         placeholder="確認のため再度入力"
                         required
                       />
