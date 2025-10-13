@@ -5,35 +5,35 @@
 
 /* ========== Design System - Clean & Modern ========== */
 :root {
-  /* Clean Color Palette (Synapse-Note style) */
-  --primary-color: #3178d7;
-  --primary-hover-color: #245ba1;
+  /* Gray-based Color Palette (Synapse-Note style) */
+  --primary-color: #6b7280;
+  --primary-hover-color: #4b5563;
   --surface-bg: #ffffff;
-  --surface-elevated: #fafafa;
+  --surface-elevated: #f9fafb;
   --surface-border: #e5e7eb;
-  --accent-primary: #3178d7;
-  --accent-success: #23b26c;
+  --accent-primary: #6b7280;
+  --accent-success: #10b981;
   --accent-warning: #f59e0b;
-  --accent-danger: #e23d28;
-  --accent-info: #3b82f6;
+  --accent-danger: #ef4444;
+  --accent-info: #6b7280;
   
   /* Background & Surface */
-  --background-color: #f8f9fa;
+  --background-color: #f9fafb;
   --card-bg: #ffffff;
   --card-border: #e5e7eb;
-  --card-shadow: 0 4px 16px rgba(49, 120, 215, 0.08);
+  --card-shadow: 0 4px 16px rgba(107, 114, 128, 0.08);
   
   /* Text Colors */
-  --text-primary: #1a202c;
-  --text-secondary: #4a5568;
-  --text-muted: #7b8794;
+  --text-primary: #111827;
+  --text-secondary: #6b7280;
+  --text-muted: #9ca3af;
   --text-inverse: #ffffff;
   
   /* Interactive Effects */
   --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.1);
   --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.1);
   --shadow-lg: 0 10px 25px rgba(0, 0, 0, 0.15);
-  --focus-ring: 0 0 0 3px rgba(49, 120, 215, 0.2);
+  --focus-ring: 0 0 0 3px rgba(107, 114, 128, 0.2);
   
   /* Spacing Scale */
   --unit: 0.5rem;
@@ -1462,9 +1462,9 @@ button .fab {
 }
 
 .alert-info {
-  background: rgba(49, 120, 215, 0.1);
+  background: rgba(107, 114, 128, 0.1);
   border-left-color: var(--accent-info);
-  color: var(--accent-info);
+  color: var(--text-secondary);
 }
 
 .alert-warning {
@@ -1474,13 +1474,13 @@ button .fab {
 }
 
 .alert-error {
-  background: rgba(226, 61, 40, 0.1);
+  background: rgba(239, 68, 68, 0.1);
   border-left-color: var(--accent-danger);
   color: var(--accent-danger);
 }
 
 .alert-success {
-  background: rgba(35, 178, 108, 0.1);
+  background: rgba(16, 185, 129, 0.1);
   border-left-color: var(--accent-success);
   color: var(--accent-success);
 }

@@ -195,6 +195,29 @@ class SystemSettingsService {
   }
 
   /**
+   * Check if new user registration is allowed (Synapse-Note style)
+   */
+  async allowRegistration() {
+    try {
+      const db = firebaseService.getDB();
+      
+      // Check if allowRegistration is set in system settings
+      const settingsDoc = await db.collection('system_settings').doc('general').get();
+      if (settingsDoc.exists) {
+        const settings = settingsDoc.data();
+        // Default to true if not set
+        return settings.allowRegistration !== false;
+      }
+      
+      // Default to allowing registration
+      return true;
+    } catch (error) {
+      console.error("[エラー] 登録許可の確認に失敗:", error);
+      return true; // Default to allowing registration
+    }
+  }
+
+  /**
    * Check if owner setup is completed
    */
   async isOwnerSetupCompleted() {
