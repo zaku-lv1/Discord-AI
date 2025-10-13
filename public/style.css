@@ -5,35 +5,35 @@
 
 /* ========== Design System - Clean & Modern ========== */
 :root {
-  /* Gray-based Color Palette (Synapse-Note style) */
-  --primary-color: #6b7280;
-  --primary-hover-color: #4b5563;
+  /* Blue-based Color Palette (Synapse-Note style) */
+  --primary-color: #3178d7;
+  --primary-hover-color: #245ba1;
   --surface-bg: #ffffff;
   --surface-elevated: #f9fafb;
   --surface-border: #e5e7eb;
-  --accent-primary: #6b7280;
-  --accent-success: #10b981;
+  --accent-primary: #3178d7;
+  --accent-success: #23b26c;
   --accent-warning: #f59e0b;
-  --accent-danger: #ef4444;
-  --accent-info: #6b7280;
+  --accent-danger: #e23d28;
+  --accent-info: #3b82f6;
   
   /* Background & Surface */
-  --background-color: #f9fafb;
+  --background-color: #f8f9fa;
   --card-bg: #ffffff;
   --card-border: #e5e7eb;
-  --card-shadow: 0 4px 16px rgba(107, 114, 128, 0.08);
+  --card-shadow: 0 4px 16px rgba(49, 120, 215, 0.08);
   
   /* Text Colors */
-  --text-primary: #111827;
-  --text-secondary: #6b7280;
-  --text-muted: #9ca3af;
+  --text-primary: #1a202c;
+  --text-secondary: #4a5568;
+  --text-muted: #7b8794;
   --text-inverse: #ffffff;
   
   /* Interactive Effects */
   --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.1);
   --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.1);
   --shadow-lg: 0 10px 25px rgba(0, 0, 0, 0.15);
-  --focus-ring: 0 0 0 3px rgba(107, 114, 128, 0.2);
+  --focus-ring: 0 0 0 3px rgba(49, 120, 215, 0.3);
   
   /* Spacing Scale */
   --unit: 0.5rem;
