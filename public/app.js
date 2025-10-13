@@ -351,7 +351,7 @@ document.addEventListener("DOMContentLoaded", () => {
       invitationCodeGroup.style.display = 'block';
       invitationCodeInput.required = true;
       invitationCodeInput.placeholder = '招待コードを入力してください（必須）';
-      smallText.textContent = '新規登録には招待コードが必要です。登録後は編集者権限が付与されます。';
+      smallText.textContent = '新規登録には招待コードが必要です。登録後は全てのユーザーがAI編集可能です。';
       smallText.style.color = '#dc3545'; // 赤色で必須であることを強調
     } else {
       // Hide invitation code field when not required
@@ -625,7 +625,7 @@ document.addEventListener("DOMContentLoaded", () => {
       aiListContainer.innerHTML = `
         <div class="empty-state">
           <h3>AIがまだ作成されていません</h3>
-          ${canCreateAI ? '<p>「AI作成」タブから新しいAIを作成してください。</p>' : '<p>AIの作成は編集者以上の権限が必要です。</p>'}
+          ${canCreateAI ? '<p>「AI作成」タブから新しいAIを作成してください。</p>' : '<p>ログインすると、AIの作成・編集が可能になります。</p>'}
           ${canCreateAI ? '<button onclick="switchToPanel(\'panel-create-ai\')" class="save-btn">AIを作成する</button>' : ''}
         </div>
       `;
@@ -2062,52 +2062,52 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
   
-  // オーナー権限移譲フォームの送信
+  // 管理者権限付与フォームの送信
   if (ownershipTransferForm) {
     ownershipTransferForm.addEventListener('submit', async (e) => {
       e.preventDefault();
       
       if (!state.user || !state.user.isSuperAdmin) {
-        showErrorToast('この操作にはオーナー権限が必要です');
+        showErrorToast('この操作には管理者権限が必要です');
         return;
       }
       
-      const newOwnerEmail = newOwnerEmailInput.value.trim();
+      const newAdminEmail = newOwnerEmailInput.value.trim();
       const confirmEmail = confirmOwnerEmailInput.value.trim();
       const confirmed = transferConfirmationCheckbox.checked;
       
-      if (!newOwnerEmail || !confirmEmail) {
+      if (!newAdminEmail || !confirmEmail) {
         showErrorToast('全ての項目を入力してください');
         return;
       }
       
-      if (newOwnerEmail !== confirmEmail) {
+      if (newAdminEmail !== confirmEmail) {
         showErrorToast('メールアドレスが一致しません');
         return;
       }
       
       if (!confirmed) {
-        showErrorToast('移譲の確認にチェックを入れてください');
+        showErrorToast('管理者権限付与の確認にチェックを入れてください');
         return;
       }
       
-      if (newOwnerEmail === state.user.email) {
-        showErrorToast('自分自身に権限を移譲することはできません');
+      if (newAdminEmail === state.user.email) {
+        showErrorToast('自分自身に権限を付与することはできません（既に管理者です）');
         return;
       }
       
       // 最終確認
-      const confirmTransfer = await showConfirmDialog(
-        'オーナー権限移譲確認',
-        `本当にオーナー権限を ${newOwnerEmail} に移譲しますか？\n\nこの操作は取り消すことができません。\nあなたは管理者に降格されます。`,
+      const confirmGrant = await showConfirmDialog(
+        '管理者権限付与確認',
+        `${newAdminEmail} に管理者権限を付与しますか？\n\nこのユーザーはシステム全体を管理できるようになります。`,
         { 
-          okText: '移譲する', 
+          okText: '付与する', 
           cancelText: 'キャンセル',
           dangerous: true 
         }
       );
       
-      if (!confirmTransfer) return;
+      if (!confirmGrant) return;
       
       const submitBtn = ownershipTransferForm.querySelector('button[type="submit"]');
       const originalText = submitBtn.innerHTML;
@@ -2116,13 +2116,14 @@ document.addEventListener("DOMContentLoaded", () => {
         submitBtn.disabled = true;
         submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin" style="margin-right: 8px;"></i>処理中...';
         
-        const response = await fetch('/api/system-settings/transfer-ownership', {
+        const response = await fetch('/api/system-settings/grant-admin', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            newOwnerEmail: newOwnerEmail,
+            targetUserEmail: newAdminEmail,
             confirmEmail: confirmEmail
-          })
+          }),
+          credentials: 'include'
         });
         
         const result = await safeParseJSON(response);
@@ -2133,10 +2134,10 @@ document.addEventListener("DOMContentLoaded", () => {
           // フォームをリセット
           ownershipTransferForm.reset();
           
-          // 5秒後にページを再読み込み
+          // 3秒後にページを再読み込み
           setTimeout(() => {
             window.location.reload();
-          }, 5000);
+          }, 3000);
         } else {
           const errorMessage = result.data ? result.data.message : result.error;
           showErrorToast(errorMessage || '管理者権限の付与に失敗しました');
