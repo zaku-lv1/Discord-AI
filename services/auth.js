@@ -185,8 +185,27 @@ class AuthService {
         throw new Error('現在、新規ユーザーの登録を受け付けておりません。');
       }
       
-      // All new users are regular users (not admin) by default
-      isAdmin = false;
+      // Check invitation code for role assignment
+      if (invitationCode) {
+        try {
+          const inviteDoc = await db.collection("invitation_codes").doc(invitationCode).get();
+          if (inviteDoc.exists) {
+            const inviteData = inviteDoc.data();
+            if (!inviteData.used && inviteData.expiresAt && inviteData.expiresAt.toDate() > new Date()) {
+              // Apply role from invitation code
+              const targetRole = inviteData.targetRole;
+              isAdmin = (targetRole === 'admin' || targetRole === 'owner');
+              console.log(`[情報] 招待コード ${invitationCode} により、ユーザーは ${targetRole} として登録されます`);
+            }
+          }
+        } catch (error) {
+          console.error('[警告] 招待コードの確認に失敗:', error);
+          // Continue with default user role
+        }
+      }
+      
+      // If no valid invitation code, user becomes regular user by default
+      // (Admin can upgrade them later if needed)
     }
     
     // テスト環境またはメールサービスが無効な場合は認証をスキップ

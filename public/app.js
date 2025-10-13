@@ -872,19 +872,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // ================ 権限チェック関数 ================
   function canUserEditAI() {
-    if (!state.user) return false;
-    
-    // Check if user has editor role or higher
-    const userRole = state.user.role;
-    const roleHierarchy = {
-      'editor': 1,
-      'owner': 2
-    };
-    
-    const userLevel = roleHierarchy[userRole] || 0;
-    const requiredLevel = roleHierarchy['editor'] || 1;
-    
-    return userLevel >= requiredLevel;
+    // All authenticated users can edit/create AI
+    return !!state.user;
   }
 
   // ================ ユーザー管理関数 ================

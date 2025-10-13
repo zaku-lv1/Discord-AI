@@ -55,9 +55,28 @@ const requireRole = (requiredRole) => {
 };
 
 // Convenience middleware for specific roles
-const requireOwner = requireRole(roleService.roles.OWNER); // Legacy compatibility
+const requireOwner = async (req, res, next) => {
+  // In multi-admin system, requireOwner checks for admin status
+  if (!req.user || !roleService.isAdmin(req.user)) {
+    return res.status(403).json({ 
+      message: 'この操作には管理者権限が必要です',
+      current: req.user?.roleDisplay || 'ゲスト'
+    });
+  }
+  next();
+};
+
 const requireEditor = requireRole(roleService.roles.EDITOR); // Legacy compatibility  
-const requireAdmin = requireRole(roleService.roles.ADMIN); // Synapse-Note style admin check
+const requireAdmin = async (req, res, next) => {
+  // Synapse-Note style admin check
+  if (!req.user || !roleService.isAdmin(req.user)) {
+    return res.status(403).json({ 
+      message: 'この操作には管理者権限が必要です',
+      current: req.user?.roleDisplay || 'ゲスト'
+    });
+  }
+  next();
+};
 
 // Error handling middleware
 const errorHandler = (err, req, res, next) => {
