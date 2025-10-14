@@ -180,7 +180,9 @@ class AuthService {
           const inviteDoc = await db.collection("invitation_codes").doc(invitationCode).get();
           if (inviteDoc.exists) {
             const inviteData = inviteDoc.data();
-            if (!inviteData.used && inviteData.expiresAt && inviteData.expiresAt.toDate() > new Date()) {
+            // Handle both Firestore Timestamp and JavaScript Date objects
+            const expiresAt = inviteData.expiresAt?.toDate ? inviteData.expiresAt.toDate() : inviteData.expiresAt;
+            if (!inviteData.used && expiresAt && expiresAt > new Date()) {
               // Apply role from invitation code
               const targetRole = inviteData.targetRole;
               isAdmin = (targetRole === 'admin' || targetRole === 'owner');
