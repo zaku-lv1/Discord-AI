@@ -244,6 +244,80 @@ class SystemSettingsService {
   }
 
   /**
+   * Validate emergency admin key
+   * Returns true if the provided key matches the EMERGENCY_ADMIN_KEY environment variable
+   */
+  validateEmergencyAdminKey(providedKey) {
+    const emergencyKey = process.env.EMERGENCY_ADMIN_KEY;
+    
+    // If no emergency key is configured, this feature is disabled
+    if (!emergencyKey || emergencyKey.trim() === '') {
+      return false;
+    }
+    
+    // Validate the provided key matches the configured key
+    return providedKey && providedKey === emergencyKey;
+  }
+
+  /**
+   * Grant admin role to a user using emergency admin key
+   * This allows recovering admin access when locked out
+   */
+  async grantAdminRoleWithEmergencyKey(targetUserEmailOrHandle, emergencyKey) {
+    try {
+      // Validate emergency key first
+      if (!this.validateEmergencyAdminKey(emergencyKey)) {
+        throw new Error("緊急管理者キーが無効です");
+      }
+
+      const roleService = require("./roles");
+      
+      // Find the user
+      const db = firebaseService.getDB();
+      let userQuery;
+      
+      if (targetUserEmailOrHandle.includes('@') && targetUserEmailOrHandle.includes('.')) {
+        // Email format
+        userQuery = await db.collection('users').where('email', '==', targetUserEmailOrHandle).get();
+      } else {
+        // Handle format
+        const handle = roleService.formatHandle(targetUserEmailOrHandle);
+        userQuery = await db.collection('users').where('handle', '==', handle).get();
+      }
+      
+      if (userQuery.empty) {
+        throw new Error("指定されたユーザーが見つかりません");
+      }
+
+      const userData = userQuery.docs[0].data();
+      const userId = userQuery.docs[0].id;
+      
+      // Check if user is already an admin
+      if (userData.isAdmin === true) {
+        throw new Error("指定されたユーザーは既に管理者です");
+      }
+
+      // Grant admin role
+      await roleService.updateUserRole(targetUserEmailOrHandle, roleService.roles.ADMIN);
+
+      // Log the emergency grant
+      await this.updateSettings({
+        lastEmergencyAdminGrant: {
+          to: targetUserEmailOrHandle,
+          grantedAt: firebaseService.getServerTimestamp(),
+          grantedBy: 'EMERGENCY_KEY'
+        }
+      }, 'EMERGENCY_KEY');
+
+      console.log("[警告] 緊急管理者キーを使用して管理者権限を付与しました:", targetUserEmailOrHandle);
+      return true;
+    } catch (error) {
+      console.error("[エラー] 緊急管理者権限の付与に失敗:", error);
+      throw error;
+    }
+  }
+
+  /**
    * Grant admin role to a user (Synapse-Note style - multiple admins allowed)
    */
   async grantAdminRole(targetUserEmail, grantedBy) {
