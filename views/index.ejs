@@ -94,7 +94,7 @@
                 <div class="form-group">
                   <label for="register-invitation-code">招待コード（必須）</label>
                   <input type="text" id="register-invitation-code" placeholder="招待コードを入力してください（必須）" required />
-                  <small>新規登録には招待コードが必要です。登録後は一般ユーザー権限が付与されます。</small>
+                  <small>新規登録には招待コードが必要です。招待コードによって一般ユーザーまたは管理者の権限が付与されます。</small>
                 </div>
                 <div class="button-group">
                   <button type="submit" class="save-btn">
@@ -108,43 +108,7 @@
               </div>
             </div>
 
-            <div id="password-reset-section" style="display: none;">
-              <h3>パスワード再設定</h3>
-              <p>登録済みのメールアドレスを入力してください。パスワード再設定のリンクをお送りします。</p>
-              <form id="password-reset-form-element">
-                <div class="form-group">
-                  <label for="reset-email">メールアドレス</label>
-                  <input type="email" id="reset-email" required placeholder="登録したメールアドレス" />
-                </div>
-                <div class="button-group">
-                  <button type="submit" class="save-btn">
-                    <i class="fas fa-envelope" style="margin-right: 8px;"></i>
-                    再設定メールを送信
-                  </button>
-                </div>
-              </form>
-              <div class="login-switch">
-                <p><a href="#" onclick="showLoginForm()">ログインページに戻る</a></p>
-              </div>
-            </div>
 
-            <div id="verification-pending-section" style="display: none;">
-              <h3>メール認証待ち</h3>
-              <p>アカウントを作成しました。メールボックスを確認して認証を完了してください。</p>
-              <div class="verification-info">
-                <p><i class="fas fa-envelope" style="margin-right: 8px;"></i>認証メールが <strong id="verification-email"></strong> に送信されました。</p>
-                <p><i class="fas fa-clock" style="margin-right: 8px;"></i>メールが届かない場合は、迷惑メールフォルダも確認してください。</p>
-              </div>
-              <div class="button-group">
-                <button type="button" id="resend-verification-btn" class="secondary-btn">
-                  <i class="fas fa-redo" style="margin-right: 8px;"></i>
-                  認証メールを再送信
-                </button>
-              </div>
-              <div class="login-switch">
-                <p><a href="#" onclick="showLoginForm()">ログインページに戻る</a></p>
-              </div>
-            </div>
           </div>
         </div>
       </div>
