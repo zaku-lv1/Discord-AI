@@ -313,4 +313,43 @@ router.post("/reset-database", async (req, res) => {
   }
 });
 
+/**
+ * Emergency admin access (No authentication required, but requires EMERGENCY_ADMIN_KEY)
+ * This endpoint allows granting admin privileges when all admin accounts are locked out
+ */
+router.post("/emergency-admin-access", async (req, res) => {
+  try {
+    const { targetUser, emergencyKey } = req.body;
+
+    // Validate required fields
+    if (!targetUser || !emergencyKey) {
+      return res.status(400).json({
+        success: false,
+        message: "ターゲットユーザーと緊急管理者キーは必須です"
+      });
+    }
+
+    // Validate emergency key and grant admin role
+    await systemSettingsService.grantAdminRoleWithEmergencyKey(targetUser, emergencyKey);
+
+    console.log(`[警告] 緊急管理者キーを使用して管理者権限を付与しました: ${targetUser}`);
+
+    res.json({
+      success: true,
+      message: `管理者権限を ${targetUser} に付与しました`,
+      targetUser: targetUser,
+      grantedBy: "EMERGENCY_KEY",
+      warning: "この操作は緊急管理者キーを使用して実行されました。セキュリティのため、環境変数 EMERGENCY_ADMIN_KEY の変更を推奨します。"
+    });
+  } catch (error) {
+    console.error("[エラー] 緊急管理者権限の付与に失敗:", error);
+    
+    // Don't leak information about whether the key is valid or not
+    res.status(400).json({
+      success: false,
+      message: error.message || "緊急管理者権限の付与に失敗しました"
+    });
+  }
+});
+
 module.exports = router;
