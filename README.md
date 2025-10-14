@@ -138,6 +138,37 @@ Discord Botが設定されている場合、様々なスラッシュコマンド
 3. **ユーザー管理**: 管理者ユーザーと権限を管理
 4. **設定**: グローバルボット設定を構成
 
+## 🔓 緊急管理者アクセス
+
+すべての管理者アカウントにログインできなくなった場合のために、緊急管理者アクセス機能が用意されています。
+
+### セットアップ
+
+1. `.env` ファイルに緊急管理者キーを設定：
+   ```bash
+   EMERGENCY_ADMIN_KEY=your-secure-random-key-here
+   ```
+
+2. サーバーを再起動して変更を適用
+
+### 使用方法
+
+管理者アカウントにログインできない場合、以下のAPIエンドポイントを使用して管理者権限を付与できます：
+
+```bash
+curl -X POST http://localhost:8080/api/system-settings/emergency-admin-access \
+  -H "Content-Type: application/json" \
+  -d '{
+    "targetUser": "@username",
+    "emergencyKey": "your-emergency-key"
+  }'
+```
+
+**注意事項：**
+- この機能は緊急時のみ使用してください
+- 使用後は環境変数 `EMERGENCY_ADMIN_KEY` を新しい値に変更することを推奨します
+- 詳細は [緊急管理者アクセスガイド](./EMERGENCY_ADMIN_ACCESS.md) を参照してください
+
 ### AI設定
 
 - **システムプロンプト**: AIのパーソナリティと動作を定義
