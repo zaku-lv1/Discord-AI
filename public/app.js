@@ -1601,8 +1601,6 @@ document.addEventListener("DOMContentLoaded", () => {
   // --- 新しい認証システム用のイベントリスナー ---
   const loginForm = document.getElementById("login-form-element");
   const registerForm = document.getElementById("register-form-element");
-  const passwordResetForm = document.getElementById("password-reset-form-element");
-  const resendVerificationBtn = document.getElementById("resend-verification-btn");
 
   // Login form handler function (to be used by both submit and click events)
   async function handleLogin(e) {
@@ -1767,90 +1765,6 @@ document.addEventListener("DOMContentLoaded", () => {
         }
       } finally {
         submitBtn.disabled = false;
-      }
-    });
-  }
-
-  if (passwordResetForm) {
-    passwordResetForm.addEventListener("submit", async (e) => {
-      e.preventDefault();
-      
-      const email = document.getElementById("reset-email").value.trim();
-      
-      if (!email) {
-        showErrorToast("メールアドレスを入力してください。");
-        return;
-      }
-      
-      const submitBtn = passwordResetForm.querySelector('button[type="submit"]');
-      submitBtn.disabled = true;
-      showInfoToast("パスワード再設定メールを送信中...");
-      
-      try {
-        const response = await fetch('/auth/request-password-reset', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({ email })
-        });
-        
-        const result = await safeParseJSON(response);
-        
-        if (result.success && result.data.success) {
-          showSuccessToast(result.data.message);
-          // フォームをリセットしてログインフォームに戻る
-          setTimeout(() => {
-            passwordResetForm.reset();
-            showLoginForm();
-          }, 3000);
-        } else {
-          const errorMessage = result.data ? result.data.message : result.error;
-          showErrorToast(errorMessage || 'パスワード再設定に失敗しました。');
-        }
-      } catch (error) {
-        console.error('パスワード再設定エラー:', error);
-        showErrorToast('パスワード再設定に失敗しました。');
-      } finally {
-        submitBtn.disabled = false;
-      }
-    });
-  }
-
-  if (resendVerificationBtn) {
-    resendVerificationBtn.addEventListener("click", async () => {
-      const email = document.getElementById("verification-email").textContent;
-      
-      if (!email) {
-        showErrorToast("メールアドレスが見つかりません。");
-        return;
-      }
-      
-      resendVerificationBtn.disabled = true;
-      showInfoToast("認証メールを再送信中...");
-      
-      try {
-        const response = await fetch('/auth/resend-verification', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({ email })
-        });
-        
-        const result = await safeParseJSON(response);
-        
-        if (result.success && result.data.success) {
-          showSuccessToast(result.data.message);
-        } else {
-          const errorMessage = result.data ? result.data.message : result.error;
-          showErrorToast(errorMessage || '認証メール再送信に失敗しました。');
-        }
-      } catch (error) {
-        console.error('認証メール再送信エラー:', error);
-        showErrorToast('認証メール再送信に失敗しました。');
-      } finally {
-        resendVerificationBtn.disabled = false;
       }
     });
   }
@@ -2153,50 +2067,18 @@ document.addEventListener("DOMContentLoaded", () => {
 function showLoginForm() {
   const loginSection = document.getElementById("login-section");
   const registerSection = document.getElementById("register-section");
-  const passwordResetSection = document.getElementById("password-reset-section");
-  const verificationSection = document.getElementById("verification-pending-section");
   
   loginSection.style.display = "block";
   registerSection.style.display = "none";
-  passwordResetSection.style.display = "none";
-  verificationSection.style.display = "none";
 }
 
 function showRegisterForm() {
   const loginSection = document.getElementById("login-section");
   const registerSection = document.getElementById("register-section");
-  const passwordResetSection = document.getElementById("password-reset-section");
-  const verificationSection = document.getElementById("verification-pending-section");
   
   loginSection.style.display = "none";
   registerSection.style.display = "block";
-  passwordResetSection.style.display = "none";
-  verificationSection.style.display = "none";
   
   // Check system settings to update invitation code field visibility
   checkSystemSettings();
-}
-
-function showPasswordResetForm() {
-  const loginSection = document.getElementById("login-section");
-  const registerSection = document.getElementById("register-section");
-  const passwordResetSection = document.getElementById("password-reset-section");
-  const verificationSection = document.getElementById("verification-pending-section");
-  
-  loginSection.style.display = "none";
-  registerSection.style.display = "none";
-  passwordResetSection.style.display = "block";
-  verificationSection.style.display = "none";
-}
-
-function showVerificationPendingForm() {
-  const loginSection = document.getElementById("login-section");
-  const registerSection = document.getElementById("register-section");
-  const passwordResetSection = document.getElementById("password-reset-section");
-  const verificationSection = document.getElementById("verification-pending-section");
-  
-  loginSection.style.display = "none";
-  registerSection.style.display = "none";
-  passwordResetSection.style.display = "none";
-  verificationSection.style.display = "block";
 }
