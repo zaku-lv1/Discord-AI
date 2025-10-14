@@ -21,7 +21,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // --- プロファイル要素 ---
   const profileDisplayNameInput = document.getElementById("profile-display-name");
-  const profileEmailInput = document.getElementById("profile-email");
   const profileHandleInput = document.getElementById("profile-handle");
   const profileRoleInput = document.getElementById("profile-role");
   const saveProfileBtn = document.getElementById("save-profile-btn");
@@ -64,8 +63,8 @@ document.addEventListener("DOMContentLoaded", () => {
   const requireInvitationCodesToggle = document.getElementById("require-invitation-codes");
   const allowOpenRegistrationToggle = document.getElementById("allow-open-registration");
   const ownershipTransferForm = document.getElementById("ownership-transfer-form");
-  const newOwnerEmailInput = document.getElementById("new-owner-email");
-  const confirmOwnerEmailInput = document.getElementById("confirm-owner-email");
+  const newOwnerUsernameInput = document.getElementById("new-owner-username");
+  const confirmOwnerUsernameInput = document.getElementById("confirm-owner-username");
   const transferConfirmationCheckbox = document.getElementById("transfer-confirmation");
   const maintenanceStatusEl = document.getElementById("maintenance-status");
   const registrationStatusEl = document.getElementById("registration-status");
@@ -514,9 +513,6 @@ document.addEventListener("DOMContentLoaded", () => {
       
       if (profileUsernameInput) {
         profileUsernameInput.value = state.user.username;
-      }
-      if (profileEmailInput) {
-        profileEmailInput.value = state.user.email || '';
       }
       if (profileHandleInput) {
         profileHandleInput.value = state.user.handle || `@${state.user.username}`;
@@ -1005,11 +1001,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
         if (currentUserAdminInfo) {
           profileDisplayNameInput.value = currentUserAdminInfo.name || "";
-          profileEmailInput.value = currentUserAdminInfo.email || "";
         } else {
           // 新規ユーザーの場合、Discord情報を初期値に設定
           profileDisplayNameInput.value = state.user.username || "";
-          profileEmailInput.value = state.user.email || "";
         }
 
         state.isSuperAdmin = data.currentUser && data.currentUser.isSuperAdmin;
@@ -1019,7 +1013,6 @@ document.addEventListener("DOMContentLoaded", () => {
         // 初回セットアップの場合
         state.isSuperAdmin = true;
         profileDisplayNameInput.value = state.user.username || "";
-        profileEmailInput.value = state.user.email || "";
         settingsLoaded = true;
       } else {
         const errData = await aiRes.json().catch(() => ({}));
@@ -1212,7 +1205,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
       try {
         const newDisplayName = profileDisplayNameInput.value.trim();
-        const newEmail = profileEmailInput.value.trim();
 
         const res = await fetch("/api/update-profile", {
           method: "POST",
@@ -1721,11 +1713,10 @@ document.addEventListener("DOMContentLoaded", () => {
       
       const username = document.getElementById("register-username").value.trim();
       const password = document.getElementById("register-password").value;
-      const email = document.getElementById("register-email").value.trim();
       const invitationCode = document.getElementById("register-invitation-code").value.trim();
       const invitationCodeInput = document.getElementById("register-invitation-code");
       
-      if (!username || !password || !email) {
+      if (!username || !password) {
         showErrorToast("すべての項目を入力してください。");
         return;
       }
@@ -1749,8 +1740,7 @@ document.addEventListener("DOMContentLoaded", () => {
           credentials: 'include',
           body: JSON.stringify({ 
             username, 
-            password, 
-            email,
+            password,
             invitationCode: invitationCode || undefined
           })
         });
@@ -1760,16 +1750,10 @@ document.addEventListener("DOMContentLoaded", () => {
         if (result.success && result.data.success) {
           showSuccessToast(result.data.message);
           
-          if (result.data.requiresVerification) {
-            // メール認証が必要な場合
-            document.getElementById("verification-email").textContent = email;
-            showVerificationPendingForm();
-          } else {
-            // メール認証不要の場合（テスト環境など）
-            setTimeout(() => {
-              checkAuthStatus();
-            }, 1000);
-          }
+          // Email verification is no longer required
+          setTimeout(() => {
+            checkAuthStatus();
+          }, 1000);
         } else {
           const errorMessage = result.data ? result.data.message : result.error;
           showErrorToast(errorMessage || 'アカウント作成に失敗しました。');
@@ -2072,17 +2056,17 @@ document.addEventListener("DOMContentLoaded", () => {
         return;
       }
       
-      const newAdminEmail = newOwnerEmailInput.value.trim();
-      const confirmEmail = confirmOwnerEmailInput.value.trim();
+      const newAdminUsername = newOwnerUsernameInput.value.trim();
+      const confirmUsername = confirmOwnerUsernameInput.value.trim();
       const confirmed = transferConfirmationCheckbox.checked;
       
-      if (!newAdminEmail || !confirmEmail) {
+      if (!newAdminUsername || !confirmUsername) {
         showErrorToast('全ての項目を入力してください');
         return;
       }
       
-      if (newAdminEmail !== confirmEmail) {
-        showErrorToast('メールアドレスが一致しません');
+      if (newAdminUsername !== confirmUsername) {
+        showErrorToast('ユーザー名が一致しません');
         return;
       }
       
@@ -2091,7 +2075,7 @@ document.addEventListener("DOMContentLoaded", () => {
         return;
       }
       
-      if (newAdminEmail === state.user.email) {
+      if (newAdminUsername === state.user.username || newAdminUsername === state.user.handle) {
         showErrorToast('自分自身に権限を付与することはできません（既に管理者です）');
         return;
       }
@@ -2099,7 +2083,7 @@ document.addEventListener("DOMContentLoaded", () => {
       // 最終確認
       const confirmGrant = await showConfirmDialog(
         '管理者権限付与確認',
-        `${newAdminEmail} に管理者権限を付与しますか？\n\nこのユーザーはシステム全体を管理できるようになります。`,
+        `${newAdminUsername} に管理者権限を付与しますか？\n\nこのユーザーはシステム全体を管理できるようになります。`,
         { 
           okText: '付与する', 
           cancelText: 'キャンセル',
@@ -2120,8 +2104,8 @@ document.addEventListener("DOMContentLoaded", () => {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            targetUserEmail: newAdminEmail,
-            confirmEmail: confirmEmail
+            targetUsername: newAdminUsername,
+            confirmUsername: confirmUsername
           }),
           credentials: 'include'
         });

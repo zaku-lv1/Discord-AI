@@ -124,13 +124,13 @@ router.post('/login', (req, res, next) => {
 
 router.post('/register', async (req, res) => {
   try {
-    const { username, password, email, invitationCode } = req.body;
+    const { username, password, invitationCode } = req.body;
     
     // Validation
-    if (!username || !password || !email) {
+    if (!username || !password) {
       return res.status(400).json({ 
         success: false, 
-        message: 'ユーザー名、パスワード、メールアドレスは必須です' 
+        message: 'ユーザー名とパスワードは必須です' 
       });
     }
     
@@ -157,7 +157,7 @@ router.post('/register', async (req, res) => {
       });
     }
     
-    const user = await authService.createLocalUser(cleanUsername, password, email, false, invitationCode);
+    const user = await authService.createLocalUser(cleanUsername, password, null, false, invitationCode);
     
     console.log('[SUCCESS] ユーザー登録成功:', user.username);
     res.json({ 

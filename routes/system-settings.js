@@ -95,49 +95,51 @@ router.put("/", verifyAuthentication, requireOwner, async (req, res) => {
  */
 router.post("/grant-admin", verifyAuthentication, requireOwner, async (req, res) => {
   try {
-    const { targetUserEmail, confirmEmail } = req.body;
+    const { targetUsername, confirmUsername } = req.body;
 
-    if (!targetUserEmail || !confirmEmail) {
+    if (!targetUsername || !confirmUsername) {
       return res.status(400).json({
         success: false,
-        message: "ユーザーのメールアドレスを入力してください"
+        message: "ユーザー名を入力してください"
       });
     }
 
-    if (targetUserEmail !== confirmEmail) {
+    if (targetUsername !== confirmUsername) {
       return res.status(400).json({
         success: false,
-        message: "メールアドレスが一致しません"
+        message: "ユーザー名が一致しません"
       });
     }
 
-    if (targetUserEmail === req.user.email) {
+    if (targetUsername === req.user.username || targetUsername === req.user.handle) {
       return res.status(400).json({
         success: false,
         message: "自分自身に権限を付与することはできません"
       });
     }
 
-    // Check if target user exists
-    const targetUserRole = await roleService.getUserRole(targetUserEmail);
-    if (!targetUserRole) {
+    // Find user by username and get their email
+    const authService = require("../services/auth");
+    const targetUser = await authService.findLocalUser(targetUsername);
+    
+    if (!targetUser) {
       return res.status(400).json({
         success: false,
         message: "指定されたユーザーが見つからないか、システムに登録されていません"
       });
     }
 
-    // Grant admin role
+    // Grant admin role using email (backend still uses email internally)
     await systemSettingsService.grantAdminRole(
-      targetUserEmail,
+      targetUser.email,
       req.user.email
     );
 
     res.json({
       success: true,
-      message: `管理者権限を ${targetUserEmail} に付与しました`,
-      targetUser: targetUserEmail,
-      grantedBy: req.user.email
+      message: `管理者権限を ${targetUsername} に付与しました`,
+      targetUser: targetUsername,
+      grantedBy: req.user.username
     });
   } catch (error) {
     console.error("[エラー] 管理者権限の付与に失敗:", error);
