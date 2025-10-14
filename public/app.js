@@ -350,7 +350,7 @@ document.addEventListener("DOMContentLoaded", () => {
       invitationCodeGroup.style.display = 'block';
       invitationCodeInput.required = true;
       invitationCodeInput.placeholder = '招待コードを入力してください（必須）';
-      smallText.textContent = '新規登録には招待コードが必要です。登録後は全てのユーザーがAI編集可能です。';
+      smallText.textContent = '新規登録には招待コードが必要です。招待コードによって一般ユーザーまたは管理者の権限が付与されます。';
       smallText.style.color = '#dc3545'; // 赤色で必須であることを強調
     } else {
       // Hide invitation code field when not required
