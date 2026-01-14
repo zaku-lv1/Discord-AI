@@ -1,8 +1,8 @@
 {
-  "botName": "AI Assistant",
+  "botName": "ミニマルボット",
   "botIconUrl": "",
-  "systemPrompt": "You are a helpful and friendly AI assistant. Be concise and clear in your responses.",
+  "systemPrompt": "ミニマルプロンプト",
   "modelMode": "hybrid",
-  "replyDelayMs": 500,
-  "errorOopsMessage": "Sorry, error occurred!"
+  "replyDelayMs": 0,
+  "errorOopsMessage": ""
 }
