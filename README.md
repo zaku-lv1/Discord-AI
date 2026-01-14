@@ -5,11 +5,12 @@ A simplified Discord bot with AI capabilities and a minimal web-based configurat
 ## ✨ Features
 
 - **🤖 Discord Bot**: Single `/ai` command to summon an AI assistant in Discord channels
-- **🌐 Configuration Dashboard**: Simple web UI to edit AI settings
+- **🌐 Configuration Dashboard**: Simple web UI to edit AI settings (日本語対応)
 - **🔐 IP-Based Access Control**: Dashboard protected by IP allowlist
 - **🧠 Google Gemini AI**: Supports both Pro and Flash models with hybrid fallback
-- **💾 File-Based Storage**: All settings stored locally in JSON format
-- **🚀 Zero External Dependencies**: No Firebase, no authentication system, no external network calls
+- **💾 Dual Storage Options**: File-based storage (default) or Firestore cloud storage
+- **🔄 Automatic Fallback**: Seamlessly switches between storage methods
+- **🌏 Japanese Interface**: Home page and dashboard in Japanese
 
 ## 🛠️ Setup
 
@@ -57,9 +58,16 @@ A simplified Discord bot with AI capabilities and a minimal web-based configurat
    GEMINI_API_KEY=your_gemini_api_key_here
    PORT=8080
    ADMIN_ALLOWED_IPS=127.0.0.1,your.ip.address.here
+   
+   # Optional: Enable Firestore cloud storage
+   # FIREBASE_SERVICE_ACCOUNT_JSON='{"type":"service_account",...}'
    ```
 
-### 4. Run the Application
+### 4. (Optional) Enable Firestore Cloud Storage
+
+For cloud-based configuration storage, see [FIRESTORE_GUIDE.md](FIRESTORE_GUIDE.md) for detailed setup instructions.
+
+### 5. Run the Application
 
 ```bash
 npm start
@@ -86,17 +94,31 @@ Use the `/ai` command in any Discord channel where the bot is present:
    - **Reply Delay**: Set delay before AI responds (in milliseconds)
    - **Error Message**: Custom message when AI fails
 
-## 📁 Configuration File
+## 📁 Configuration Storage
 
-Settings are stored in `data/ai-config.json`:
+### File-Based Storage (Default)
+
+Settings are stored locally in `data/ai-config.json`:
 
 ```json
 {
+  "botName": "AI Assistant",
   "systemPrompt": "You are a helpful and friendly AI assistant.",
   "modelMode": "hybrid",
   "replyDelayMs": 0,
   "errorOopsMessage": "Sorry, something went wrong!"
 }
+```
+
+### Firestore Cloud Storage (Optional)
+
+When Firebase credentials are configured, settings are stored in Firestore:
+- Collection: `settings`
+- Document: `ai-config`
+
+The system automatically falls back to file-based storage if Firestore is unavailable.
+
+See [FIRESTORE_GUIDE.md](FIRESTORE_GUIDE.md) for setup instructions.
 ```
 
 You can edit this file directly or use the web dashboard.
