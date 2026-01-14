@@ -1,42 +1,20 @@
 {
   "name": "foolish-seasons-bot",
   "version": "1.0.0",
-  "description": "A Discord bot with image sharing capabilities.",
+  "description": "A Discord bot with AI capabilities.",
   "main": "server.js",
   "scripts": {
-    "test": "node final_comprehensive_test.js",
-    "test:gmail": "node test_gmail.js",
-    "test:requirements": "node test_new_requirements.js",
-    "test:roles": "node test_role_restrictions.js",
-    "test:all": "npm run test:requirements && npm run test:roles && npm test",
     "start": "node server.js",
-    "start:old": "node index.js",
     "dev": "node server.js"
   },
   "author": "",
   "license": "ISC",
   "dependencies": {
     "@google/generative-ai": "^0.12.0",
-    "axios": "^1.11.0",
-    "bcrypt": "^6.0.0",
-    "cheerio": "^1.0.0-rc.12",
-    "cookie-parser": "^1.4.7",
     "discord.js": "^14.15.3",
     "dotenv": "^16.4.5",
     "ejs": "^3.1.10",
-    "express": "^4.19.2",
-    "express-session": "^1.17.3",
-    "firebase-admin": "^12.1.1",
-    "googleapis": "^140.0.0",
-    "nanoid": "^3.3.7",
-    "node-cron": "^3.0.3",
-    "node-fetch": "^2.6.7",
-    "nodemailer": "^7.0.5",
-    "passport": "^0.6.0",
-    "passport-local": "^1.0.0",
-    "rss-parser": "^3.13.0",
-    "smtp-server": "^3.14.0",
-    "uuid": "^9.0.1"
+    "express": "^4.19.2"
   },
   "engines": {
     "node": ">=18.0.0"

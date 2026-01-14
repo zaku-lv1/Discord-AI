@@ -3,7 +3,7 @@ const path = require("node:path");
 const { Client, GatewayIntentBits, Collection, Events } = require("discord.js");
 
 class DiscordBot {
-  constructor(firebaseService) {
+  constructor() {
     this.client = new Client({
       intents: [
         GatewayIntentBits.Guilds,
@@ -13,8 +13,6 @@ class DiscordBot {
     });
     
     this.client.commands = new Collection();
-    this.client.db = firebaseService.getDB();
-    this.firebaseService = firebaseService;
     this.setupEventHandlers();
     this.loadCommands();
   }

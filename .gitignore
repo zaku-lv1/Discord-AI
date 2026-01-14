@@ -39,6 +39,7 @@ firebase-debug.log
 .tmp/
 temp/
 index.js.backup
+server.js.backup
 cookies.txt
 .env
 .env
