@@ -29,6 +29,9 @@ class Server {
     try {
       console.log("[情報] サービスを初期化しています...");
       
+      // Initialize Firestore for AI config store
+      await aiConfigStore.initializeFirestore();
+      
       // Ensure AI config exists
       await aiConfigStore.getConfig();
 
@@ -79,12 +82,13 @@ class Server {
     this.app.get("/", (req, res) => {
       res.send(`
         <!DOCTYPE html>
-        <html>
+        <html lang="ja">
         <head>
+          <meta charset="UTF-8">
           <title>Discord AI Bot</title>
           <style>
             body {
-              font-family: Arial, sans-serif;
+              font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Hiragino Kaku Gothic ProN', 'Hiragino Sans', Meiryo, sans-serif;
               max-width: 800px;
               margin: 50px auto;
               padding: 20px;
@@ -97,6 +101,13 @@ class Server {
               box-shadow: 0 2px 4px rgba(0,0,0,0.1);
             }
             h1 { color: #333; }
+            p { line-height: 1.6; }
+            code {
+              background: #f0f0f0;
+              padding: 2px 6px;
+              border-radius: 3px;
+              font-family: 'Courier New', monospace;
+            }
             .link {
               display: inline-block;
               margin-top: 20px;
@@ -114,9 +125,9 @@ class Server {
         <body>
           <div class="card">
             <h1>🤖 Discord AI Bot</h1>
-            <p>Welcome to the Discord AI Bot management system.</p>
-            <p>Use the <code>/ai</code> command in Discord to summon the AI assistant.</p>
-            <a href="/dashboard" class="link">Go to Dashboard</a>
+            <p>Discord AI Bot管理システムへようこそ。</p>
+            <p>DiscordでAIアシスタントを呼び出すには、<code>/ai</code>コマンドを使用してください。</p>
+            <a href="/dashboard" class="link">ダッシュボードへ</a>
           </div>
         </body>
         </html>

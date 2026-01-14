@@ -6,13 +6,74 @@ class AIConfigStore {
     this.configPath = path.join(__dirname, '../data/ai-config.json');
     this.cache = null;
     this.lastModified = null;
+    this.firebaseService = null;
+    this.useFirestore = false;
   }
 
   /**
-   * Read AI configuration from file
+   * Initialize Firestore connection
+   * Falls back to file-based storage if Firebase is not configured
+   */
+  async initializeFirestore() {
+    try {
+      this.firebaseService = require('./firebase');
+      await this.firebaseService.initialize();
+      
+      // Check if Firebase is actually configured (not using mock DB)
+      if (!this.firebaseService.isUsingMockDB()) {
+        this.useFirestore = true;
+        console.log('[INFO] AI config store initialized with Firestore');
+      } else {
+        console.log('[INFO] AI config store using file-based storage (Firebase not configured)');
+      }
+    } catch (error) {
+      console.log('[INFO] AI config store using file-based storage:', error.message);
+      this.useFirestore = false;
+    }
+  }
+
+  /**
+   * Read AI configuration from file or Firestore
    * Uses caching with file modification time check for performance
    */
   async getConfig() {
+    // Use Firestore if available
+    if (this.useFirestore) {
+      return await this.getConfigFromFirestore();
+    }
+    
+    // Fall back to file-based storage
+    return await this.getConfigFromFile();
+  }
+
+  /**
+   * Get configuration from Firestore
+   */
+  async getConfigFromFirestore() {
+    try {
+      const db = this.firebaseService.getDB();
+      const docRef = db.collection('settings').doc('ai-config');
+      const doc = await docRef.get();
+      
+      if (doc.exists) {
+        return doc.data();
+      } else {
+        // Create default config if it doesn't exist
+        const defaultConfig = this.getDefaultConfig();
+        await docRef.set(defaultConfig);
+        return defaultConfig;
+      }
+    } catch (error) {
+      console.error('[ERROR] Failed to get config from Firestore:', error);
+      // Fall back to file-based storage
+      return await this.getConfigFromFile();
+    }
+  }
+
+  /**
+   * Get configuration from file
+   */
+  async getConfigFromFile() {
     try {
       const stats = await fs.stat(this.configPath);
       const currentMtime = stats.mtime.getTime();
@@ -34,15 +95,8 @@ class AIConfigStore {
     } catch (error) {
       if (error.code === 'ENOENT') {
         console.log('[INFO] Config file not found, creating default config...');
-        const defaultConfig = {
-          botName: "AI Assistant",
-          botIconUrl: "",
-          systemPrompt: "あなたは親しみやすくフレンドリーなAIアシスタントです。自然で親しみやすい口調で話してください。",
-          modelMode: "hybrid",
-          replyDelayMs: 0,
-          errorOopsMessage: "ちょっと調子が悪いみたい...ごめんね！"
-        };
-        await this.saveConfig(defaultConfig);
+        const defaultConfig = this.getDefaultConfig();
+        await this.saveConfigToFile(defaultConfig);
         return defaultConfig;
       }
       throw error;
@@ -50,9 +104,52 @@ class AIConfigStore {
   }
 
   /**
-   * Save AI configuration to file
+   * Get default configuration
+   */
+  getDefaultConfig() {
+    return {
+      botName: "AI Assistant",
+      botIconUrl: "",
+      systemPrompt: "あなたは親しみやすくフレンドリーなAIアシスタントです。自然で親しみやすい口調で話してください。",
+      modelMode: "hybrid",
+      replyDelayMs: 0,
+      errorOopsMessage: "ちょっと調子が悪いみたい...ごめんね！"
+    };
+  }
+
+  /**
+   * Save AI configuration to file or Firestore
    */
   async saveConfig(config) {
+    // Use Firestore if available
+    if (this.useFirestore) {
+      return await this.saveConfigToFirestore(config);
+    }
+    
+    // Fall back to file-based storage
+    return await this.saveConfigToFile(config);
+  }
+
+  /**
+   * Save configuration to Firestore
+   */
+  async saveConfigToFirestore(config) {
+    try {
+      const db = this.firebaseService.getDB();
+      const docRef = db.collection('settings').doc('ai-config');
+      await docRef.set(config, { merge: true });
+      console.log('[INFO] AI config saved to Firestore successfully');
+    } catch (error) {
+      console.error('[ERROR] Failed to save config to Firestore:', error);
+      // Fall back to file-based storage
+      await this.saveConfigToFile(config);
+    }
+  }
+
+  /**
+   * Save configuration to file
+   */
+  async saveConfigToFile(config) {
     try {
       // Ensure data directory exists
       const dataDir = path.dirname(this.configPath);
@@ -70,7 +167,7 @@ class AIConfigStore {
       this.cache = config;
       this.lastModified = stats.mtime.getTime();
 
-      console.log('[INFO] AI config saved successfully');
+      console.log('[INFO] AI config saved to file successfully');
     } catch (error) {
       console.error('[ERROR] Failed to save AI config:', error);
       throw error;

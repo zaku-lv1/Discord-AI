@@ -52,3 +52,5 @@ test_integration.js
 test_owner_setup_requirements.js
 test_ai_fix.js
 test_ai_structure.js
+test_firestore_integration.js
+test_firestore_mock.js
