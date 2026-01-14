@@ -182,101 +182,45 @@ async function getAIResponse(userMessage, conversationHistory, systemPrompt, err
 module.exports = {
   data: new SlashCommandBuilder()
     .setName("ai")
-    .setDescription("AIを召喚します")
-    .addStringOption((option) =>
-      option
-        .setName("ai_id")
-        .setDescription("召喚するAIのID")
-        .setRequired(true)
-        .setAutocomplete(true)
-    ),
-
-  async autocomplete(interaction) {
-    const focusedValue = interaction.options.getFocused();
-    const db = interaction.client.db;
-
-    try {
-      // AI一覧を取得
-      const aiProfilesDoc = await db.collection("bot_settings").doc("ai_profiles").get();
-      
-      if (!aiProfilesDoc.exists || !aiProfilesDoc.data().profiles || aiProfilesDoc.data().profiles.length === 0) {
-        return await interaction.respond([]);
-      }
-
-      const aiProfiles = aiProfilesDoc.data().profiles;
-      
-      // フィルタリングと選択肢の生成
-      const filtered = aiProfiles
-        .filter(ai => ai.id.toLowerCase().includes(focusedValue.toLowerCase()) || 
-                     ai.name.toLowerCase().includes(focusedValue.toLowerCase()))
-        .slice(0, 25) // Discord's limit is 25 choices
-        .map(ai => ({
-          name: `${ai.name} (${ai.id})`,
-          value: ai.id
-        }));
-
-      await interaction.respond(filtered);
-    } catch (error) {
-      console.error('[AI_AUTOCOMPLETE_ERROR]', error);
-      await interaction.respond([]);
-    }
-  },
+    .setDescription("AIを召喚します"),
 
   async execute(interaction) {
     await interaction.deferReply({ ephemeral: true });
 
     const channel = interaction.channel;
-    const requestedAiId = interaction.options.getString("ai_id");
     const db = interaction.client.db;
 
     try {
-      // AI一覧を取得
-      const aiProfilesDoc = await db.collection("bot_settings").doc("ai_profiles").get();
+      // 単一のAI設定を取得
+      const aiProfileDoc = await db.collection("bot_settings").doc("ai_profile").get();
       
-      if (!aiProfilesDoc.exists || !aiProfilesDoc.data().profiles || aiProfilesDoc.data().profiles.length === 0) {
+      if (!aiProfileDoc.exists) {
         return await interaction.editReply({
-          content: "[ERROR] 利用可能なAIがありません。管理者にAIの作成を依頼してください。",
+          content: "[ERROR] AI設定がありません。管理者にAI設定の作成を依頼してください。",
           ephemeral: true,
         });
       }
 
-      const aiProfiles = aiProfilesDoc.data().profiles;
-      const selectedAI = aiProfiles.find(ai => ai.id === requestedAiId);
+      const selectedAI = aiProfileDoc.data();
       
-      if (!selectedAI) {
-        const availableAIs = aiProfiles.map(ai => `\`${ai.id}\` (${ai.name})`).join('\n');
-        return await interaction.editReply({
-          content: `[ERROR] AI「${requestedAiId}」が見つかりません。\n\n**利用可能なAI:**\n${availableAIs}`,
-          ephemeral: true,
-        });
-      }
-
       // AI設定の取得
       const aiSettings = {
         systemPrompt: selectedAI.systemPrompt || defaultSystemPrompt,
-        baseUserId: selectedAI.baseUserId,
-        useBaseUserName: selectedAI.useBaseUserName ?? false,
-        useBaseUserAvatar: selectedAI.useBaseUserAvatar ?? false,
-        fallbackAvatarUrl: selectedAI.fallbackAvatarUrl || "",
-        fallbackDisplayName: selectedAI.fallbackDisplayName || selectedAI.name,
         enableNameRecognition: selectedAI.enableNameRecognition ?? true,
-        userNicknames: selectedAI.userNicknames || {},
         enableBotMessageResponse: selectedAI.enableBotMessageResponse ?? false,
         replyDelayMs: selectedAI.replyDelayMs || 0,
         errorOopsMessage: selectedAI.errorOopsMessage || "",
         modelMode: selectedAI.modelMode || "hybrid"
       };
 
-      // グローバルDiscord IDマッピングを取得
+      // グローバルDiscord IDマッピングを取得（将来の拡張のため残す）
       let globalDiscordMappings = {};
       try {
-        // DBから直接取得する方法に変更
         const mappingsSnapshot = await db.collection("discord_id_mappings").get();
         
         mappingsSnapshot.forEach(doc => {
           const data = doc.data();
           if (data.mappings) {
-            // 各ユーザーのマッピングをグローバルマッピングにマージ
             Object.assign(globalDiscordMappings, data.mappings);
           }
         });
@@ -284,10 +228,7 @@ module.exports = {
         console.warn('グローバルDiscord IDマッピングの取得に失敗:', mappingError.message);
       }
 
-      // AI固有のニックネームとグローバルマッピングをマージ（AI固有が優先）
-      const combinedUserNicknames = { ...globalDiscordMappings, ...aiSettings.userNicknames };
-
-      // 名前からDiscord IDへの逆マッピングを作成（プロンプト内の名前をメンションに変換するため）
+      // 名前からDiscord IDへの逆マッピングを作成
       const nameToIdMappings = {};
       
       // グローバルマッピングから逆マッピングを作成
@@ -296,47 +237,12 @@ module.exports = {
           nameToIdMappings[nickname] = discordId;
         }
       });
-      
-      // AI固有のニックネームから逆マッピングを作成（AI固有が優先）
-      Object.entries(aiSettings.userNicknames).forEach(([discordId, nickname]) => {
-        if (nickname && typeof nickname === 'string') {
-          nameToIdMappings[nickname] = discordId;
-        }
-      });
 
       const finalSystemPrompt = aiSettings.systemPrompt + forcedInstructions;
 
-      // Determine webhook name and avatar based on base user settings
-      let webhookName = selectedAI.name;
-      let webhookAvatarUrl = null;
-
-      // Handle base user settings for name and avatar
-      if (aiSettings.baseUserId && aiSettings.useBaseUserName) {
-        try {
-          const baseUser = await interaction.client.users.fetch(aiSettings.baseUserId);
-          if (aiSettings.useBaseUserName) {
-            webhookName = baseUser.displayName || baseUser.username;
-          }
-        } catch (error) {
-          console.warn(`Base user ${aiSettings.baseUserId} not found, using fallback name: ${aiSettings.fallbackDisplayName}`);
-          webhookName = aiSettings.fallbackDisplayName || selectedAI.name;
-        }
-      } else {
-        webhookName = aiSettings.fallbackDisplayName || selectedAI.name;
-      }
-
-      // Handle avatar URL
-      if (aiSettings.baseUserId && aiSettings.useBaseUserAvatar) {
-        try {
-          const baseUser = await interaction.client.users.fetch(aiSettings.baseUserId);
-          webhookAvatarUrl = baseUser.displayAvatarURL();
-        } catch (error) {
-          console.warn(`Base user ${aiSettings.baseUserId} not found, using fallback avatar URL: ${aiSettings.fallbackAvatarUrl}`);
-          webhookAvatarUrl = aiSettings.fallbackAvatarUrl || null;
-        }
-      } else {
-        webhookAvatarUrl = aiSettings.fallbackAvatarUrl || null;
-      }
+      // Simple webhook name
+      const webhookName = "AI Assistant";
+      const webhookAvatarUrl = null;
 
       try {
         const webhooks = await channel.fetchWebhooks();
@@ -347,7 +253,7 @@ module.exports = {
 
         if (!interaction.client.activeCollectors)
           interaction.client.activeCollectors = new Map();
-        const collectorKey = `${channel.id}_${selectedAI.id}`;
+        const collectorKey = `${channel.id}_ai`;
 
         // 既に召喚されているAIの場合は退出させる
         if (existingWebhook) {
@@ -361,7 +267,7 @@ module.exports = {
 
           const embed = new EmbedBuilder()
             .setColor(0xff6600)
-            .setDescription(`[AI] **${selectedAI.name}** (ID: \`${selectedAI.id}\`) を退出させました。`);
+            .setDescription(`[AI] **AI Assistant** を退出させました。`);
           
           return await interaction.editReply({ embeds: [embed] });
         }
@@ -393,7 +299,7 @@ module.exports = {
 
           const historyDocRef = db
             .collection("ai_conversations")
-            .doc(`${selectedAI.id}_${message.channel.id}`);
+            .doc(`ai_${message.channel.id}`);
           const historyDoc = await historyDocRef.get();
           const currentHistory = historyDoc.exists
             ? historyDoc.data().history
@@ -413,7 +319,7 @@ module.exports = {
           let contentForAI;
 
           const userId = message.author.id;
-          const nickname = combinedUserNicknames[userId];
+          const nickname = globalDiscordMappings[userId];
           const authorName =
             nickname || message.member?.displayName || message.author.username;
 
@@ -462,15 +368,15 @@ module.exports = {
 
         const embed = new EmbedBuilder()
           .setColor(0x00ff00)
-          .setDescription(`[AI] **${selectedAI.name}** (ID: \`${selectedAI.id}\`) を召喚しました。`)
+          .setDescription(`[AI] **AI Assistant** を召喚しました。`)
           .addFields(
             { name: "モデル", value: aiSettings.modelMode === "hybrid" ? "ハイブリッド" : "Flash", inline: true },
             { name: "返信遅延", value: `${aiSettings.replyDelayMs}ms`, inline: true },
             { name: "名前認識", value: aiSettings.enableNameRecognition ? "有効" : "無効", inline: true }
           );
         await interaction.editReply({ embeds: [embed] });
-      } catch (userFetchError) {
-        console.error("ベースユーザーの取得に失敗:", userFetchError);
+      } catch (webhookError) {
+        console.error("Webhookの作成に失敗:", webhookError);
         await interaction.editReply({
           content: "[ERROR] AIの設定に問題があります。管理者に連絡してください。",
           ephemeral: true,

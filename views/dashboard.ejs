@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Configuration Dashboard</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: #1a1a1a;
+            color: #e0e0e0;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: #2a2a2a;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+        }
+        
+        h1 {
+            color: #4a9eff;
+            margin-bottom: 10px;
+            font-size: 28px;
+        }
+        
+        .subtitle {
+            color: #888;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+        
+        .form-group {
+            margin-bottom: 25px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: #b0b0b0;
+            font-weight: 500;
+            font-size: 14px;
+        }
+        
+        textarea, input[type="text"], input[type="number"], select {
+            width: 100%;
+            padding: 12px;
+            background: #1a1a1a;
+            border: 1px solid #404040;
+            border-radius: 4px;
+            color: #e0e0e0;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            resize: vertical;
+        }
+        
+        textarea {
+            min-height: 300px;
+        }
+        
+        textarea:focus, input:focus, select:focus {
+            outline: none;
+            border-color: #4a9eff;
+        }
+        
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 30px;
+        }
+        
+        button {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 4px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .btn-primary {
+            background: #4a9eff;
+            color: white;
+            flex: 1;
+        }
+        
+        .btn-primary:hover {
+            background: #3a8eef;
+        }
+        
+        .btn-secondary {
+            background: #404040;
+            color: #e0e0e0;
+        }
+        
+        .btn-secondary:hover {
+            background: #505050;
+        }
+        
+        .status-message {
+            margin-top: 20px;
+            padding: 12px;
+            border-radius: 4px;
+            display: none;
+        }
+        
+        .status-message.success {
+            background: #1a4d2e;
+            border: 1px solid #2d7a4f;
+            color: #7ecc9f;
+        }
+        
+        .status-message.error {
+            background: #4d1a1a;
+            border: 1px solid #7a2d2d;
+            color: #cc7e7e;
+        }
+        
+        .info-box {
+            background: #333;
+            padding: 15px;
+            border-radius: 4px;
+            margin-bottom: 25px;
+            border-left: 3px solid #4a9eff;
+        }
+        
+        .info-box p {
+            margin: 5px 0;
+            font-size: 13px;
+        }
+        
+        .setting-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+        
+        @media (max-width: 768px) {
+            .setting-row {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🤖 AI Configuration Dashboard</h1>
+        <p class="subtitle">Edit the AI system prompt and settings for the Discord bot</p>
+        
+        <div class="info-box">
+            <p><strong>Current Configuration:</strong></p>
+            <p>Model Mode: <span id="current-model">Loading...</span></p>
+            <p>Reply Delay: <span id="current-delay">Loading...</span> ms</p>
+            <p>Last Updated: <span id="last-updated">Loading...</span></p>
+        </div>
+        
+        <form id="settings-form">
+            <div class="form-group">
+                <label for="systemPrompt">System Prompt *</label>
+                <textarea 
+                    id="systemPrompt" 
+                    name="systemPrompt" 
+                    placeholder="Enter the AI system prompt here..."
+                    required
+                ></textarea>
+            </div>
+            
+            <div class="setting-row">
+                <div class="form-group">
+                    <label for="modelMode">Model Mode</label>
+                    <select id="modelMode" name="modelMode">
+                        <option value="hybrid">Hybrid (Pro + Flash fallback)</option>
+                        <option value="flash_only">Flash Only</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="replyDelayMs">Reply Delay (ms)</label>
+                    <input 
+                        type="number" 
+                        id="replyDelayMs" 
+                        name="replyDelayMs" 
+                        min="0" 
+                        max="10000" 
+                        step="100"
+                    />
+                </div>
+            </div>
+            
+            <div class="form-group">
+                <label for="errorOopsMessage">Error Message (Optional)</label>
+                <input 
+                    type="text" 
+                    id="errorOopsMessage" 
+                    name="errorOopsMessage" 
+                    placeholder="Custom error message when AI fails..."
+                />
+            </div>
+            
+            <div class="button-group">
+                <button type="button" class="btn-secondary" onclick="loadSettings()">↻ Reload</button>
+                <button type="submit" class="btn-primary">💾 Save Settings</button>
+            </div>
+        </form>
+        
+        <div id="status" class="status-message"></div>
+    </div>
+    
+    <script>
+        function showStatus(message, type) {
+            const status = document.getElementById('status');
+            status.textContent = message;
+            status.className = 'status-message ' + type;
+            status.style.display = 'block';
+            
+            setTimeout(() => {
+                status.style.display = 'none';
+            }, 5000);
+        }
+        
+        async function loadSettings() {
+            try {
+                const response = await fetch('/api/settings/ai');
+                
+                if (!response.ok) {
+                    throw new Error('Failed to load settings: ' + response.statusText);
+                }
+                
+                const data = await response.json();
+                
+                document.getElementById('systemPrompt').value = data.systemPrompt || '';
+                document.getElementById('modelMode').value = data.modelMode || 'hybrid';
+                document.getElementById('replyDelayMs').value = data.replyDelayMs || 0;
+                document.getElementById('errorOopsMessage').value = data.errorOopsMessage || '';
+                
+                // Update info box
+                document.getElementById('current-model').textContent = data.modelMode === 'hybrid' ? 'Hybrid' : 'Flash Only';
+                document.getElementById('current-delay').textContent = data.replyDelayMs || 0;
+                document.getElementById('last-updated').textContent = new Date().toLocaleString();
+                
+                showStatus('Settings loaded successfully', 'success');
+            } catch (error) {
+                console.error('Error loading settings:', error);
+                showStatus('Error loading settings: ' + error.message, 'error');
+            }
+        }
+        
+        document.getElementById('settings-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const formData = {
+                systemPrompt: document.getElementById('systemPrompt').value,
+                modelMode: document.getElementById('modelMode').value,
+                replyDelayMs: parseInt(document.getElementById('replyDelayMs').value) || 0,
+                errorOopsMessage: document.getElementById('errorOopsMessage').value,
+                enableNameRecognition: true,
+                enableBotMessageResponse: false
+            };
+            
+            try {
+                const response = await fetch('/api/settings/ai', {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(formData)
+                });
+                
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.message || 'Failed to save settings');
+                }
+                
+                const result = await response.json();
+                showStatus('Settings saved successfully! Changes will take effect immediately.', 'success');
+                
+                // Update info box
+                document.getElementById('current-model').textContent = formData.modelMode === 'hybrid' ? 'Hybrid' : 'Flash Only';
+                document.getElementById('current-delay').textContent = formData.replyDelayMs;
+                document.getElementById('last-updated').textContent = new Date().toLocaleString();
+            } catch (error) {
+                console.error('Error saving settings:', error);
+                showStatus('Error saving settings: ' + error.message, 'error');
+            }
+        });
+        
+        // Load settings on page load
+        window.addEventListener('DOMContentLoaded', loadSettings);
+    </script>
+</body>
+</html>
