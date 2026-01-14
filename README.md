@@ -1,288 +1,153 @@
-# 🤖 Discord AI Bot - AI管理システム
+# 🤖 Discord AI Bot
 
-Discord OAuthログインを特徴とするAI機能と Webベース管理パネルを備えたDiscord Bot
+A simplified Discord bot with AI capabilities and a minimal web-based configuration dashboard.
 
-## ✨ 機能
+## ✨ Features
 
-- **🤖 AI搭載Discord Bot**: カスタマイズ可能なプロンプトを持つ複数のAIパーソナリティ
-- **🌐 Web管理パネル**: AI設定を管理するためのユーザーフレンドリーなインターフェース
-- **🔐 デュアル認証システム**: Discord OAuthまたは独立したID/パスワード認証
-- **🔥 Firebase統合**: 設定とユーザー管理のためのリアルタイムデータベース
-- **🧠 Google Gemini AI**: 複数のモデルモードを持つ高度なAI応答
-- **👥 マルチ管理者サポート**: 招待コード付きの階層管理者システム
-- **📱 レスポンシブデザイン**: モバイルサポート付きのモダンダークテーマ
-- **📧 Gmail認証システム**: Gmail SMTPを使用した安全なメール認証
+- **🤖 Discord Bot**: Single `/ai` command to summon an AI assistant in Discord channels
+- **🌐 Configuration Dashboard**: Simple web UI to edit AI settings
+- **🔐 IP-Based Access Control**: Dashboard protected by IP allowlist
+- **🧠 Google Gemini AI**: Supports both Pro and Flash models with hybrid fallback
+- **💾 File-Based Storage**: All settings stored locally in JSON format
+- **🚀 Zero External Dependencies**: No Firebase, no authentication system, no external network calls
 
-## 🛠️ セットアップ手順
+## 🛠️ Setup
 
-### 前提条件
+### Prerequisites
 
-- Node.js 18.0.0以上
-- Discordアプリケーションとボットトークン（オプション）
-- Firebaseプロジェクト
-- Google Gemini APIキー
-- **Gmailアカウント（メール認証用）**
+- Node.js 18.0.0 or higher
+- Discord bot token
+- Google Gemini API key
 
-### 1. Gmail SMTPの設定
+### 1. Discord Bot Setup
 
-⚠️ **重要**: システムはメール認証にGmail SMTPサーバーを使用します。
+1. Go to [Discord Developer Portal](https://discord.com/developers/applications)
+2. Create a new application or select an existing one
+3. Navigate to the "Bot" section:
+   - Create a bot and copy the token
+   - Enable required intents: `Guilds`, `Guild Messages`, `Message Content`
+4. Invite the bot to your server with appropriate permissions
 
-1. [Gmail SMTP設定ガイド](./GMAIL_SETUP.md)に従って設定
-2. Googleアカウントで2段階認証を有効化
-3. アプリパスワードを生成
-4. `.env`ファイルに設定
+### 2. Google Gemini API Setup
 
-### 2. Discordアプリケーションのセットアップ（オプション）
+1. Visit [Google AI Studio](https://ai.google.dev/)
+2. Create an API key for Gemini
 
-1. [Discord Developer Portal](https://discord.com/developers/applications)にアクセス
-2. 新しいアプリケーションを作成するか、既存のものを選択
-3. 「Bot」セクションに移動:
-   - ボットを作成してトークンをコピー
-   - 必要なインテントを有効化: `Guilds`, `Guild Messages`, `Message Content`
-4. 「OAuth2」セクションに移動:
-   - デプロイメントに基づいてリダイレクトURIを追加:
-     - **開発環境**: `http://localhost:8080/auth/discord/callback`
-     - **本番環境**: `https://your-domain.com/auth/discord/callback`
-     - **Railway/Heroku**: `https://your-app.railway.app/auth/discord/callback`
-   - Client IDとClient Secretをコピー
+### 3. Installation
 
-### 3. Firebaseのセットアップ
-
-1. [Firebase Console](https://console.firebase.google.com/)で新しいプロジェクトを作成
-2. Firestore Databaseを有効化
-3. プロジェクト設定に移動:
-   - Webアプリの設定値をコピー
-4. サービスアカウントに移動:
-   - 新しい秘密鍵を生成してJSONファイルをダウンロード
-
-📖 **詳細な手順**: [Firebase設定ガイド](./FIREBASE_SETUP.md)を参照してください
-
-### 4. Google Gemini APIのセットアップ
-
-1. [Google AI Studio](https://ai.google.dev/)にアクセス
-2. Gemini用のAPIキーを作成
-
-### 5. インストール
-
-1. リポジトリをクローン:
+1. Clone the repository:
    ```bash
    git clone https://github.com/zaku-lv1/Discord-AI.git
    cd Discord-AI
    ```
 
-2. 依存関係をインストール:
+2. Install dependencies:
    ```bash
    npm install
    ```
 
-3. 環境変数をセットアップ:
+3. Set up environment variables:
    ```bash
    cp .env.example .env
    ```
    
-4. `.env`ファイルを実際の値で編集:
-   - **Gmail設定（必須）**: `GMAIL_USER`と`GMAIL_APP_PASSWORD`
-   - Firebase サービスアカウントJSONを適切にフォーマット
-   - 必要なトークンと認証情報をすべて入力
-
-5. Gmail設定のテスト:
+4. Edit the `.env` file with your values:
    ```bash
-   npm run test:gmail
+   DISCORD_TOKEN=your_discord_bot_token_here
+   GEMINI_API_KEY=your_gemini_api_key_here
+   PORT=8080
+   ADMIN_ALLOWED_IPS=127.0.0.1,your.ip.address.here
    ```
 
-### 6. アプリケーションの実行
+### 4. Run the Application
 
-1. ボットを起動:
+```bash
+npm start
+```
+
+The server will start on `http://localhost:8080`
+
+## 🎯 Usage
+
+### Discord Bot Command
+
+Use the `/ai` command in any Discord channel where the bot is present:
+- The AI will be summoned and respond to all messages in the channel
+- Run `/ai` again to dismiss the AI from the channel
+- The AI uses the configuration from your dashboard
+
+### Configuration Dashboard
+
+1. Access the dashboard at `http://localhost:8080/dashboard`
+   - Only accessible from IPs listed in `ADMIN_ALLOWED_IPS`
+2. Configure:
+   - **System Prompt**: Define how the AI should behave
+   - **Model Mode**: Choose between Hybrid (Pro with Flash fallback) or Flash only
+   - **Reply Delay**: Set delay before AI responds (in milliseconds)
+   - **Error Message**: Custom message when AI fails
+
+## 📁 Configuration File
+
+Settings are stored in `data/ai-config.json`:
+
+```json
+{
+  "systemPrompt": "You are a helpful and friendly AI assistant.",
+  "modelMode": "hybrid",
+  "replyDelayMs": 0,
+  "errorOopsMessage": "Sorry, something went wrong!"
+}
+```
+
+You can edit this file directly or use the web dashboard.
+
+## 🔧 Configuration Options
+
+### Environment Variables
+
+- `DISCORD_TOKEN`: Your Discord bot token (required)
+- `GEMINI_API_KEY`: Your Google Gemini API key (required)
+- `PORT`: Server port (default: 8080)
+- `ADMIN_ALLOWED_IPS`: Comma-separated list of allowed IP addresses for dashboard access
+- `NODE_ENV`: Set to `production` for production deployment
+
+### AI Settings
+
+- **systemPrompt**: The personality and behavior definition for the AI
+- **modelMode**: 
+  - `hybrid`: Tries gemini-2.5-pro first, falls back to gemini-2.5-flash
+  - `flash_only`: Uses only gemini-2.5-flash (faster, lower cost)
+- **replyDelayMs**: Delay in milliseconds before AI responds (0 = no delay)
+- **errorOopsMessage**: Custom error message when AI fails to respond
+
+## 🛡️ Security
+
+- Dashboard is protected by IP allowlist (no authentication required)
+- All configuration is stored locally
+- No external database connections
+- No user accounts or sessions
+
+## 🚀 Deployment
+
+### Production Deployment
+
+1. Set environment variables:
+   ```bash
+   NODE_ENV=production
+   DISCORD_TOKEN=your_token
+   GEMINI_API_KEY=your_key
+   ADMIN_ALLOWED_IPS=your.production.ip
+   PORT=8080
+   ```
+
+2. Start the application:
    ```bash
    npm start
    ```
 
-2. 管理パネルにアクセス:
-   - ブラウザで `http://localhost:8080` にアクセス
-   - **メールアドレス認証**でアカウントを作成してログイン
-
-## 🎯 使用方法
-
-### 認証システム
-
-このシステムはGmail SMTPを使用したメール認証システムを採用しています：
-
-#### メール認証システム
-- **新規登録**: ユーザー名、パスワード、メールアドレスで新しいアカウントを作成
-- **メール認証**: 登録時にGmail経由で認証メールを送信
-- **ログイン**: 認証されたユーザー名とパスワードでログイン
-- **セキュリティ**: bcryptを使用した安全なパスワードハッシュ化（12saltラウンド）
-- **パスワード再設定**: メール経由でのパスワード再設定機能
-- **検証**: ユーザー名は3文字以上の英数字、アンダースコア、ハイフンのみ
-- **パスワード**: 6文字以上の安全なパスワード
-
-### ボットコマンド（オプション）
-
-Discord Botが設定されている場合、様々なスラッシュコマンドが利用できます:
-- `/ai` - カスタマイズ可能なパーソナリティによるAI会話
-- `/gemini` - 直接のGemini AI相互作用
-- `/character1` - キャラクター1を召喚/退出
-- `/character2` - キャラクター2を召喚/退出
-- `/image` - 画像関連コマンド
-- `/echo` - メッセージのエコー
-- `/omikuji` - おみくじ
-- `/wiki` - Wikipedia検索
-- その他多数...
-
-### Web管理パネル
-
-### Web管理パネル
-
-1. **ログイン**: メールアドレス認証でログイン
-2. **AI管理**: 複数のAIパーソナリティを作成・設定
-3. **ユーザー管理**: 管理者ユーザーと権限を管理
-4. **設定**: グローバルボット設定を構成
-
-## 🔓 緊急管理者アクセス
-
-すべての管理者アカウントにログインできなくなった場合のために、緊急管理者アクセス機能が用意されています。
-
-### セットアップ
-
-1. `.env` ファイルに緊急管理者キーを設定：
-   ```bash
-   EMERGENCY_ADMIN_KEY=your-secure-random-key-here
-   ```
-
-2. サーバーを再起動して変更を適用
-
-### 使用方法
-
-管理者アカウントにログインできない場合、以下のAPIエンドポイントを使用して管理者権限を付与できます：
-
-```bash
-curl -X POST http://localhost:8080/api/system-settings/emergency-admin-access \
-  -H "Content-Type: application/json" \
-  -d '{
-    "targetUser": "@username",
-    "emergencyKey": "your-emergency-key"
-  }'
-```
-
-**注意事項：**
-- この機能は緊急時のみ使用してください
-- 使用後は環境変数 `EMERGENCY_ADMIN_KEY` を新しい値に変更することを推奨します
-- 詳細は [緊急管理者アクセスガイド](./EMERGENCY_ADMIN_ACCESS.md) を参照してください
-
-### AI設定
-
-- **システムプロンプト**: AIのパーソナリティと動作を定義
-- **モデルモード**: Hybrid（高品質）またはFlash（高速）から選択
-- **応答設定**: 遅延とエラーメッセージを設定
-- **ユーザー認識**: パーソナライズされた相互作用を有効化
-
-## 🔧 設定
-
-### 環境変数
-
-必要な環境変数の完全なリストについては `.env.example` を参照してください。
-
-### Gmail SMTP設定
-
-メール認証機能のための詳細な設定方法は [Gmail SMTP設定ガイド](./GMAIL_SETUP.md) を参照してください。
-
-### Firebase セキュリティルール
-
-Firestoreに以下のコレクション用の適切なセキュリティルールが設定されていることを確認してください:
-- `bot_settings`
-- `invitation_codes`
-
-### Discordボット権限
-
-必要なボット権限:
-- メッセージを送信
-- メッセージ履歴を読む
-- スラッシュコマンドを使用
-- リンクを埋め込み
-- ファイルを添付
-
-## 🚀 デプロイメント
-
-### 本番環境セットアップ
-
-アプリケーションは環境を自動検出し、それに応じて認証を設定します:
-
-#### 環境設定
-
-1. **開発環境 (localhost)**:
-   ```bash
-   NODE_ENV=development
-   ADMIN_DOMAIN=localhost
-   PORT=8080
-   ```
-   - HTTPプロトコルを使用
-   - コールバックURLにポートを含める
-   - セッションセキュリティを緩和
-
-2. **本番環境 (カスタムドメイン)**:
-   ```bash
-   NODE_ENV=production
-   ADMIN_DOMAIN=your-domain.com
-   PORT=443
-   ```
-   - HTTPSプロトコルを使用
-   - コールバックURLにポートを含めない
-   - セッションセキュリティを強化
-   - セキュアクッキー
-
-3. **クラウドプラットフォーム (Railway, Heroku等)**:
-   ```bash
-   NODE_ENV=production
-   ADMIN_DOMAIN=your-app.railway.app
-   PORT=80
-   ```
-   - 自動的にHTTPSを使用
-   - プラットフォームがSSL終端を処理
-
-#### Discord OAuth設定
-
-コールバックURLは環境に基づいて自動的に構築されます:
-
-- **開発環境**: `http://localhost:8080/auth/discord/callback`
-- **本番環境**: `https://your-domain.com/auth/discord/callback`
-- **カスタム**: `DISCORD_CALLBACK_URL`を設定して自動検出を上書き
-
-#### 手動コールバックURL上書き
-
-複雑なデプロイメントシナリオでは、コールバックURLを手動で指定できます:
-
-```bash
-DISCORD_CALLBACK_URL=https://your-custom-domain.com/auth/discord/callback
-```
-
-### プラットフォーム固有のデプロイメント
-
-#### Railway
-```bash
-NODE_ENV=production
-ADMIN_DOMAIN=your-app.railway.app
-# その他の環境変数...
-```
-
-#### Heroku
-```bash
-NODE_ENV=production
-ADMIN_DOMAIN=your-app.herokuapp.com
-# その他の環境変数...
-```
-
-#### VPS/カスタムサーバー
-```bash
-NODE_ENV=production
-ADMIN_DOMAIN=your-domain.com
-PORT=443
-# その他の環境変数...
-```
-
-### Dockerデプロイメント
+### Docker Deployment
 
 ```dockerfile
-# Dockerfileの例
 FROM node:18-alpine
 WORKDIR /app
 COPY package*.json ./
@@ -292,72 +157,34 @@ EXPOSE 8080
 CMD ["npm", "start"]
 ```
 
-## 🛡️ セキュリティ
+## 🐛 Troubleshooting
 
-- 環境変数はgitから除外されています
-- Firebase サービスアカウント認証情報は安全に保存
-- Discord OAuthによるセキュアな認証
-- スーパー管理者コントロール付きの階層管理者権限
+### Common Issues
 
-## 🐛 トラブルシューティング
+1. **Bot doesn't respond**: Check Discord token and bot permissions
+2. **Can't access dashboard**: Verify your IP is in `ADMIN_ALLOWED_IPS`
+3. **AI doesn't work**: Verify Gemini API key and check for quota limits
+4. **Settings not saving**: Check file permissions for `data/` directory
 
-### よくある問題
+### Finding Your IP Address
 
-1. **ボットが応答しない**: Discordトークンとボット権限を確認
-2. **ログインが失敗する**: 
-   - Discord OAuthリダイレクトURIが正確に一致することを確認
-   - 環境に合わせてコールバックURLが正しく設定されているか確認
-   - 本番環境でHTTPSが使用されているか確認
-3. **Firebaseエラー**: サービスアカウントJSONが適切にフォーマットされているか確認
-4. **AIが動作しない**: Gemini APIキーと使用量制限を確認
-5. **本番環境でのセッション問題**: 
-   - `SESSION_SECRET`が強力な値に設定されているか確認
-   - `NODE_ENV=production`が設定されているか確認
-   - HTTPSが適切に設定されているか確認
+To add your IP to the allowlist:
+```bash
+curl ifconfig.me
+```
 
-### 認証のトラブルシューティング
+Add the returned IP address to `ADMIN_ALLOWED_IPS` in your `.env` file.
 
-認証が失敗する場合:
+## 📄 License
 
-1. **環境変数を確認**:
-   ```bash
-   echo $NODE_ENV
-   echo $ADMIN_DOMAIN
-   echo $DISCORD_CLIENT_ID
-   ```
+This project is licensed under the ISC License.
 
-2. **コールバックURLを確認**: Discord OAuth コールバックURLはDiscord Developer Portalで設定されたものと正確に一致する必要があります
+## 🙏 Acknowledgements
 
-3. **コールバックURL構築をテスト**: 付属のテストスクリプトを使用:
-   ```bash
-   node test_auth.js
-   ```
-
-4. **ブラウザコンソールを確認**: JavaScriptエラーやネットワーク問題がないか確認
-
-### ログ
-
-詳細なエラーメッセージとデバッグ情報については、コンソール出力を確認してください。
-
-## 🤝 貢献
-
-1. リポジトリをフォーク
-2. 機能ブランチを作成
-3. 変更を加える
-4. 徹底的にテスト
-5. プルリクエストを送信
-
-## 📄 ライセンス
-
-このプロジェクトはISCライセンスの下でライセンスされています。
-
-## 🙏 謝辞
-
-- Discord API統合のためのDiscord.js
-- AI機能のためのGoogle Generative AI
-- バックエンドサービスのためのFirebase
-- Webサーバー機能のためのExpress.js
+- Discord.js for Discord API integration
+- Google Generative AI for AI functionality
+- Express.js for web server
 
 ---
 
-サポートや質問については、リポジトリでIssueを作成してください。
+For support or questions, please create an issue in the repository.

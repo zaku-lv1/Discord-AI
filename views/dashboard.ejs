@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI Settings Dashboard</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      padding: 20px;
+    }
+    
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+      overflow: hidden;
+    }
+    
+    .header {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 30px;
+      text-align: center;
+    }
+    
+    .header h1 {
+      font-size: 28px;
+      margin-bottom: 10px;
+    }
+    
+    .header p {
+      opacity: 0.9;
+      font-size: 14px;
+    }
+    
+    .content {
+      padding: 30px;
+    }
+    
+    .form-group {
+      margin-bottom: 25px;
+    }
+    
+    .form-group label {
+      display: block;
+      margin-bottom: 8px;
+      font-weight: 600;
+      color: #333;
+      font-size: 14px;
+    }
+    
+    .form-group textarea {
+      width: 100%;
+      padding: 12px;
+      border: 2px solid #e0e0e0;
+      border-radius: 8px;
+      font-size: 14px;
+      font-family: inherit;
+      resize: vertical;
+      transition: border-color 0.3s;
+    }
+    
+    .form-group textarea:focus {
+      outline: none;
+      border-color: #667eea;
+    }
+    
+    .form-group input[type="text"],
+    .form-group input[type="number"],
+    .form-group select {
+      width: 100%;
+      padding: 12px;
+      border: 2px solid #e0e0e0;
+      border-radius: 8px;
+      font-size: 14px;
+      transition: border-color 0.3s;
+    }
+    
+    .form-group input[type="text"]:focus,
+    .form-group input[type="number"]:focus,
+    .form-group select:focus {
+      outline: none;
+      border-color: #667eea;
+    }
+    
+    .form-hint {
+      font-size: 12px;
+      color: #666;
+      margin-top: 5px;
+    }
+    
+    .button-group {
+      display: flex;
+      gap: 10px;
+      margin-top: 30px;
+    }
+    
+    button {
+      flex: 1;
+      padding: 14px 24px;
+      border: none;
+      border-radius: 8px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+    
+    .btn-save {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+    }
+    
+    .btn-save:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 20px rgba(102, 126, 234, 0.4);
+    }
+    
+    .btn-save:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none;
+    }
+    
+    .btn-reload {
+      background: #f0f0f0;
+      color: #333;
+    }
+    
+    .btn-reload:hover {
+      background: #e0e0e0;
+    }
+    
+    .message {
+      padding: 12px 16px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+      font-size: 14px;
+      display: none;
+    }
+    
+    .message.success {
+      background: #d4edda;
+      color: #155724;
+      border: 1px solid #c3e6cb;
+    }
+    
+    .message.error {
+      background: #f8d7da;
+      color: #721c24;
+      border: 1px solid #f5c6cb;
+    }
+    
+    .message.show {
+      display: block;
+    }
+    
+    .loading {
+      text-align: center;
+      padding: 40px;
+      color: #666;
+    }
+    
+    .spinner {
+      border: 3px solid #f3f3f3;
+      border-top: 3px solid #667eea;
+      border-radius: 50%;
+      width: 40px;
+      height: 40px;
+      animation: spin 1s linear infinite;
+      margin: 0 auto 15px;
+    }
+    
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>🤖 AI Settings Dashboard</h1>
+      <p>Configure your Discord AI bot settings</p>
+    </div>
+    
+    <div class="content">
+      <div id="loading" class="loading">
+        <div class="spinner"></div>
+        <p>Loading settings...</p>
+      </div>
+      
+      <div id="message" class="message"></div>
+      
+      <form id="settings-form" style="display: none;">
+        <div class="form-group">
+          <label for="systemPrompt">System Prompt</label>
+          <textarea 
+            id="systemPrompt" 
+            name="systemPrompt" 
+            rows="10" 
+            placeholder="Enter the AI system prompt..."
+            required
+          ></textarea>
+          <div class="form-hint">Define how the AI should behave and respond</div>
+        </div>
+        
+        <div class="form-group">
+          <label for="modelMode">Model Mode</label>
+          <select id="modelMode" name="modelMode">
+            <option value="hybrid">Hybrid (Pro with Flash fallback)</option>
+            <option value="flash_only">Flash Only</option>
+          </select>
+          <div class="form-hint">Choose between hybrid mode or flash-only mode</div>
+        </div>
+        
+        <div class="form-group">
+          <label for="replyDelayMs">Reply Delay (ms)</label>
+          <input 
+            type="number" 
+            id="replyDelayMs" 
+            name="replyDelayMs" 
+            min="0" 
+            step="100"
+            placeholder="0"
+          />
+          <div class="form-hint">Delay before AI responds (in milliseconds)</div>
+        </div>
+        
+        <div class="form-group">
+          <label for="errorOopsMessage">Error Message</label>
+          <input 
+            type="text" 
+            id="errorOopsMessage" 
+            name="errorOopsMessage" 
+            placeholder="ちょっと調子が悪いみたい...ごめんね！"
+          />
+          <div class="form-hint">Custom error message when AI fails to respond</div>
+        </div>
+        
+        <div class="button-group">
+          <button type="button" class="btn-reload" onclick="loadSettings()">↻ Reload</button>
+          <button type="submit" class="btn-save">💾 Save Settings</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    let saveButton;
+    
+    document.addEventListener('DOMContentLoaded', () => {
+      saveButton = document.querySelector('.btn-save');
+      loadSettings();
+      
+      document.getElementById('settings-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        await saveSettings();
+      });
+    });
+    
+    function showMessage(text, type) {
+      const messageDiv = document.getElementById('message');
+      messageDiv.textContent = text;
+      messageDiv.className = `message ${type} show`;
+      
+      setTimeout(() => {
+        messageDiv.classList.remove('show');
+      }, 5000);
+    }
+    
+    async function loadSettings() {
+      const loading = document.getElementById('loading');
+      const form = document.getElementById('settings-form');
+      
+      loading.style.display = 'block';
+      form.style.display = 'none';
+      
+      try {
+        const response = await fetch('/api/settings/ai');
+        
+        if (!response.ok) {
+          throw new Error(`Failed to load settings: ${response.statusText}`);
+        }
+        
+        const data = await response.json();
+        
+        document.getElementById('systemPrompt').value = data.systemPrompt || '';
+        document.getElementById('modelMode').value = data.modelMode || 'hybrid';
+        document.getElementById('replyDelayMs').value = data.replyDelayMs || 0;
+        document.getElementById('errorOopsMessage').value = data.errorOopsMessage || '';
+        
+        loading.style.display = 'none';
+        form.style.display = 'block';
+      } catch (error) {
+        loading.style.display = 'none';
+        showMessage(`Error loading settings: ${error.message}`, 'error');
+      }
+    }
+    
+    async function saveSettings() {
+      if (saveButton.disabled) return;
+      
+      saveButton.disabled = true;
+      saveButton.textContent = '💾 Saving...';
+      
+      const formData = {
+        systemPrompt: document.getElementById('systemPrompt').value,
+        modelMode: document.getElementById('modelMode').value,
+        replyDelayMs: parseInt(document.getElementById('replyDelayMs').value) || 0,
+        errorOopsMessage: document.getElementById('errorOopsMessage').value
+      };
+      
+      try {
+        const response = await fetch('/api/settings/ai', {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(formData)
+        });
+        
+        if (!response.ok) {
+          throw new Error(`Failed to save settings: ${response.statusText}`);
+        }
+        
+        const data = await response.json();
+        showMessage(data.message || 'Settings saved successfully!', 'success');
+      } catch (error) {
+        showMessage(`Error saving settings: ${error.message}`, 'error');
+      } finally {
+        saveButton.disabled = false;
+        saveButton.textContent = '💾 Save Settings';
+      }
+    }
+  </script>
+</body>
+</html>
