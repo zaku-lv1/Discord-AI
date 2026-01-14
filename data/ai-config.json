@@ -1,6 +1,6 @@
 {
-  "systemPrompt": "あなたは親しみやすくフレンドリーなAIアシスタントです。自然で親しみやすい口調で話してください。",
+  "systemPrompt": "You are a helpful and friendly AI assistant. Be concise and clear in your responses.",
   "modelMode": "hybrid",
-  "replyDelayMs": 0,
-  "errorOopsMessage": "ちょっと調子が悪いみたい...ごめんね！"
+  "replyDelayMs": 500,
+  "errorOopsMessage": "Sorry, error occurred!"
 }
