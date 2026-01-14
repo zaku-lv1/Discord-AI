@@ -37,7 +37,7 @@ class Server {
       this.setupRoutes();
       this.setupErrorHandling();
 
-      // Initialize Discord bot
+      // Initialize Discord bot (uses file-based config from ai-config-store)
       if (process.env.DISCORD_TOKEN && process.env.DISCORD_TOKEN !== 'test_token') {
         this.bot = new DiscordBot();
         await this.bot.start();

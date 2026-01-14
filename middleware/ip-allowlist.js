@@ -26,7 +26,7 @@ function ipAllowlist(req, res, next) {
   const allowedList = allowedIPs.split(',').map(ip => ip.trim());
   const requestIP = normalizeIP(req.ip || req.connection.remoteAddress);
 
-  console.log(`[IP-CHECK] Request from: ${requestIP}, Allowed: ${allowedList.join(', ')}`);
+  console.log(`[IP-CHECK] Request from: ${requestIP}`);
 
   if (allowedList.includes(requestIP)) {
     return next();

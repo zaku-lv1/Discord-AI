@@ -63,9 +63,10 @@ class AIConfigStore {
         'utf8'
       );
 
-      // Invalidate cache
+      // Update cache with current file modification time
+      const stats = await fs.stat(this.configPath);
       this.cache = config;
-      this.lastModified = Date.now();
+      this.lastModified = stats.mtime.getTime();
 
       console.log('[INFO] AI config saved successfully');
     } catch (error) {
