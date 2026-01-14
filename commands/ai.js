@@ -1,6 +1,7 @@
 const { EmbedBuilder, SlashCommandBuilder } = require("discord.js");
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 const aiConfigStore = require("../services/ai-config-store");
+const conversationHistory = require("../services/conversation-history");
 
 // Create a new GoogleGenerativeAI instance for each request to avoid conflicts
 function createGeminiInstance() {
@@ -208,8 +209,9 @@ module.exports = {
 
         interaction.client.activeCollectors.set(collectorKey, collector);
 
-        // In-memory conversation history (resets on bot restart)
-        let conversationHistory = [];
+        // Load conversation history from Firebase (persistent across bot restarts)
+        const channelId = channel.id;
+        let persistentHistory = await conversationHistory.getHistory(channelId, webhookName);
 
         collector.on("collect", async (message) => {
           if (!message.content) return;
@@ -224,22 +226,20 @@ module.exports = {
 
           const responseText = await getAIResponse(
             contentForAI,
-            conversationHistory,
+            persistentHistory,
             finalSystemPrompt,
             aiSettings.errorOopsMessage,
             aiSettings.modelMode
           );
 
           if (responseText) {
-            conversationHistory = [
-              ...conversationHistory,
-              { role: "user", parts: [{ text: contentForAI }] },
-              { role: "model", parts: [{ text: responseText }] },
-            ];
-            // Keep only last 60 messages
-            while (conversationHistory.length > 60) {
-              conversationHistory.shift();
-            }
+            // Update conversation history and save to Firebase
+            persistentHistory = await conversationHistory.addMessage(
+              channelId,
+              webhookName,
+              contentForAI,
+              responseText
+            );
 
             const messageChunks = splitMessage(responseText);
 
