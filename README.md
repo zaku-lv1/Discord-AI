@@ -119,7 +119,6 @@ When Firebase credentials are configured, settings are stored in Firestore:
 The system automatically falls back to file-based storage if Firestore is unavailable.
 
 See [FIRESTORE_GUIDE.md](FIRESTORE_GUIDE.md) for setup instructions.
-```
 
 You can edit this file directly or use the web dashboard.
 

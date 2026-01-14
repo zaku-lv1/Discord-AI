@@ -16,7 +16,11 @@ class AIConfigStore {
    */
   async initializeFirestore() {
     try {
-      this.firebaseService = require('./firebase');
+      // Lazy load firebase service to avoid circular dependencies
+      if (!this.firebaseService) {
+        this.firebaseService = require('./firebase');
+      }
+      
       await this.firebaseService.initialize();
       
       // Check if Firebase is actually configured (not using mock DB)
