@@ -20,7 +20,7 @@ router.get("/ai", async (req, res) => {
 // Update AI settings
 router.put("/ai", async (req, res) => {
   try {
-    const { botName, botIconUrl, systemPrompt, modelMode, replyDelayMs, errorOopsMessage } = req.body;
+    const { botName, botIconUrl, systemPrompt, modelMode, replyDelayMs, errorOopsMessage, userNicknames } = req.body;
 
     // Validate required fields
     if (!botName || typeof botName !== 'string' || botName.trim() === '') {
@@ -61,13 +61,22 @@ router.put("/ai", async (req, res) => {
       });
     }
 
+    // Validate userNicknames if provided
+    if (userNicknames !== undefined && typeof userNicknames !== 'object') {
+      return res.status(400).json({ 
+        error: "Validation error",
+        message: "userNicknames must be an object" 
+      });
+    }
+
     const updates = {
       botName: botName.trim(),
       botIconUrl: botIconUrl ? botIconUrl.trim() : '',
       systemPrompt,
       modelMode: modelMode || 'hybrid',
       replyDelayMs: typeof replyDelayMs === 'number' ? replyDelayMs : 0,
-      errorOopsMessage: errorOopsMessage || ''
+      errorOopsMessage: errorOopsMessage || '',
+      userNicknames: userNicknames || {}
     };
 
     await aiConfigStore.saveConfig(updates);

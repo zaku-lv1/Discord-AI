@@ -117,7 +117,8 @@ class AIConfigStore {
       systemPrompt: "あなたは親しみやすくフレンドリーなAIアシスタントです。自然で親しみやすい口調で話してください。",
       modelMode: "hybrid",
       replyDelayMs: 0,
-      errorOopsMessage: "ちょっと調子が悪いみたい...ごめんね！"
+      errorOopsMessage: "ちょっと調子が悪いみたい...ごめんね！",
+      userNicknames: {} // Discord ID to nickname mapping: { "discordId": "nickname" }
     };
   }
 
