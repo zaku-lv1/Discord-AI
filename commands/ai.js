@@ -146,6 +146,8 @@ module.exports = {
       const config = await aiConfigStore.getConfig();
       
       const aiSettings = {
+        botName: config.botName || "AI Assistant",
+        botIconUrl: config.botIconUrl || null,
         systemPrompt: config.systemPrompt || defaultSystemPrompt,
         replyDelayMs: config.replyDelayMs || 0,
         errorOopsMessage: config.errorOopsMessage || "",
@@ -154,9 +156,9 @@ module.exports = {
 
       const finalSystemPrompt = aiSettings.systemPrompt + forcedInstructions;
 
-      // Simple webhook name
-      const webhookName = "AI Assistant";
-      const webhookAvatarUrl = null;
+      // Use configured webhook name and avatar
+      const webhookName = aiSettings.botName;
+      const webhookAvatarUrl = aiSettings.botIconUrl;
 
       try {
         const webhooks = await channel.fetchWebhooks();
@@ -181,7 +183,7 @@ module.exports = {
 
           const embed = new EmbedBuilder()
             .setColor(0xff6600)
-            .setDescription(`[AI] **AI Assistant** を退出させました。`);
+            .setDescription(`[AI] **${aiSettings.botName}** を退出させました。`);
           
           return await interaction.editReply({ embeds: [embed] });
         }
@@ -258,7 +260,7 @@ module.exports = {
 
         const embed = new EmbedBuilder()
           .setColor(0x00ff00)
-          .setDescription(`[AI] **AI Assistant** を召喚しました。`)
+          .setDescription(`[AI] **${aiSettings.botName}** を召喚しました。`)
           .addFields(
             { name: "モデル", value: aiSettings.modelMode === "hybrid" ? "ハイブリッド" : "Flash", inline: true },
             { name: "返信遅延", value: `${aiSettings.replyDelayMs}ms`, inline: true }

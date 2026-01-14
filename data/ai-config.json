@@ -1,4 +1,6 @@
 {
+  "botName": "AI Assistant",
+  "botIconUrl": "",
   "systemPrompt": "You are a helpful and friendly AI assistant. Be concise and clear in your responses.",
   "modelMode": "hybrid",
   "replyDelayMs": 500,

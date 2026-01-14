@@ -20,13 +20,28 @@ router.get("/ai", async (req, res) => {
 // Update AI settings
 router.put("/ai", async (req, res) => {
   try {
-    const { systemPrompt, modelMode, replyDelayMs, errorOopsMessage } = req.body;
+    const { botName, botIconUrl, systemPrompt, modelMode, replyDelayMs, errorOopsMessage } = req.body;
 
     // Validate required fields
+    if (!botName || typeof botName !== 'string' || botName.trim() === '') {
+      return res.status(400).json({ 
+        error: "Validation error",
+        message: "botName is required and must be a non-empty string" 
+      });
+    }
+
     if (!systemPrompt || typeof systemPrompt !== 'string') {
       return res.status(400).json({ 
         error: "Validation error",
         message: "systemPrompt is required and must be a string" 
+      });
+    }
+
+    // Validate botIconUrl if provided
+    if (botIconUrl && typeof botIconUrl !== 'string') {
+      return res.status(400).json({ 
+        error: "Validation error",
+        message: "botIconUrl must be a string" 
       });
     }
 
@@ -47,6 +62,8 @@ router.put("/ai", async (req, res) => {
     }
 
     const updates = {
+      botName: botName.trim(),
+      botIconUrl: botIconUrl ? botIconUrl.trim() : '',
       systemPrompt,
       modelMode: modelMode || 'hybrid',
       replyDelayMs: typeof replyDelayMs === 'number' ? replyDelayMs : 0,

@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>AI Settings Dashboard</title>
+  <title>AI設定ダッシュボード</title>
   <style>
     * {
       margin: 0;
@@ -191,42 +191,65 @@
 <body>
   <div class="container">
     <div class="header">
-      <h1>🤖 AI Settings Dashboard</h1>
-      <p>Configure your Discord AI bot settings</p>
+      <h1>🤖 AI設定ダッシュボード</h1>
+      <p>Discord AIボットの設定を管理します</p>
     </div>
     
     <div class="content">
       <div id="loading" class="loading">
         <div class="spinner"></div>
-        <p>Loading settings...</p>
+        <p>設定を読み込んでいます...</p>
       </div>
       
       <div id="message" class="message"></div>
       
       <form id="settings-form" style="display: none;">
         <div class="form-group">
-          <label for="systemPrompt">System Prompt</label>
+          <label for="botName">ボット名</label>
+          <input 
+            type="text" 
+            id="botName" 
+            name="botName" 
+            placeholder="AI Assistant"
+            required
+          />
+          <div class="form-hint">Discordで表示されるボットの名前</div>
+        </div>
+        
+        <div class="form-group">
+          <label for="botIconUrl">ボットアイコンURL</label>
+          <input 
+            type="text" 
+            id="botIconUrl" 
+            name="botIconUrl" 
+            placeholder="https://example.com/icon.png"
+          />
+          <div class="form-hint">ボットのアイコン画像URL（空欄の場合はデフォルトアイコン）</div>
+        </div>
+        
+        <div class="form-group">
+          <label for="systemPrompt">システムプロンプト</label>
           <textarea 
             id="systemPrompt" 
             name="systemPrompt" 
             rows="10" 
-            placeholder="Enter the AI system prompt..."
+            placeholder="AIシステムプロンプトを入力してください..."
             required
           ></textarea>
-          <div class="form-hint">Define how the AI should behave and respond</div>
+          <div class="form-hint">AIの振る舞いと応答方法を定義します</div>
         </div>
         
         <div class="form-group">
-          <label for="modelMode">Model Mode</label>
+          <label for="modelMode">モデルモード</label>
           <select id="modelMode" name="modelMode">
-            <option value="hybrid">Hybrid (Pro with Flash fallback)</option>
-            <option value="flash_only">Flash Only</option>
+            <option value="hybrid">ハイブリッド（ProとFlashのフォールバック）</option>
+            <option value="flash_only">Flashのみ</option>
           </select>
-          <div class="form-hint">Choose between hybrid mode or flash-only mode</div>
+          <div class="form-hint">ハイブリッドモードまたはFlashのみモードを選択</div>
         </div>
         
         <div class="form-group">
-          <label for="replyDelayMs">Reply Delay (ms)</label>
+          <label for="replyDelayMs">返信遅延（ミリ秒）</label>
           <input 
             type="number" 
             id="replyDelayMs" 
@@ -235,23 +258,23 @@
             step="100"
             placeholder="0"
           />
-          <div class="form-hint">Delay before AI responds (in milliseconds)</div>
+          <div class="form-hint">AIが応答するまでの遅延時間（ミリ秒単位）</div>
         </div>
         
         <div class="form-group">
-          <label for="errorOopsMessage">Error Message</label>
+          <label for="errorOopsMessage">エラーメッセージ</label>
           <input 
             type="text" 
             id="errorOopsMessage" 
             name="errorOopsMessage" 
             placeholder="ちょっと調子が悪いみたい...ごめんね！"
           />
-          <div class="form-hint">Custom error message when AI fails to respond</div>
+          <div class="form-hint">AIの応答に失敗した際のカスタムエラーメッセージ</div>
         </div>
         
         <div class="button-group">
-          <button type="button" class="btn-reload" onclick="loadSettings()">↻ Reload</button>
-          <button type="submit" class="btn-save">💾 Save Settings</button>
+          <button type="button" class="btn-reload" onclick="loadSettings()">↻ 再読み込み</button>
+          <button type="submit" class="btn-save">💾 設定を保存</button>
         </div>
       </form>
     </div>
@@ -296,6 +319,8 @@
         
         const data = await response.json();
         
+        document.getElementById('botName').value = data.botName || 'AI Assistant';
+        document.getElementById('botIconUrl').value = data.botIconUrl || '';
         document.getElementById('systemPrompt').value = data.systemPrompt || '';
         document.getElementById('modelMode').value = data.modelMode || 'hybrid';
         document.getElementById('replyDelayMs').value = data.replyDelayMs || 0;
@@ -305,7 +330,7 @@
         form.style.display = 'block';
       } catch (error) {
         loading.style.display = 'none';
-        showMessage(`Error loading settings: ${error.message}`, 'error');
+        showMessage(`設定の読み込みエラー: ${error.message}`, 'error');
       }
     }
     
@@ -313,9 +338,11 @@
       if (saveButton.disabled) return;
       
       saveButton.disabled = true;
-      saveButton.textContent = '💾 Saving...';
+      saveButton.textContent = '💾 保存中...';
       
       const formData = {
+        botName: document.getElementById('botName').value,
+        botIconUrl: document.getElementById('botIconUrl').value,
         systemPrompt: document.getElementById('systemPrompt').value,
         modelMode: document.getElementById('modelMode').value,
         replyDelayMs: parseInt(document.getElementById('replyDelayMs').value) || 0,
@@ -336,12 +363,12 @@
         }
         
         const data = await response.json();
-        showMessage(data.message || 'Settings saved successfully!', 'success');
+        showMessage(data.message || '設定を正常に保存しました！', 'success');
       } catch (error) {
-        showMessage(`Error saving settings: ${error.message}`, 'error');
+        showMessage(`設定の保存エラー: ${error.message}`, 'error');
       } finally {
         saveButton.disabled = false;
-        saveButton.textContent = '💾 Save Settings';
+        saveButton.textContent = '💾 設定を保存';
       }
     }
   </script>

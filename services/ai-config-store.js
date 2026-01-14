@@ -35,6 +35,8 @@ class AIConfigStore {
       if (error.code === 'ENOENT') {
         console.log('[INFO] Config file not found, creating default config...');
         const defaultConfig = {
+          botName: "AI Assistant",
+          botIconUrl: "",
           systemPrompt: "あなたは親しみやすくフレンドリーなAIアシスタントです。自然で親しみやすい口調で話してください。",
           modelMode: "hybrid",
           replyDelayMs: 0,
