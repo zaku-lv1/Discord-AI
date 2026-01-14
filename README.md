@@ -10,6 +10,8 @@ A simplified Discord bot with AI capabilities and a minimal web-based configurat
 - **🧠 Google Gemini AI**: Supports both Pro and Flash models with hybrid fallback
 - **💾 Dual Storage Options**: File-based storage (default) or Firestore cloud storage
 - **🔄 Automatic Fallback**: Seamlessly switches between storage methods
+- **💬 Persistent Conversations**: Conversation history stored in Firebase
+- **👤 Nickname Support**: Associate friendly nicknames with Discord user IDs
 - **🌏 Japanese Interface**: Home page and dashboard in Japanese
 
 ## 🛠️ Setup
@@ -121,6 +123,53 @@ The system automatically falls back to file-based storage if Firestore is unavai
 See [FIRESTORE_GUIDE.md](FIRESTORE_GUIDE.md) for setup instructions.
 
 You can edit this file directly or use the web dashboard.
+
+## 🆕 New Features
+
+### Persistent Conversation History
+
+Conversations are now stored in Firebase and persist across bot restarts:
+- **Storage**: Firestore collection `conversation_history`
+- **Per-channel**: Each channel maintains its own conversation history
+- **Auto-trimming**: Keeps the latest 60 messages per conversation
+- **In-memory cache**: Fast access with automatic syncing to Firestore
+
+See [FIREBASE_INTEGRATION_GUIDE.md](FIREBASE_INTEGRATION_GUIDE.md) for details.
+
+### Nickname Support
+
+Associate friendly nicknames with Discord user IDs for more natural conversations:
+
+**Setup Example**:
+```json
+{
+  "userNicknames": {
+    "123456789012345678": "A-kun",
+    "987654321098765432": "B-chan"
+  }
+}
+```
+
+**How it works**:
+1. User: "Hey A-kun, how are you?"
+2. Bot converts: "Hey <@123456789012345678>, how are you?"
+3. AI understands: "Hey @A-kun, how are you?"
+4. AI responds naturally without creating unnecessary mentions
+
+**API Usage**:
+```bash
+curl -X PUT http://localhost:8080/api/settings/ai \
+  -H "Content-Type: application/json" \
+  -d '{
+    "botName": "AI Assistant",
+    "systemPrompt": "You are friendly",
+    "userNicknames": {
+      "123456789012345678": "田中さん"
+    }
+  }'
+```
+
+See [FIREBASE_INTEGRATION_GUIDE.md](FIREBASE_INTEGRATION_GUIDE.md) for more details.
 
 ## 🔧 Configuration Options
 
