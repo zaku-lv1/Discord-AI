@@ -8,6 +8,7 @@ class ConversationHistoryStore {
   constructor() {
     this.useFirestore = false;
     this.memoryCache = new Map(); // Fallback in-memory storage
+    this.MAX_MESSAGES = 60; // Maximum number of messages to keep (30 exchanges)
   }
 
   /**
@@ -121,9 +122,8 @@ class ConversationHistoryStore {
     
     history.push(userMessage, modelMessage);
     
-    // Keep only last 60 messages (30 exchanges)
-    const maxMessages = 60;
-    while (history.length > maxMessages) {
+    // Keep only last MAX_MESSAGES messages
+    while (history.length > this.MAX_MESSAGES) {
       history.shift();
     }
     
@@ -143,7 +143,7 @@ class ConversationHistoryStore {
           channelId,
           history: [],
           lastUpdated: firebaseService.getServerTimestamp()
-        });
+        }, { merge: true });
         console.log(`[INFO] Conversation history cleared in Firestore for channel ${channelId}`);
       } catch (error) {
         console.error('[ERROR] Failed to clear conversation history in Firestore:', error);

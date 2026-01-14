@@ -32,6 +32,10 @@ class Server {
       // Initialize Firestore for AI config store
       await aiConfigStore.initializeFirestore();
       
+      // Initialize conversation history store
+      const conversationHistoryStore = require("./services/conversation-history-store");
+      await conversationHistoryStore.initialize();
+      
       // Ensure AI config exists
       await aiConfigStore.getConfig();
 

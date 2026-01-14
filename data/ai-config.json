@@ -4,6 +4,5 @@
   "systemPrompt": "ミニマルプロンプト",
   "modelMode": "hybrid",
   "replyDelayMs": 0,
-  "errorOopsMessage": "",
-  "nickname": ""
+  "errorOopsMessage": ""
 }

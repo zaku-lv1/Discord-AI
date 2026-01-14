@@ -225,7 +225,6 @@ module.exports = {
         interaction.client.activeCollectors.set(collectorKey, collector);
 
         // Load conversation history from Firestore (persistent across bot restarts)
-        await conversationHistoryStore.initialize();
         let conversationHistory = await conversationHistoryStore.getHistory(channel.id);
 
         collector.on("collect", async (message) => {
