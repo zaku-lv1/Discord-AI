@@ -1,20 +1,30 @@
 const { EmbedBuilder, SlashCommandBuilder } = require("discord.js");
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 const aiConfigStore = require("../services/ai-config-store");
+const conversationHistoryStore = require("../services/conversation-history-store");
 
 // Create a new GoogleGenerativeAI instance for each request to avoid conflicts
 function createGeminiInstance() {
   return new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 }
 
-function replaceMentionsWithNames(message, guild) {
+function replaceMentionsWithNames(message, guild, nickname = "") {
   if (!message || typeof message.replace !== "function" || !guild) {
     return message;
   }
-  return message.replace(/<@!?(\d+)>/g, (_, id) => {
+  let result = message.replace(/<@!?(\d+)>/g, (_, id) => {
     const member = guild.members.cache.get(id);
     return member ? `@${member.displayName}` : "@UnknownUser";
   });
+  
+  // Replace bot mentions with nickname if available
+  if (nickname && guild.members.me) {
+    const botMention = `@${guild.members.me.displayName}`;
+    const botMentionRegex = new RegExp(escapeRegExp(botMention), 'gi');
+    result = result.replace(botMentionRegex, nickname);
+  }
+  
+  return result;
 }
 
 function escapeRegExp(string) {
@@ -151,10 +161,16 @@ module.exports = {
         systemPrompt: config.systemPrompt || defaultSystemPrompt,
         replyDelayMs: config.replyDelayMs || 0,
         errorOopsMessage: config.errorOopsMessage || "",
-        modelMode: config.modelMode || "hybrid"
+        modelMode: config.modelMode || "hybrid",
+        nickname: config.nickname || ""
       };
 
-      const finalSystemPrompt = aiSettings.systemPrompt + forcedInstructions;
+      // Add nickname to system prompt if configured
+      let finalSystemPrompt = aiSettings.systemPrompt;
+      if (aiSettings.nickname) {
+        finalSystemPrompt = `あなたのニックネームは「${aiSettings.nickname}」です。会話の中で自然にこのニックネームを使ってください。\n\n` + finalSystemPrompt;
+      }
+      finalSystemPrompt += forcedInstructions;
 
       // Use configured webhook name and avatar
       const webhookName = aiSettings.botName;
@@ -208,15 +224,17 @@ module.exports = {
 
         interaction.client.activeCollectors.set(collectorKey, collector);
 
-        // In-memory conversation history (resets on bot restart)
-        let conversationHistory = [];
+        // Load conversation history from Firestore (persistent across bot restarts)
+        await conversationHistoryStore.initialize();
+        let conversationHistory = await conversationHistoryStore.getHistory(channel.id);
 
         collector.on("collect", async (message) => {
           if (!message.content) return;
 
           const processedContent = replaceMentionsWithNames(
             message.content,
-            message.guild
+            message.guild,
+            aiSettings.nickname
           );
 
           const authorName = message.member?.displayName || message.author.username;
@@ -231,15 +249,14 @@ module.exports = {
           );
 
           if (responseText) {
-            conversationHistory = [
-              ...conversationHistory,
-              { role: "user", parts: [{ text: contentForAI }] },
-              { role: "model", parts: [{ text: responseText }] },
-            ];
-            // Keep only last 60 messages
-            while (conversationHistory.length > 60) {
-              conversationHistory.shift();
-            }
+            // Add to conversation history and save to Firestore
+            const userMessage = { role: "user", parts: [{ text: contentForAI }] };
+            const modelMessage = { role: "model", parts: [{ text: responseText }] };
+            
+            await conversationHistoryStore.addMessage(channel.id, userMessage, modelMessage);
+            
+            // Update local history for this session
+            conversationHistory = await conversationHistoryStore.getHistory(channel.id);
 
             const messageChunks = splitMessage(responseText);
 

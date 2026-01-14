@@ -228,6 +228,17 @@
         </div>
         
         <div class="form-group">
+          <label for="nickname">ニックネーム</label>
+          <input 
+            type="text" 
+            id="nickname" 
+            name="nickname" 
+            placeholder="例：まい、さくら、など"
+          />
+          <div class="form-hint">AIのニックネーム。会話の相手やメンション、文中の名前に自然に対応できます</div>
+        </div>
+        
+        <div class="form-group">
           <label for="systemPrompt">システムプロンプト</label>
           <textarea 
             id="systemPrompt" 
@@ -321,6 +332,7 @@
         
         document.getElementById('botName').value = data.botName || 'AI Assistant';
         document.getElementById('botIconUrl').value = data.botIconUrl || '';
+        document.getElementById('nickname').value = data.nickname || '';
         document.getElementById('systemPrompt').value = data.systemPrompt || '';
         document.getElementById('modelMode').value = data.modelMode || 'hybrid';
         document.getElementById('replyDelayMs').value = data.replyDelayMs || 0;
@@ -343,6 +355,7 @@
       const formData = {
         botName: document.getElementById('botName').value,
         botIconUrl: document.getElementById('botIconUrl').value,
+        nickname: document.getElementById('nickname').value,
         systemPrompt: document.getElementById('systemPrompt').value,
         modelMode: document.getElementById('modelMode').value,
         replyDelayMs: parseInt(document.getElementById('replyDelayMs').value) || 0,
