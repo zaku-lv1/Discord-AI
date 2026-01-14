@@ -9,6 +9,8 @@ A simplified Discord bot with AI capabilities and a minimal web-based configurat
 - **🔐 IP-Based Access Control**: Dashboard protected by IP allowlist
 - **🧠 Google Gemini AI**: Supports both Pro and Flash models with hybrid fallback
 - **💾 Dual Storage Options**: File-based storage (default) or Firestore cloud storage
+- **📜 Persistent Conversation History**: Chat history stored in Firestore across bot restarts
+- **👤 Nickname Support**: Set a friendly nickname for natural conversation and mention handling
 - **🔄 Automatic Fallback**: Seamlessly switches between storage methods
 - **🌏 Japanese Interface**: Home page and dashboard in Japanese
 
@@ -83,12 +85,16 @@ Use the `/ai` command in any Discord channel where the bot is present:
 - The AI will be summoned and respond to all messages in the channel
 - Run `/ai` again to dismiss the AI from the channel
 - The AI uses the configuration from your dashboard
+- Conversation history is persistent and stored across bot restarts (when Firebase is configured)
 
 ### Configuration Dashboard
 
 1. Access the dashboard at `http://localhost:8080/dashboard`
    - Only accessible from IPs listed in `ADMIN_ALLOWED_IPS`
 2. Configure:
+   - **Bot Name**: Display name for the AI bot
+   - **Bot Icon URL**: Avatar image for the bot
+   - **Nickname**: A friendly nickname for the AI (e.g., "まい", "さくら")
    - **System Prompt**: Define how the AI should behave
    - **Model Mode**: Choose between Hybrid (Pro with Flash fallback) or Flash only
    - **Reply Delay**: Set delay before AI responds (in milliseconds)
@@ -103,6 +109,8 @@ Settings are stored locally in `data/ai-config.json`:
 ```json
 {
   "botName": "AI Assistant",
+  "botIconUrl": "",
+  "nickname": "まい",
   "systemPrompt": "You are a helpful and friendly AI assistant.",
   "modelMode": "hybrid",
   "replyDelayMs": 0,
@@ -112,11 +120,11 @@ Settings are stored locally in `data/ai-config.json`:
 
 ### Firestore Cloud Storage (Optional)
 
-When Firebase credentials are configured, settings are stored in Firestore:
-- Collection: `settings`
-- Document: `ai-config`
+When Firebase credentials are configured, both settings and conversation history are stored in Firestore:
+- **AI Settings**: Collection `settings`, Document `ai-config`
+- **Conversation History**: Collection `conversations`, Document per channel ID
 
-The system automatically falls back to file-based storage if Firestore is unavailable.
+The system automatically falls back to file-based/in-memory storage if Firestore is unavailable.
 
 See [FIRESTORE_GUIDE.md](FIRESTORE_GUIDE.md) for setup instructions.
 
@@ -134,6 +142,9 @@ You can edit this file directly or use the web dashboard.
 
 ### AI Settings
 
+- **botName**: Display name for the AI bot in Discord
+- **botIconUrl**: Avatar image URL for the bot (optional)
+- **nickname**: Friendly nickname for natural conversation (e.g., "まい", "さくら")
 - **systemPrompt**: The personality and behavior definition for the AI
 - **modelMode**: 
   - `hybrid`: Tries gemini-2.5-pro first, falls back to gemini-2.5-flash
