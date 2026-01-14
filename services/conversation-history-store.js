@@ -161,7 +161,8 @@ class ConversationHistoryStore {
       try {
         const db = firebaseService.getDB();
         const snapshot = await db.collection('conversations').get();
-        return snapshot.docs.map(doc => doc.data().channelId);
+        // Use document ID as channelId for reliability
+        return snapshot.docs.map(doc => doc.id);
       } catch (error) {
         console.error('[ERROR] Failed to get channel IDs from Firestore:', error);
         return Array.from(this.memoryCache.keys());

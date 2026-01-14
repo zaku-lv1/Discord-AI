@@ -168,7 +168,16 @@ module.exports = {
       // Add nickname to system prompt if configured
       let finalSystemPrompt = aiSettings.systemPrompt;
       if (aiSettings.nickname) {
-        finalSystemPrompt = `あなたのニックネームは「${aiSettings.nickname}」です。会話の中で自然にこのニックネームを使ってください。\n\n` + finalSystemPrompt;
+        // Sanitize nickname to prevent prompt injection
+        const sanitizedNickname = aiSettings.nickname
+          .replace(/[\r\n]/g, ' ') // Remove newlines
+          .replace(/[「」『』]/g, '') // Remove Japanese quotes
+          .substring(0, 50) // Limit length
+          .trim();
+        
+        if (sanitizedNickname) {
+          finalSystemPrompt = `あなたのニックネームは「${sanitizedNickname}」です。会話の中で自然にこのニックネームを使ってください。\n\n` + finalSystemPrompt;
+        }
       }
       finalSystemPrompt += forcedInstructions;
 
