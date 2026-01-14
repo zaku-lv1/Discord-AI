@@ -299,7 +299,15 @@ module.exports = {
         collector.on("collect", async (message) => {
           if (!message.content) return;
 
-          // First, replace nicknames with mentions for processing
+          // Two-step nickname processing:
+          // 1. Replace nicknames with mentions: Converts "A-kun" -> "<@123456...>"
+          //    This ensures Discord IDs are properly captured for processing
+          // 2. Replace mentions with nicknames: Converts "<@123456...>" -> "@A-kun"
+          //    This provides natural names to the AI for better understanding
+          // 
+          // Why two steps? Users might reference people using nicknames in text,
+          // but the bot needs to validate these against actual Discord IDs first,
+          // then present them to AI in a natural format.
           let processedContent = replaceNicknamesWithMentions(
             message.content,
             userNicknames,

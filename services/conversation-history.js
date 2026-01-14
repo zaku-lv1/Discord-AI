@@ -35,7 +35,7 @@ class ConversationHistoryService {
     }
 
     try {
-      // Try to get from Firebase
+      // Try to get from Firebase (skip if using mock DB)
       if (!firebaseService.isUsingMockDB()) {
         const db = firebaseService.getDB();
         const docRef = db.collection('conversation_history').doc(conversationKey);
@@ -79,7 +79,7 @@ class ConversationHistoryService {
     this.memoryCache.set(conversationKey, trimmedHistory);
 
     try {
-      // Save to Firebase
+      // Save to Firebase (skip if using mock DB)
       if (!firebaseService.isUsingMockDB()) {
         const db = firebaseService.getDB();
         const docRef = db.collection('conversation_history').doc(conversationKey);
@@ -111,17 +111,15 @@ class ConversationHistoryService {
   async addMessage(channelId, webhookName, userMessage, aiResponse) {
     const history = await this.getHistory(channelId, webhookName);
     
-    // Add new message pair
-    const updatedHistory = [
-      ...history,
-      { role: "user", parts: [{ text: userMessage }] },
-      { role: "model", parts: [{ text: aiResponse }] }
-    ];
+    // Add new message pair using push for better performance
+    // Avoid spread operator which creates new array copies
+    history.push({ role: "user", parts: [{ text: userMessage }] });
+    history.push({ role: "model", parts: [{ text: aiResponse }] });
 
-    // Save updated history
-    await this.saveHistory(channelId, webhookName, updatedHistory);
+    // Save updated history (will handle trimming)
+    await this.saveHistory(channelId, webhookName, history);
     
-    return updatedHistory;
+    return history;
   }
 
   /**
