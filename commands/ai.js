@@ -22,6 +22,86 @@ function escapeRegExp(string) {
   return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
+/**
+ * Replace nicknames with Discord mentions in a message
+ * @param {string} message - The message to process
+ * @param {object} userNicknames - Object mapping Discord IDs to nicknames
+ * @param {object} guild - Discord guild object for validation
+ * @returns {string} Message with nicknames replaced by mentions
+ */
+function replaceNicknamesWithMentions(message, userNicknames, guild) {
+  if (!message || !userNicknames || Object.keys(userNicknames).length === 0) {
+    return message;
+  }
+
+  // Create reverse mapping: nickname -> Discord ID
+  const nameToIdMap = {};
+  for (const [discordId, nickname] of Object.entries(userNicknames)) {
+    if (nickname && typeof nickname === 'string') {
+      nameToIdMap[nickname] = discordId;
+    }
+  }
+
+  // Sort nicknames by length (longest first) to avoid partial matches
+  const sortedNicknames = Object.keys(nameToIdMap).sort((a, b) => b.length - a.length);
+
+  let processedMessage = message;
+  
+  for (const nickname of sortedNicknames) {
+    const discordId = nameToIdMap[nickname];
+    if (!discordId) continue;
+
+    // Validate that the user exists in the guild if guild is provided
+    if (guild) {
+      const member = guild.members.cache.get(discordId);
+      if (!member) continue;
+    }
+
+    // Create patterns for matching the nickname
+    const patterns = [
+      new RegExp(`\\b${escapeRegExp(nickname)}\\b`, 'gi'), // Complete word match (alphanumeric)
+      new RegExp(`(?<![a-zA-Z0-9_-])${escapeRegExp(nickname)}(?![a-zA-Z0-9_-])`, 'gi'), // Boundary excluding alphanumeric/underscore/hyphen
+      new RegExp(`(?<=[\\s、。！？,!?]|^)${escapeRegExp(nickname)}(?=[\\s、。！？,!?]|$)`, 'gi'), // Punctuation/space/start/end boundaries
+    ];
+
+    // Try each pattern and replace if matched
+    for (const pattern of patterns) {
+      const matches = processedMessage.match(pattern);
+      if (matches) {
+        processedMessage = processedMessage.replace(pattern, () => `<@${discordId}>`);
+        break; // Stop after first successful match for this nickname
+      }
+    }
+  }
+
+  return processedMessage;
+}
+
+/**
+ * Replace mentions with nicknames for AI understanding
+ * @param {string} message - The message to process
+ * @param {object} userNicknames - Object mapping Discord IDs to nicknames
+ * @param {object} guild - Discord guild object
+ * @returns {string} Message with mentions replaced by nicknames
+ */
+function replaceMentionsWithNicknames(message, userNicknames, guild) {
+  if (!message || !userNicknames || Object.keys(userNicknames).length === 0) {
+    // Fallback to default behavior using display names
+    return replaceMentionsWithNames(message, guild);
+  }
+
+  return message.replace(/<@!?(\d+)>/g, (match, id) => {
+    // Check if we have a nickname for this user
+    if (userNicknames[id]) {
+      return `@${userNicknames[id]}`;
+    }
+    
+    // Fallback to display name
+    const member = guild?.members.cache.get(id);
+    return member ? `@${member.displayName}` : "@UnknownUser";
+  });
+}
+
 function splitMessage(text, { maxLength = 2000 } = {}) {
   if (text.length <= maxLength) {
     return [text];
@@ -213,11 +293,23 @@ module.exports = {
         const channelId = channel.id;
         let persistentHistory = await conversationHistory.getHistory(channelId, webhookName);
 
+        // Get user nicknames from config
+        const userNicknames = config.userNicknames || {};
+
         collector.on("collect", async (message) => {
           if (!message.content) return;
 
-          const processedContent = replaceMentionsWithNames(
+          // First, replace nicknames with mentions for processing
+          let processedContent = replaceNicknamesWithMentions(
             message.content,
+            userNicknames,
+            message.guild
+          );
+
+          // Then replace mentions with nicknames for AI understanding
+          processedContent = replaceMentionsWithNicknames(
+            processedContent,
+            userNicknames,
             message.guild
           );
 
@@ -284,5 +376,7 @@ module.exports = {
 
   // Export functions for testing
   replaceMentionsWithNames,
+  replaceMentionsWithNicknames,
+  replaceNicknamesWithMentions,
   escapeRegExp
 };
