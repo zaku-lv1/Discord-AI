@@ -296,6 +296,22 @@
       color: #999;
       font-size: 14px;
     }
+    
+    .nickname-input-row {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 15px;
+    }
+    
+    .nickname-input-row input {
+      flex: 1;
+    }
+    
+    .nickname-hint {
+      margin-bottom: 15px;
+    }
+      font-size: 14px;
+    }
   </style>
 </head>
 <body>
@@ -384,23 +400,21 @@
         
         <div class="form-group">
           <label>ユーザーニックネーム管理</label>
-          <div class="form-hint" style="margin-bottom: 15px;">
+          <div class="form-hint nickname-hint">
             Discord IDとニックネームのマッピングを管理します。AIはこのニックネームを使用してユーザーを認識します。
           </div>
           
           <div class="nickname-add-section">
-            <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+            <div class="nickname-input-row">
               <input 
                 type="text" 
                 id="newDiscordId" 
                 placeholder="Discord ID (例: 123456789012345678)"
-                style="flex: 1;"
               />
               <input 
                 type="text" 
                 id="newNickname" 
                 placeholder="ニックネーム (例: 太郎)"
-                style="flex: 1;"
               />
               <button type="button" class="btn-add-nickname" onclick="addNickname()">➕ 追加</button>
             </div>
@@ -420,6 +434,9 @@
   </div>
 
   <script>
+    // Constants
+    const DISCORD_ID_REGEX = /^\d{17,19}$/;
+    
     let saveButton;
     let currentNicknames = {}; // Store current nicknames in memory
     
@@ -478,6 +495,12 @@
       }
     }
     
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+    
     function renderNicknames() {
       const nicknamesListDiv = document.getElementById('nicknamesList');
       
@@ -491,18 +514,26 @@
         html += `
           <div class="nickname-item">
             <div class="nickname-info">
-              <div class="nickname-discord-id">Discord ID: ${discordId}</div>
-              <div class="nickname-name">${nickname}</div>
+              <div class="nickname-discord-id">Discord ID: ${escapeHtml(discordId)}</div>
+              <div class="nickname-name">${escapeHtml(nickname)}</div>
             </div>
             <div class="nickname-actions">
-              <button type="button" class="btn-edit-nickname" onclick="editNickname('${discordId}')">✏️ 編集</button>
-              <button type="button" class="btn-delete-nickname" onclick="deleteNickname('${discordId}')">🗑️ 削除</button>
+              <button type="button" class="btn-edit-nickname" data-discord-id="${escapeHtml(discordId)}">✏️ 編集</button>
+              <button type="button" class="btn-delete-nickname" data-discord-id="${escapeHtml(discordId)}">🗑️ 削除</button>
             </div>
           </div>
         `;
       }
       
       nicknamesListDiv.innerHTML = html;
+      
+      // Add event listeners using event delegation
+      nicknamesListDiv.querySelectorAll('.btn-edit-nickname').forEach(btn => {
+        btn.addEventListener('click', () => editNickname(btn.dataset.discordId));
+      });
+      nicknamesListDiv.querySelectorAll('.btn-delete-nickname').forEach(btn => {
+        btn.addEventListener('click', () => deleteNickname(btn.dataset.discordId));
+      });
     }
     
     function addNickname() {
@@ -518,7 +549,7 @@
       }
       
       // Validate Discord ID format (17-19 digits)
-      if (!/^\d{17,19}$/.test(discordId)) {
+      if (!DISCORD_ID_REGEX.test(discordId)) {
         showMessage('Discord IDは17-19桁の数字である必要があります', 'error');
         return;
       }
