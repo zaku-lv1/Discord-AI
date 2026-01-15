@@ -424,7 +424,7 @@
         </div>
         
         <div class="button-group">
-          <button type="button" class="btn-reload" onclick="loadSettings()">↻ 再読み込み</button>
+          <button type="button" class="btn-reload" id="reloadBtn">↻ 再読み込み</button>
           <button type="submit" class="btn-save">💾 設定を保存</button>
         </div>
       </form>
@@ -449,6 +449,9 @@
       
       // Add event listener for add nickname button
       document.getElementById('addNicknameBtn').addEventListener('click', addNickname);
+      
+      // Add event listener for reload button
+      document.getElementById('reloadBtn').addEventListener('click', loadSettings);
     });
     
     function showMessage(text, type) {
