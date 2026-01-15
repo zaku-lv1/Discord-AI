@@ -186,6 +186,130 @@
       0% { transform: rotate(0deg); }
       100% { transform: rotate(360deg); }
     }
+    
+    /* Nickname management styles */
+    .nickname-add-section {
+      margin-bottom: 15px;
+    }
+    
+    .btn-add-nickname {
+      padding: 12px 20px;
+      background: #28a745;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s;
+      white-space: nowrap;
+    }
+    
+    .btn-add-nickname:hover {
+      background: #218838;
+      transform: translateY(-1px);
+    }
+    
+    .nicknames-list {
+      border: 2px solid #e0e0e0;
+      border-radius: 8px;
+      padding: 15px;
+      max-height: 300px;
+      overflow-y: auto;
+    }
+    
+    .nickname-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 12px;
+      background: #f8f9fa;
+      border-radius: 6px;
+      margin-bottom: 8px;
+      transition: background 0.2s;
+    }
+    
+    .nickname-item:hover {
+      background: #e9ecef;
+    }
+    
+    .nickname-item:last-child {
+      margin-bottom: 0;
+    }
+    
+    .nickname-info {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    
+    .nickname-discord-id {
+      font-size: 12px;
+      color: #666;
+      font-family: 'Courier New', monospace;
+    }
+    
+    .nickname-name {
+      font-size: 14px;
+      font-weight: 600;
+      color: #333;
+    }
+    
+    .nickname-actions {
+      display: flex;
+      gap: 8px;
+    }
+    
+    .btn-edit-nickname,
+    .btn-delete-nickname {
+      padding: 6px 12px;
+      border: none;
+      border-radius: 4px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    
+    .btn-edit-nickname {
+      background: #007bff;
+      color: white;
+    }
+    
+    .btn-edit-nickname:hover {
+      background: #0056b3;
+    }
+    
+    .btn-delete-nickname {
+      background: #dc3545;
+      color: white;
+    }
+    
+    .btn-delete-nickname:hover {
+      background: #c82333;
+    }
+    
+    .empty-nicknames {
+      text-align: center;
+      padding: 30px;
+      color: #999;
+      font-size: 14px;
+    }
+    
+    .nickname-input-row {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 15px;
+    }
+    
+    .nickname-input-row input {
+      flex: 1;
+    }
+    
+    .nickname-hint {
+      margin-bottom: 15px;
+    }
   </style>
 </head>
 <body>
@@ -272,8 +396,35 @@
           <div class="form-hint">AIの応答に失敗した際のカスタムエラーメッセージ</div>
         </div>
         
+        <div class="form-group">
+          <label>ユーザーニックネーム管理</label>
+          <div class="form-hint nickname-hint">
+            Discord IDとニックネームのマッピングを管理します。AIはこのニックネームを使用してユーザーを認識します。
+          </div>
+          
+          <div class="nickname-add-section">
+            <div class="nickname-input-row">
+              <input 
+                type="text" 
+                id="newDiscordId" 
+                placeholder="Discord ID (例: 123456789012345678)"
+              />
+              <input 
+                type="text" 
+                id="newNickname" 
+                placeholder="ニックネーム (例: 太郎)"
+              />
+              <button type="button" class="btn-add-nickname" id="addNicknameBtn">➕ 追加</button>
+            </div>
+          </div>
+          
+          <div id="nicknamesList" class="nicknames-list">
+            <!-- Nicknames will be populated here -->
+          </div>
+        </div>
+        
         <div class="button-group">
-          <button type="button" class="btn-reload" onclick="loadSettings()">↻ 再読み込み</button>
+          <button type="button" class="btn-reload" id="reloadBtn">↻ 再読み込み</button>
           <button type="submit" class="btn-save">💾 設定を保存</button>
         </div>
       </form>
@@ -281,7 +432,11 @@
   </div>
 
   <script>
+    // Constants
+    const DISCORD_ID_REGEX = /^\d{17,19}$/;
+    
     let saveButton;
+    let currentNicknames = {}; // Store current nicknames in memory
     
     document.addEventListener('DOMContentLoaded', () => {
       saveButton = document.querySelector('.btn-save');
@@ -291,6 +446,12 @@
         e.preventDefault();
         await saveSettings();
       });
+      
+      // Add event listener for add nickname button
+      document.getElementById('addNicknameBtn').addEventListener('click', addNickname);
+      
+      // Add event listener for reload button
+      document.getElementById('reloadBtn').addEventListener('click', loadSettings);
     });
     
     function showMessage(text, type) {
@@ -326,12 +487,131 @@
         document.getElementById('replyDelayMs').value = data.replyDelayMs || 0;
         document.getElementById('errorOopsMessage').value = data.errorOopsMessage || '';
         
+        // Load nicknames
+        currentNicknames = data.userNicknames || {};
+        renderNicknames();
+        
         loading.style.display = 'none';
         form.style.display = 'block';
       } catch (error) {
         loading.style.display = 'none';
         showMessage(`設定の読み込みエラー: ${error.message}`, 'error');
       }
+    }
+    
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+    
+    function renderNicknames() {
+      const nicknamesListDiv = document.getElementById('nicknamesList');
+      
+      if (Object.keys(currentNicknames).length === 0) {
+        nicknamesListDiv.innerHTML = '<div class="empty-nicknames">まだニックネームが登録されていません</div>';
+        return;
+      }
+      
+      let html = '';
+      for (const [discordId, nickname] of Object.entries(currentNicknames)) {
+        html += `
+          <div class="nickname-item">
+            <div class="nickname-info">
+              <div class="nickname-discord-id">Discord ID: ${escapeHtml(discordId)}</div>
+              <div class="nickname-name">${escapeHtml(nickname)}</div>
+            </div>
+            <div class="nickname-actions">
+              <button type="button" class="btn-edit-nickname" data-discord-id="${escapeHtml(discordId)}">✏️ 編集</button>
+              <button type="button" class="btn-delete-nickname" data-discord-id="${escapeHtml(discordId)}">🗑️ 削除</button>
+            </div>
+          </div>
+        `;
+      }
+      
+      nicknamesListDiv.innerHTML = html;
+      
+      // Add event listeners using event delegation
+      nicknamesListDiv.querySelectorAll('.btn-edit-nickname').forEach(btn => {
+        btn.addEventListener('click', () => editNickname(btn.dataset.discordId));
+      });
+      nicknamesListDiv.querySelectorAll('.btn-delete-nickname').forEach(btn => {
+        btn.addEventListener('click', () => deleteNickname(btn.dataset.discordId));
+      });
+    }
+    
+    function addNickname() {
+      const discordIdInput = document.getElementById('newDiscordId');
+      const nicknameInput = document.getElementById('newNickname');
+      
+      const discordId = discordIdInput.value.trim();
+      const nickname = nicknameInput.value.trim();
+      
+      if (!discordId || !nickname) {
+        showMessage('Discord IDとニックネームの両方を入力してください', 'error');
+        return;
+      }
+      
+      // Validate Discord ID format (17-19 digits)
+      if (!DISCORD_ID_REGEX.test(discordId)) {
+        showMessage('Discord IDは17-19桁の数字である必要があります', 'error');
+        return;
+      }
+      
+      // Check if Discord ID already exists
+      if (currentNicknames[discordId]) {
+        showMessage('このDiscord IDは既に登録されています', 'error');
+        return;
+      }
+      
+      // Add to current nicknames
+      currentNicknames[discordId] = nickname;
+      
+      // Clear inputs
+      discordIdInput.value = '';
+      nicknameInput.value = '';
+      
+      // Re-render
+      renderNicknames();
+      
+      showMessage('ニックネームを追加しました（保存ボタンをクリックして保存してください）', 'success');
+    }
+    
+    function editNickname(discordId) {
+      const currentNickname = currentNicknames[discordId];
+      const newNickname = prompt('新しいニックネームを入力してください:', currentNickname);
+      
+      if (newNickname === null) {
+        // User cancelled
+        return;
+      }
+      
+      if (!newNickname.trim()) {
+        showMessage('ニックネームを入力してください', 'error');
+        return;
+      }
+      
+      // Update nickname
+      currentNicknames[discordId] = newNickname.trim();
+      
+      // Re-render
+      renderNicknames();
+      
+      showMessage('ニックネームを更新しました（保存ボタンをクリックして保存してください）', 'success');
+    }
+    
+    function deleteNickname(discordId) {
+      if (!confirm('このニックネームを削除してもよろしいですか？')) {
+        return;
+      }
+      
+      // Delete from current nicknames
+      delete currentNicknames[discordId];
+      
+      // Re-render
+      renderNicknames();
+      
+      showMessage('ニックネームを削除しました（保存ボタンをクリックして保存してください）', 'success');
     }
     
     async function saveSettings() {
@@ -346,7 +626,8 @@
         systemPrompt: document.getElementById('systemPrompt').value,
         modelMode: document.getElementById('modelMode').value,
         replyDelayMs: parseInt(document.getElementById('replyDelayMs').value) || 0,
-        errorOopsMessage: document.getElementById('errorOopsMessage').value
+        errorOopsMessage: document.getElementById('errorOopsMessage').value,
+        userNicknames: currentNicknames
       };
       
       try {
