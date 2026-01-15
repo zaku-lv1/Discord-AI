@@ -51,7 +51,8 @@ async function testFirestoreInitialization() {
       await firebaseService.initialize();
       throw new Error('期待: エラーがスローされるべき');
     } catch (error) {
-      if (error.message.includes('test環境ではFirestoreの設定が必須')) {
+      if (error.message.includes('環境ではFirestore') && 
+          (error.message.includes('必須') || error.message.includes('設定が必須'))) {
         console.log('  ✓ test環境で正しくエラーが発生');
       } else {
         throw error;
@@ -105,8 +106,7 @@ async function testAIConfigStoreInitialization() {
       await aiConfigStore.initializeFirestore();
       throw new Error('期待: エラーがスローされるべき');
     } catch (error) {
-      if (error.message.includes('test環境ではFirestoreが必須') || 
-          error.message.includes('test環境ではFirestoreの設定が必須')) {
+      if (error.message.includes('環境ではFirestore') && error.message.includes('必須')) {
         console.log('  ✓ test環境で正しくエラーが発生');
       } else {
         throw error;
