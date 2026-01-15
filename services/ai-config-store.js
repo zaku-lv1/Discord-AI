@@ -12,7 +12,8 @@ class AIConfigStore {
 
   /**
    * Initialize Firestore connection
-   * Falls back to file-based storage if Firebase is not configured
+   * In test/production environments, Firestore is required and will fail if not configured
+   * In development environment, falls back to file-based storage if Firebase is not configured
    */
   async initializeFirestore() {
     try {
@@ -23,15 +24,36 @@ class AIConfigStore {
       
       await this.firebaseService.initialize();
       
+      const isTest = process.env.NODE_ENV === 'test';
+      const isProduction = process.env.NODE_ENV === 'production';
+      const isDevelopment = process.env.NODE_ENV === 'development' || !process.env.NODE_ENV;
+      
       // Check if Firebase is actually configured (not using mock DB)
       if (!this.firebaseService.isUsingMockDB()) {
         this.useFirestore = true;
         console.log('[INFO] AI config store initialized with Firestore');
       } else {
-        console.log('[INFO] AI config store using file-based storage (Firebase not configured)');
+        // test/本番環境ではFirestoreが必須
+        if (isTest || isProduction) {
+          const errorMsg = `[致命的エラー] ${process.env.NODE_ENV}環境ではFirestoreが必須です。AI config storeの初期化に失敗しました。`;
+          console.error(errorMsg);
+          throw new Error(errorMsg);
+        }
+        // 開発環境のみファイルベースストレージへのフォールバックを許可
+        console.log('[INFO] 開発環境のため、AI config storeはファイルベースストレージを使用します（Firebase未設定）');
       }
     } catch (error) {
-      console.log('[INFO] AI config store using file-based storage:', error.message);
+      const isTest = process.env.NODE_ENV === 'test';
+      const isProduction = process.env.NODE_ENV === 'production';
+      
+      // test/本番環境ではエラーを再スロー
+      if (isTest || isProduction) {
+        console.error(`[致命的エラー] ${process.env.NODE_ENV}環境でのAI config store初期化に失敗:`, error.message);
+        throw error;
+      }
+      
+      // 開発環境のみファイルベースストレージへのフォールバックを許可
+      console.log('[INFO] 開発環境のため、AI config storeはファイルベースストレージを使用します:', error.message);
       this.useFirestore = false;
     }
   }
@@ -69,7 +91,17 @@ class AIConfigStore {
       }
     } catch (error) {
       console.error('[ERROR] Failed to get config from Firestore:', error);
-      // Fall back to file-based storage
+      
+      const isTest = process.env.NODE_ENV === 'test';
+      const isProduction = process.env.NODE_ENV === 'production';
+      
+      // test/本番環境ではエラーを再スロー（フォールバックしない）
+      if (isTest || isProduction) {
+        throw error;
+      }
+      
+      // 開発環境のみファイルベースストレージへのフォールバックを許可
+      console.log('[INFO] 開発環境のため、ファイルベースストレージにフォールバックします');
       return await this.getConfigFromFile();
     }
   }
@@ -146,7 +178,17 @@ class AIConfigStore {
       console.log('[INFO] AI config saved to Firestore successfully');
     } catch (error) {
       console.error('[ERROR] Failed to save config to Firestore:', error);
-      // Fall back to file-based storage
+      
+      const isTest = process.env.NODE_ENV === 'test';
+      const isProduction = process.env.NODE_ENV === 'production';
+      
+      // test/本番環境ではエラーを再スロー（フォールバックしない）
+      if (isTest || isProduction) {
+        throw error;
+      }
+      
+      // 開発環境のみファイルベースストレージへのフォールバックを許可
+      console.log('[INFO] 開発環境のため、ファイルベースストレージにフォールバックします');
       await this.saveConfigToFile(config);
     }
   }
