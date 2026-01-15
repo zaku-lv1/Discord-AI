@@ -15,15 +15,24 @@ class FirebaseService {
         throw new Error("環境変数 `FIREBASE_SERVICE_ACCOUNT_JSON` が設定されていません。");
       }
       
-      // 開発環境またはテスト環境での簡易設定
+      // 開発環境のみモックDBを許可
       const isDevelopment = process.env.NODE_ENV === 'development' || !process.env.NODE_ENV;
       const isTest = process.env.NODE_ENV === 'test';
+      const isProduction = process.env.NODE_ENV === 'production';
       const isExampleConfig = serviceAccountString.includes('your-project') || 
                               serviceAccountString.includes('your-firebase-project') ||
                               serviceAccountString.includes('test-project');
       
-      if ((isDevelopment || isTest) && isExampleConfig) {
-        console.log("[警告] 開発/テスト環境でのFirebase設定を使用しています。モックDBに切り替えます。");
+      // test/本番環境では必ずFirestoreを使用
+      if ((isTest || isProduction) && isExampleConfig) {
+        const errorMsg = `[致命的エラー] ${process.env.NODE_ENV}環境ではFirestoreの設定が必須です。環境変数 FIREBASE_SERVICE_ACCOUNT_JSON を正しく設定してください。`;
+        console.error(errorMsg);
+        throw new Error(errorMsg);
+      }
+      
+      // 開発環境でのみモックDB使用を許可
+      if (isDevelopment && isExampleConfig) {
+        console.log("[警告] 開発環境でのFirebase設定を使用しています。モックDBに切り替えます。");
         this.useMockDB = true;
         this.mockDB = this.createMockDB();
         this.db = this.createProxyDB();
@@ -100,6 +109,10 @@ class FirebaseService {
     const isMissingCredentials = error.message.includes('環境変数') ||
                                 error.message.includes('が設定されていません');
 
+    const isTest = process.env.NODE_ENV === 'test';
+    const isProduction = process.env.NODE_ENV === 'production';
+    const isDevelopment = process.env.NODE_ENV === 'development' || !process.env.NODE_ENV;
+
     if (isAuthError || isMissingCredentials) {
       if (isMissingCredentials) {
         console.error("[エラー] Firebase設定エラー:", error.message);
@@ -122,7 +135,14 @@ class FirebaseService {
       console.error("[致命的エラー] Firebase Admin SDKの初期化に失敗しました:", error.message);
     }
     
-    console.log("[情報] モックDBに切り替えて続行します。データは一時的にメモリに保存されます。");
+    // test/本番環境ではモックDBへのフォールバックを許可しない
+    if (isTest || isProduction) {
+      console.error(`[致命的エラー] ${process.env.NODE_ENV}環境ではFirestoreが必須です。起動を中止します。`);
+      throw error;
+    }
+    
+    // 開発環境のみモックDBへのフォールバックを許可
+    console.log("[情報] 開発環境のため、モックDBに切り替えて続行します。データは一時的にメモリに保存されます。");
     this.useMockDB = true;
     this.mockDB = this.createMockDB();
     this.db = this.createProxyDB();
@@ -235,7 +255,17 @@ class FirebaseService {
         error.message.includes('login cookie')) {
       
       console.error('[ERROR] ローカル認証エラー:', error.message);
-      console.log('[INFO] Firebase認証に失敗しました。モックDBに切り替えています...');
+      
+      const isTest = process.env.NODE_ENV === 'test';
+      const isProduction = process.env.NODE_ENV === 'production';
+      
+      // test/本番環境ではフォールバックせずエラーをスロー
+      if (isTest || isProduction) {
+        console.error(`[致命的エラー] ${process.env.NODE_ENV}環境ではFirestoreが必須です。認証エラーが発生しました。`);
+        throw error;
+      }
+      
+      console.log('[INFO] Firebase認証に失敗しました。開発環境のため、モックDBに切り替えています...');
       
       if (!this.useMockDB) {
         console.log("\n=== Firebase認証エラーの解決方法 ===");
@@ -253,7 +283,7 @@ class FirebaseService {
         console.log("=====================================\n");
       }
       
-      // Switch to mock DB for future operations
+      // Switch to mock DB for future operations (development only)
       this.useMockDB = true;
       if (!this.mockDB) {
         this.mockDB = this.createMockDB();
