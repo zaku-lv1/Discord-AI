@@ -299,15 +299,18 @@ module.exports = {
         collector.on("collect", async (message) => {
           if (!message.content) return;
 
-          // Two-step nickname processing:
+          // Three-step nickname processing:
           // 1. Replace nicknames with mentions: Converts "A-kun" -> "<@123456...>"
           //    This ensures Discord IDs are properly captured for processing
           // 2. Replace mentions with nicknames: Converts "<@123456...>" -> "@A-kun"
           //    This provides natural names to the AI for better understanding
+          // 3. Check sender's nickname: Use userNicknames[sender_id] for the sender's name
+          //    This ensures the AI recognizes the sender by their assigned nickname
           // 
-          // Why two steps? Users might reference people using nicknames in text,
+          // Why three steps? Users might reference people using nicknames in text,
           // but the bot needs to validate these against actual Discord IDs first,
-          // then present them to AI in a natural format.
+          // then present them to AI in a natural format. Additionally, the sender's
+          // own nickname should be recognized from the mapping for consistency.
           let processedContent = replaceNicknamesWithMentions(
             message.content,
             userNicknames,
@@ -321,7 +324,12 @@ module.exports = {
             message.guild
           );
 
-          const authorName = message.member?.displayName || message.author.username;
+          // Check if sender has a nickname assignment
+          // Priority: userNicknames mapping > displayName > username
+          const authorId = message.author.id;
+          const authorName = userNicknames[authorId] || 
+                            message.member?.displayName || 
+                            message.author.username;
           const contentForAI = `[発言者: ${authorName}]\n${processedContent}`;
 
           const responseText = await getAIResponse(
