@@ -109,7 +109,7 @@ class DiscordBot {
 
         // Provide specific error feedback based on the error type
         if (error.message.includes('403') || error.message.includes('権限')) {
-          errorMessage.content = '⚠️ ボットに必要な権限がありません。「ウェブフックの管理」権限を確認してください。';
+          errorMessage.content = '⚠️ ボットに必要な権限がありません。「メッセージを送信」権限を確認してください。';
         } else if (error.message.includes('API key') || error.message.includes('Quota')) {
           errorMessage.content = '🤖 AI機能が一時的に利用できません。後ほどお試しください。';
         } else if (error.message.includes('timeout') || error.message.includes('network')) {

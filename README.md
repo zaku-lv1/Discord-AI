@@ -29,7 +29,7 @@ A simplified Discord bot with AI capabilities and a minimal web-based configurat
 3. Navigate to the "Bot" section:
    - Create a bot and copy the token
    - Enable required intents: `Guilds`, `Guild Messages`, `Message Content`
-4. Invite the bot to your server with appropriate permissions
+4. Invite the bot to your server with appropriate permissions (Send Messages, Read Messages)
 
 ### 2. Google Gemini API Setup
 
@@ -82,7 +82,7 @@ The server will start on `http://localhost:8080`
 ### Discord Bot Command
 
 Use the `/ai` command in any Discord channel where the bot is present:
-- The AI will be summoned and respond to all messages in the channel
+- The AI will be summoned and respond to all messages in the channel using the bot's own account
 - Run `/ai` again to dismiss the AI from the channel
 - The AI uses the configuration from your dashboard
 
