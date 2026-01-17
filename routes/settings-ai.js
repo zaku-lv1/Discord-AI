@@ -89,7 +89,7 @@ router.put("/ai", async (req, res) => {
     // Determine botIconUrl value
     let finalBotIconUrl = "";
     if (botIconUrl !== undefined) {
-      finalBotIconUrl = botIconUrl ? botIconUrl.trim() : '';
+      finalBotIconUrl = (botIconUrl && typeof botIconUrl === 'string') ? botIconUrl.trim() : '';
     } else if (currentConfig?.botIconUrl !== undefined) {
       finalBotIconUrl = currentConfig.botIconUrl;
     }
