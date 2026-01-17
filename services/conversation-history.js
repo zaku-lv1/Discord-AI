@@ -13,21 +13,21 @@ class ConversationHistoryService {
   /**
    * Generate a unique key for a conversation
    * @param {string} channelId - Discord channel ID
-   * @param {string} webhookName - AI webhook name (bot name)
+   * @param {string} botName - AI bot name
    * @returns {string} Unique conversation key
    */
-  getConversationKey(channelId, webhookName) {
-    return `${channelId}_${webhookName}`;
+  getConversationKey(channelId, botName) {
+    return `${channelId}_${botName}`;
   }
 
   /**
    * Get conversation history from Firebase or cache
    * @param {string} channelId - Discord channel ID
-   * @param {string} webhookName - AI webhook name
+   * @param {string} botName - AI bot name
    * @returns {Promise<Array>} Array of conversation messages
    */
-  async getHistory(channelId, webhookName) {
-    const conversationKey = this.getConversationKey(channelId, webhookName);
+  async getHistory(channelId, botName) {
+    const conversationKey = this.getConversationKey(channelId, botName);
     
     // Check memory cache first
     if (this.memoryCache.has(conversationKey)) {
@@ -62,12 +62,12 @@ class ConversationHistoryService {
   /**
    * Save conversation history to Firebase
    * @param {string} channelId - Discord channel ID
-   * @param {string} webhookName - AI webhook name
+   * @param {string} botName - AI bot name
    * @param {Array} history - Conversation history array
    * @returns {Promise<void>}
    */
-  async saveHistory(channelId, webhookName, history) {
-    const conversationKey = this.getConversationKey(channelId, webhookName);
+  async saveHistory(channelId, botName, history) {
+    const conversationKey = this.getConversationKey(channelId, botName);
     
     // Trim history if it exceeds max size
     let trimmedHistory = history;
@@ -86,7 +86,7 @@ class ConversationHistoryService {
         
         await docRef.set({
           channelId,
-          webhookName,
+          botName,
           messages: trimmedHistory,
           messageCount: trimmedHistory.length,
           updatedAt: firebaseService.getServerTimestamp()
@@ -103,13 +103,13 @@ class ConversationHistoryService {
   /**
    * Add a message pair (user + AI response) to conversation history
    * @param {string} channelId - Discord channel ID
-   * @param {string} webhookName - AI webhook name
+   * @param {string} botName - AI bot name
    * @param {string} userMessage - User's message
    * @param {string} aiResponse - AI's response
    * @returns {Promise<Array>} Updated conversation history
    */
-  async addMessage(channelId, webhookName, userMessage, aiResponse) {
-    const history = await this.getHistory(channelId, webhookName);
+  async addMessage(channelId, botName, userMessage, aiResponse) {
+    const history = await this.getHistory(channelId, botName);
     
     // Add new message pair using push for better performance
     // Avoid spread operator which creates new array copies
@@ -117,7 +117,7 @@ class ConversationHistoryService {
     history.push({ role: "model", parts: [{ text: aiResponse }] });
 
     // Save updated history (will handle trimming)
-    await this.saveHistory(channelId, webhookName, history);
+    await this.saveHistory(channelId, botName, history);
     
     return history;
   }
@@ -125,11 +125,11 @@ class ConversationHistoryService {
   /**
    * Clear conversation history for a specific channel/bot
    * @param {string} channelId - Discord channel ID
-   * @param {string} webhookName - AI webhook name
+   * @param {string} botName - AI bot name
    * @returns {Promise<void>}
    */
-  async clearHistory(channelId, webhookName) {
-    const conversationKey = this.getConversationKey(channelId, webhookName);
+  async clearHistory(channelId, botName) {
+    const conversationKey = this.getConversationKey(channelId, botName);
     
     // Remove from memory cache
     this.memoryCache.delete(conversationKey);
@@ -188,7 +188,11 @@ class ConversationHistoryService {
       const conversations = await this.getChannelConversations(channelId);
       
       for (const conversation of conversations) {
-        await this.clearHistory(channelId, conversation.webhookName);
+        // Support both new botName field and legacy webhookName field for backward compatibility
+        const nameToUse = conversation.botName || conversation.webhookName;
+        if (nameToUse) {
+          await this.clearHistory(channelId, nameToUse);
+        }
       }
       
       console.log(`[INFO] All conversation history cleared for channel ${channelId}`);

@@ -237,150 +237,134 @@ module.exports = {
 
       const finalSystemPrompt = aiSettings.systemPrompt + forcedInstructions;
 
-      // Use configured webhook name and avatar
-      const webhookName = aiSettings.botName;
-      const webhookAvatarUrl = aiSettings.botIconUrl;
+      // Initialize active collectors map if it doesn't exist
+      if (!interaction.client.activeCollectors)
+        interaction.client.activeCollectors = new Map();
+      const collectorKey = `${channel.id}_ai`;
 
-      try {
-        const webhooks = await channel.fetchWebhooks();
-        const existingWebhook = webhooks.find(
-          (wh) =>
-            wh.name === webhookName && wh.owner?.id === interaction.client.user.id
-        );
-
-        if (!interaction.client.activeCollectors)
-          interaction.client.activeCollectors = new Map();
-        const collectorKey = `${channel.id}_ai`;
-
-        // 既に召喚されているAIの場合は退出させる
-        if (existingWebhook) {
-          await existingWebhook.delete("AI command: dismissing existing AI.");
-          if (interaction.client.activeCollectors.has(collectorKey)) {
-            interaction.client.activeCollectors
-              .get(collectorKey)
-              .stop("AI dismissed by user command.");
-            interaction.client.activeCollectors.delete(collectorKey);
-          }
-
-          const embed = new EmbedBuilder()
-            .setColor(0xff6600)
-            .setDescription(`[AI] **${aiSettings.botName}** を退出させました。`);
-          
-          return await interaction.editReply({ embeds: [embed] });
-        }
-
-        // 新しいAIを召喚
-        const webhookOptions = { name: webhookName };
-        if (webhookAvatarUrl) {
-          webhookOptions.avatar = webhookAvatarUrl;
-        }
-        
-        const webhook = await channel.createWebhook(webhookOptions);
-
-        const filter = (message) => {
-          // Only respond to non-bot messages
-          return !message.author.bot;
-        };
-
-        const collector = channel.createMessageCollector({
-          filter,
-          time: 3600000, // 1時間
-        });
-
-        interaction.client.activeCollectors.set(collectorKey, collector);
-
-        // Load conversation history from Firebase (persistent across bot restarts)
-        const channelId = channel.id;
-        let persistentHistory = await conversationHistory.getHistory(channelId, webhookName);
-
-        // Get user nicknames from config
-        const userNicknames = config.userNicknames || {};
-
-        collector.on("collect", async (message) => {
-          if (!message.content) return;
-
-          // Three-step nickname processing:
-          // 1. Replace nicknames with mentions: Converts "A-kun" -> "<@123456...>"
-          //    This ensures Discord IDs are properly captured for processing
-          // 2. Replace mentions with nicknames: Converts "<@123456...>" -> "@A-kun"
-          //    This provides natural names to the AI for better understanding
-          // 3. Check sender's nickname: Use userNicknames[sender_id] for the sender's name
-          //    This ensures the AI recognizes the sender by their assigned nickname
-          // 
-          // Why three steps? Users might reference people using nicknames in text,
-          // but the bot needs to validate these against actual Discord IDs first,
-          // then present them to AI in a natural format. Additionally, the sender's
-          // own nickname should be recognized from the mapping for consistency.
-          let processedContent = replaceNicknamesWithMentions(
-            message.content,
-            userNicknames,
-            message.guild
-          );
-
-          // Then replace mentions with nicknames for AI understanding
-          processedContent = replaceMentionsWithNicknames(
-            processedContent,
-            userNicknames,
-            message.guild
-          );
-
-          // Check if sender has a nickname assignment
-          // Priority: userNicknames mapping > displayName > username
-          const authorId = message.author.id;
-          const authorName = userNicknames[authorId] || 
-                            message.member?.displayName || 
-                            message.author.username;
-          const contentForAI = `[発言者: ${authorName}]\n${processedContent}`;
-
-          const responseText = await getAIResponse(
-            contentForAI,
-            persistentHistory,
-            finalSystemPrompt,
-            aiSettings.errorOopsMessage,
-            aiSettings.modelMode
-          );
-
-          if (responseText) {
-            // Update conversation history and save to Firebase
-            persistentHistory = await conversationHistory.addMessage(
-              channelId,
-              webhookName,
-              contentForAI,
-              responseText
-            );
-
-            const messageChunks = splitMessage(responseText);
-
-            for (const chunk of messageChunks) {
-              if (aiSettings.replyDelayMs > 0) {
-                await new Promise((resolve) =>
-                  setTimeout(resolve, aiSettings.replyDelayMs)
-                );
-              }
-              await webhook.send(chunk);
-            }
-          }
-        });
-
-        collector.on("end", () => {
-          interaction.client.activeCollectors.delete(collectorKey);
-        });
+      // Check if AI is already active in this channel
+      if (interaction.client.activeCollectors.has(collectorKey)) {
+        // Dismiss the existing AI
+        interaction.client.activeCollectors
+          .get(collectorKey)
+          .stop("AI dismissed by user command.");
+        interaction.client.activeCollectors.delete(collectorKey);
 
         const embed = new EmbedBuilder()
-          .setColor(0x00ff00)
-          .setDescription(`[AI] **${aiSettings.botName}** を召喚しました。`)
-          .addFields(
-            { name: "モデル", value: aiSettings.modelMode === "hybrid" ? "ハイブリッド" : "Flash", inline: true },
-            { name: "返信遅延", value: `${aiSettings.replyDelayMs}ms`, inline: true }
-          );
-        await interaction.editReply({ embeds: [embed] });
-      } catch (userFetchError) {
-        console.error("Webhook作成エラー:", userFetchError);
-        await interaction.editReply({
-          content: "[ERROR] AIの召喚中にエラーが発生しました。",
-          ephemeral: true,
-        });
+          .setColor(0xff6600)
+          .setDescription(`[AI] **${aiSettings.botName}** を退出させました。`);
+        
+        return await interaction.editReply({ embeds: [embed] });
       }
+
+      // Summon new AI - using bot's own account
+      const filter = (message) => {
+        // Only respond to non-bot messages
+        return !message.author.bot;
+      };
+
+      const collector = channel.createMessageCollector({
+        filter,
+        time: 3600000, // 1時間
+      });
+
+      interaction.client.activeCollectors.set(collectorKey, collector);
+
+      // Load conversation history from Firebase (persistent across bot restarts)
+      const channelId = channel.id;
+      const botName = aiSettings.botName;
+      let persistentHistory = await conversationHistory.getHistory(channelId, botName);
+
+      // Get user nicknames from config
+      const userNicknames = config.userNicknames || {};
+
+      collector.on("collect", async (message) => {
+        if (!message.content) return;
+
+        // Show typing indicator (non-blocking)
+        try {
+          await channel.sendTyping();
+        } catch (error) {
+          console.error('[ERROR] Failed to send typing indicator:', error.message);
+          // Continue processing message even if typing indicator fails
+        }
+
+        // Three-step nickname processing:
+        // 1. Replace nicknames with mentions: Converts "A-kun" -> "<@123456...>"
+        //    This ensures Discord IDs are properly captured for processing
+        // 2. Replace mentions with nicknames: Converts "<@123456...>" -> "@A-kun"
+        //    This provides natural names to the AI for better understanding
+        // 3. Check sender's nickname: Use userNicknames[sender_id] for the sender's name
+        //    This ensures the AI recognizes the sender by their assigned nickname
+        // 
+        // Why three steps? Users might reference people using nicknames in text,
+        // but the bot needs to validate these against actual Discord IDs first,
+        // then present them to AI in a natural format. Additionally, the sender's
+        // own nickname should be recognized from the mapping for consistency.
+        let processedContent = replaceNicknamesWithMentions(
+          message.content,
+          userNicknames,
+          message.guild
+        );
+
+        // Then replace mentions with nicknames for AI understanding
+        processedContent = replaceMentionsWithNicknames(
+          processedContent,
+          userNicknames,
+          message.guild
+        );
+
+        // Check if sender has a nickname assignment
+        // Priority: userNicknames mapping > displayName > username
+        const authorId = message.author.id;
+        const authorName = userNicknames[authorId] || 
+                          message.member?.displayName || 
+                          message.author.username;
+        const contentForAI = `[発言者: ${authorName}]\n${processedContent}`;
+
+        const responseText = await getAIResponse(
+          contentForAI,
+          persistentHistory,
+          finalSystemPrompt,
+          aiSettings.errorOopsMessage,
+          aiSettings.modelMode
+        );
+
+        if (responseText) {
+          // Update conversation history and save to Firebase
+          persistentHistory = await conversationHistory.addMessage(
+            channelId,
+            botName,
+            contentForAI,
+            responseText
+          );
+
+          const messageChunks = splitMessage(responseText);
+
+          for (const chunk of messageChunks) {
+            if (aiSettings.replyDelayMs > 0) {
+              await new Promise((resolve) =>
+                setTimeout(resolve, aiSettings.replyDelayMs)
+              );
+            }
+            // Send message using bot's own account
+            await channel.send(chunk);
+          }
+        }
+      });
+
+      collector.on("end", () => {
+        interaction.client.activeCollectors.delete(collectorKey);
+      });
+
+      const embed = new EmbedBuilder()
+        .setColor(0x00ff00)
+        .setDescription(`[AI] **${aiSettings.botName}** を召喚しました。`)
+        .addFields(
+          { name: "モデル", value: aiSettings.modelMode === "hybrid" ? "ハイブリッド" : "Flash", inline: true },
+          { name: "返信遅延", value: `${aiSettings.replyDelayMs}ms`, inline: true }
+        );
+      await interaction.editReply({ embeds: [embed] });
     } catch (error) {
       console.error("[AI_CMD_ERROR]", error);
       await interaction.editReply({
