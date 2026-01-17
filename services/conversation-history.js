@@ -188,7 +188,11 @@ class ConversationHistoryService {
       const conversations = await this.getChannelConversations(channelId);
       
       for (const conversation of conversations) {
-        await this.clearHistory(channelId, conversation.botName);
+        // Support both new botName field and legacy webhookName field for backward compatibility
+        const nameToUse = conversation.botName || conversation.webhookName;
+        if (nameToUse) {
+          await this.clearHistory(channelId, nameToUse);
+        }
       }
       
       console.log(`[INFO] All conversation history cleared for channel ${channelId}`);

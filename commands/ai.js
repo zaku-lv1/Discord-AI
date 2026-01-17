@@ -281,8 +281,13 @@ module.exports = {
       collector.on("collect", async (message) => {
         if (!message.content) return;
 
-        // Show typing indicator
-        await channel.sendTyping();
+        // Show typing indicator (non-blocking)
+        try {
+          await channel.sendTyping();
+        } catch (error) {
+          console.error('[ERROR] Failed to send typing indicator:', error.message);
+          // Continue processing message even if typing indicator fails
+        }
 
         // Three-step nickname processing:
         // 1. Replace nicknames with mentions: Converts "A-kun" -> "<@123456...>"
