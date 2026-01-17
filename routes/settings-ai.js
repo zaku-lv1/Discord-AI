@@ -39,7 +39,7 @@ router.put("/ai", async (req, res) => {
     }
 
     // Validate botIconUrl if provided (optional, for backward compatibility)
-    if (botIconUrl !== undefined && typeof botIconUrl !== 'string') {
+    if (botIconUrl !== undefined && botIconUrl !== null && typeof botIconUrl !== 'string') {
       return res.status(400).json({ 
         error: "Validation error",
         message: "botIconUrl must be a string if provided" 
@@ -71,11 +71,14 @@ router.put("/ai", async (req, res) => {
     }
 
     // Get current config to preserve botName and botIconUrl if not provided
-    const currentConfig = await aiConfigStore.getConfig();
+    let currentConfig;
+    if (botName === undefined || botIconUrl === undefined) {
+      currentConfig = await aiConfigStore.getConfig();
+    }
 
     const updates = {
-      botName: botName !== undefined ? botName.trim() : (currentConfig.botName || "AI Assistant"),
-      botIconUrl: botIconUrl !== undefined ? botIconUrl.trim() : (currentConfig.botIconUrl || ''),
+      botName: botName !== undefined ? botName.trim() : (currentConfig.botName ?? "AI Assistant"),
+      botIconUrl: botIconUrl !== undefined ? (botIconUrl ? botIconUrl.trim() : '') : (currentConfig.botIconUrl ?? ""),
       systemPrompt,
       modelMode: modelMode || 'hybrid',
       replyDelayMs: typeof replyDelayMs === 'number' ? replyDelayMs : 0,
