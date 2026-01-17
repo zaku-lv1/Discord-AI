@@ -31,11 +31,13 @@ router.put("/ai", async (req, res) => {
     }
 
     // Validate botName if provided (optional, for backward compatibility)
-    if (botName !== undefined && (typeof botName !== 'string' || botName.trim() === '')) {
-      return res.status(400).json({ 
-        error: "Validation error",
-        message: "botName must be a non-empty string if provided" 
-      });
+    if (botName !== undefined) {
+      if (typeof botName !== 'string' || botName.trim() === '') {
+        return res.status(400).json({ 
+          error: "Validation error",
+          message: "botName must be a non-empty string if provided" 
+        });
+      }
     }
 
     // Validate botIconUrl if provided (optional, for backward compatibility)
@@ -76,9 +78,25 @@ router.put("/ai", async (req, res) => {
       currentConfig = await aiConfigStore.getConfig();
     }
 
+    // Determine botName value
+    let finalBotName = "AI Assistant";
+    if (botName !== undefined) {
+      finalBotName = botName.trim();
+    } else if (currentConfig?.botName) {
+      finalBotName = currentConfig.botName;
+    }
+
+    // Determine botIconUrl value
+    let finalBotIconUrl = "";
+    if (botIconUrl !== undefined) {
+      finalBotIconUrl = botIconUrl ? botIconUrl.trim() : '';
+    } else if (currentConfig?.botIconUrl !== undefined) {
+      finalBotIconUrl = currentConfig.botIconUrl;
+    }
+
     const updates = {
-      botName: botName !== undefined ? botName.trim() : (currentConfig?.botName ?? "AI Assistant"),
-      botIconUrl: botIconUrl !== undefined ? (botIconUrl ? botIconUrl.trim() : '') : (currentConfig?.botIconUrl ?? ""),
+      botName: finalBotName,
+      botIconUrl: finalBotIconUrl,
       systemPrompt,
       modelMode: modelMode || 'hybrid',
       replyDelayMs: typeof replyDelayMs === 'number' ? replyDelayMs : 0,
