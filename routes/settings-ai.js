@@ -41,11 +41,13 @@ router.put("/ai", async (req, res) => {
     }
 
     // Validate botIconUrl if provided (optional, for backward compatibility)
-    if (botIconUrl !== undefined && botIconUrl !== null && typeof botIconUrl !== 'string') {
-      return res.status(400).json({ 
-        error: "Validation error",
-        message: "botIconUrl must be a string if provided" 
-      });
+    if (botIconUrl !== undefined && botIconUrl !== null) {
+      if (typeof botIconUrl !== 'string') {
+        return res.status(400).json({ 
+          error: "Validation error",
+          message: "botIconUrl must be a string if provided" 
+        });
+      }
     }
 
     // Validate modelMode
@@ -86,11 +88,15 @@ router.put("/ai", async (req, res) => {
       finalBotName = currentConfig.botName;
     }
 
-    // Determine botIconUrl value
+    // Determine botIconUrl value (treat null as empty string)
     let finalBotIconUrl = "";
     if (botIconUrl !== undefined) {
+      // botIconUrl is either a string or null (both allowed)
+      // null or empty string -> ""
+      // non-empty string -> trimmed string
       finalBotIconUrl = (botIconUrl && typeof botIconUrl === 'string') ? botIconUrl.trim() : '';
-    } else if (currentConfig?.botIconUrl !== undefined) {
+    } else if (currentConfig?.botIconUrl) {
+      // Only use currentConfig value if it's truthy (not null, undefined, or empty)
       finalBotIconUrl = currentConfig.botIconUrl;
     }
 
