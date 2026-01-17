@@ -23,13 +23,6 @@ router.put("/ai", async (req, res) => {
     const { botName, botIconUrl, systemPrompt, modelMode, replyDelayMs, errorOopsMessage, userNicknames } = req.body;
 
     // Validate required fields
-    if (!botName || typeof botName !== 'string' || botName.trim() === '') {
-      return res.status(400).json({ 
-        error: "Validation error",
-        message: "botName is required and must be a non-empty string" 
-      });
-    }
-
     if (!systemPrompt || typeof systemPrompt !== 'string') {
       return res.status(400).json({ 
         error: "Validation error",
@@ -37,11 +30,19 @@ router.put("/ai", async (req, res) => {
       });
     }
 
-    // Validate botIconUrl if provided
-    if (botIconUrl && typeof botIconUrl !== 'string') {
+    // Validate botName if provided (optional, for backward compatibility)
+    if (botName !== undefined && (typeof botName !== 'string' || botName.trim() === '')) {
       return res.status(400).json({ 
         error: "Validation error",
-        message: "botIconUrl must be a string" 
+        message: "botName must be a non-empty string if provided" 
+      });
+    }
+
+    // Validate botIconUrl if provided (optional, for backward compatibility)
+    if (botIconUrl !== undefined && typeof botIconUrl !== 'string') {
+      return res.status(400).json({ 
+        error: "Validation error",
+        message: "botIconUrl must be a string if provided" 
       });
     }
 
@@ -69,9 +70,12 @@ router.put("/ai", async (req, res) => {
       });
     }
 
+    // Get current config to preserve botName and botIconUrl if not provided
+    const currentConfig = await aiConfigStore.getConfig();
+
     const updates = {
-      botName: botName.trim(),
-      botIconUrl: botIconUrl ? botIconUrl.trim() : '',
+      botName: botName !== undefined ? botName.trim() : (currentConfig.botName || "AI Assistant"),
+      botIconUrl: botIconUrl !== undefined ? botIconUrl.trim() : (currentConfig.botIconUrl || ''),
       systemPrompt,
       modelMode: modelMode || 'hybrid',
       replyDelayMs: typeof replyDelayMs === 'number' ? replyDelayMs : 0,
