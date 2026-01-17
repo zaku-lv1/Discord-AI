@@ -77,8 +77,8 @@ router.put("/ai", async (req, res) => {
     }
 
     const updates = {
-      botName: botName !== undefined ? botName.trim() : (currentConfig.botName ?? "AI Assistant"),
-      botIconUrl: botIconUrl !== undefined ? (botIconUrl ? botIconUrl.trim() : '') : (currentConfig.botIconUrl ?? ""),
+      botName: botName !== undefined ? botName.trim() : (currentConfig?.botName ?? "AI Assistant"),
+      botIconUrl: botIconUrl !== undefined ? (botIconUrl ? botIconUrl.trim() : '') : (currentConfig?.botIconUrl ?? ""),
       systemPrompt,
       modelMode: modelMode || 'hybrid',
       replyDelayMs: typeof replyDelayMs === 'number' ? replyDelayMs : 0,
