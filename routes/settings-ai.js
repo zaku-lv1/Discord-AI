@@ -23,13 +23,6 @@ router.put("/ai", async (req, res) => {
     const { botName, botIconUrl, systemPrompt, modelMode, replyDelayMs, errorOopsMessage, userNicknames } = req.body;
 
     // Validate required fields
-    if (!botName || typeof botName !== 'string' || botName.trim() === '') {
-      return res.status(400).json({ 
-        error: "Validation error",
-        message: "botName is required and must be a non-empty string" 
-      });
-    }
-
     if (!systemPrompt || typeof systemPrompt !== 'string') {
       return res.status(400).json({ 
         error: "Validation error",
@@ -37,12 +30,24 @@ router.put("/ai", async (req, res) => {
       });
     }
 
-    // Validate botIconUrl if provided
-    if (botIconUrl && typeof botIconUrl !== 'string') {
-      return res.status(400).json({ 
-        error: "Validation error",
-        message: "botIconUrl must be a string" 
-      });
+    // Validate botName if provided (optional, for backward compatibility)
+    if (botName !== undefined) {
+      if (typeof botName !== 'string' || botName.trim() === '') {
+        return res.status(400).json({ 
+          error: "Validation error",
+          message: "botName must be a non-empty string if provided" 
+        });
+      }
+    }
+
+    // Validate botIconUrl if provided (optional, for backward compatibility)
+    if (botIconUrl !== undefined && botIconUrl !== null) {
+      if (typeof botIconUrl !== 'string') {
+        return res.status(400).json({ 
+          error: "Validation error",
+          message: "botIconUrl must be a string if provided" 
+        });
+      }
     }
 
     // Validate modelMode
@@ -69,9 +74,35 @@ router.put("/ai", async (req, res) => {
       });
     }
 
+    // Get current config to preserve botName and botIconUrl if not provided
+    let currentConfig;
+    if (botName === undefined || botIconUrl === undefined) {
+      currentConfig = await aiConfigStore.getConfig();
+    }
+
+    // Determine botName value
+    let finalBotName = "AI Assistant";
+    if (botName !== undefined) {
+      finalBotName = botName.trim();
+    } else if (currentConfig?.botName) {
+      finalBotName = currentConfig.botName;
+    }
+
+    // Determine botIconUrl value (treat null as empty string)
+    let finalBotIconUrl = "";
+    if (botIconUrl !== undefined) {
+      // botIconUrl is either a string or null (both allowed)
+      // null or empty string -> ""
+      // non-empty string -> trimmed string
+      finalBotIconUrl = (botIconUrl && typeof botIconUrl === 'string') ? botIconUrl.trim() : '';
+    } else if (currentConfig?.botIconUrl) {
+      // Only use currentConfig value if it's truthy (not null, undefined, or empty)
+      finalBotIconUrl = currentConfig.botIconUrl;
+    }
+
     const updates = {
-      botName: botName.trim(),
-      botIconUrl: botIconUrl ? botIconUrl.trim() : '',
+      botName: finalBotName,
+      botIconUrl: finalBotIconUrl,
       systemPrompt,
       modelMode: modelMode || 'hybrid',
       replyDelayMs: typeof replyDelayMs === 'number' ? replyDelayMs : 0,

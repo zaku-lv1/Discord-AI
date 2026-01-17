@@ -329,29 +329,6 @@
       
       <form id="settings-form" style="display: none;">
         <div class="form-group">
-          <label for="botName">ボット名</label>
-          <input 
-            type="text" 
-            id="botName" 
-            name="botName" 
-            placeholder="AIアシスタント"
-            required
-          />
-          <div class="form-hint">Discordで表示されるボットの名前</div>
-        </div>
-        
-        <div class="form-group">
-          <label for="botIconUrl">ボットアイコンURL</label>
-          <input 
-            type="text" 
-            id="botIconUrl" 
-            name="botIconUrl" 
-            placeholder="https://example.com/bot-icon.png (任意)"
-          />
-          <div class="form-hint">ボットのアイコン画像URL（空欄の場合はデフォルトアイコン）</div>
-        </div>
-        
-        <div class="form-group">
           <label for="systemPrompt">システムプロンプト</label>
           <textarea 
             id="systemPrompt" 
@@ -480,8 +457,6 @@
         
         const data = await response.json();
         
-        document.getElementById('botName').value = data.botName || 'AI Assistant';
-        document.getElementById('botIconUrl').value = data.botIconUrl || '';
         document.getElementById('systemPrompt').value = data.systemPrompt || '';
         document.getElementById('modelMode').value = data.modelMode || 'hybrid';
         document.getElementById('replyDelayMs').value = data.replyDelayMs || 0;
@@ -621,8 +596,6 @@
       saveButton.textContent = '💾 保存中...';
       
       const formData = {
-        botName: document.getElementById('botName').value,
-        botIconUrl: document.getElementById('botIconUrl').value,
         systemPrompt: document.getElementById('systemPrompt').value,
         modelMode: document.getElementById('modelMode').value,
         replyDelayMs: parseInt(document.getElementById('replyDelayMs').value) || 0,
